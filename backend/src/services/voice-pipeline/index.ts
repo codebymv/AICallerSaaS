@@ -84,11 +84,20 @@ export class VoicePipeline extends EventEmitter {
   }
 
   async start(): Promise<void> {
+    console.log('[Pipeline] start() called');
+    console.log('[Pipeline] Agent greeting:', this.config.agent.greeting);
+    
+    console.log('[Pipeline] Starting Deepgram STT...');
     await this.stt.startStream();
+    console.log('[Pipeline] ✅ Deepgram STT started');
 
     // Send greeting if configured
     if (this.config.agent.greeting) {
+      console.log('[Pipeline] Generating greeting audio...');
       await this.generateAndSendAudio(this.config.agent.greeting);
+      console.log('[Pipeline] ✅ Greeting sent');
+    } else {
+      console.log('[Pipeline] ⚠️ No greeting configured');
     }
   }
 
@@ -159,16 +168,24 @@ export class VoicePipeline extends EventEmitter {
   }
 
   private async generateAndSendAudio(text: string): Promise<void> {
-    if (!text.trim()) return;
+    if (!text.trim()) {
+      console.log('[Pipeline] generateAndSendAudio: text is empty, skipping');
+      return;
+    }
 
     try {
       this.state = 'speaking';
       const ttsStart = Date.now();
 
+      console.log('[Pipeline] Generating TTS for text:', text.substring(0, 50) + '...');
+      
       // Generate TTS audio
       const voiceSettings = this.config.agent.voiceSettings as any;
       // Map friendly voice name to actual ElevenLabs voice ID
       const elevenLabsVoiceId = getElevenLabsVoiceId(this.config.agent.voice);
+      
+      console.log('[Pipeline] Using voice:', this.config.agent.voice, '-> ElevenLabs ID:', elevenLabsVoiceId);
+      
       const audioBuffer = await this.tts.textToSpeech(
         text,
         elevenLabsVoiceId,
@@ -178,14 +195,19 @@ export class VoicePipeline extends EventEmitter {
         }
       );
 
+      console.log('[Pipeline] ✅ TTS generated, buffer size:', audioBuffer.length);
       this.metrics.mark('audio_sent');
 
       // Send audio to client (if not interrupted)
       if (!this.interrupted) {
+        console.log('[Pipeline] Sending audio to client via onAudio callback');
         this.config.onAudio(audioBuffer);
+      } else {
+        console.log('[Pipeline] ⚠️ Audio generation interrupted, not sending');
       }
 
     } catch (error) {
+      console.error('[Pipeline] ❌ TTS error:', error);
       logger.error('[Pipeline] TTS error:', error);
       // Continue without audio on error
     }

@@ -172,6 +172,13 @@ async function handleStreamStart(
     return null;
   }
 
+  console.log('[MediaStream] Agent found:', {
+    id: agent.id,
+    name: agent.name,
+    greeting: agent.greeting,
+    voice: agent.voice,
+  });
+
   // Create session
   const session: CallSession = {
     callSid,
@@ -183,10 +190,12 @@ async function handleStreamStart(
   };
 
   // Initialize voice pipeline
+  console.log('[MediaStream] Creating voice pipeline...');
   session.pipeline = new VoicePipeline(
     {
       agent,
       onTranscript: (text, isFinal, speaker) => {
+        console.log('[Pipeline] Transcript:', { text, isFinal, speaker });
         // Broadcast to dashboard
         broadcastToUser(agent.userId, 'transcript', {
           callSid,
@@ -197,10 +206,12 @@ async function handleStreamStart(
         });
       },
       onAudio: (audio) => {
+        console.log('[Pipeline] Audio generated, length:', audio.length);
         // Send audio back through Twilio
         sendAudioToTwilio(ws, streamSid, audio);
       },
       onError: (error) => {
+        console.error('[Pipeline] ERROR:', error);
         logger.error('[Pipeline] Error:', error);
         broadcastToUser(agent.userId, 'error', {
           callSid,
@@ -224,7 +235,16 @@ async function handleStreamStart(
   });
 
   // Start the pipeline
-  await session.pipeline.start();
+  console.log('[MediaStream] Starting voice pipeline...');
+  try {
+    await session.pipeline.start();
+    console.log('[MediaStream] ✅ Voice pipeline started successfully');
+  } catch (error) {
+    console.error('[MediaStream] ❌ Failed to start pipeline:', error);
+    logger.error('[MediaStream] Pipeline start error:', error);
+    ws.close();
+    return null;
+  }
 
   // Store session
   activeSessions.set(callSid, session);
@@ -278,8 +298,11 @@ async function handleStreamStop(session: CallSession) {
 }
 
 function sendAudioToTwilio(ws: WebSocket, streamSid: string, audio: Buffer) {
+  console.log('[Twilio] sendAudioToTwilio called, audio size:', audio.length);
+  
   // Chunk audio for streaming
   const chunks = chunkAudio(audio, 160); // 20ms chunks
+  console.log('[Twilio] Audio chunked into', chunks.length, 'chunks');
 
   for (const chunk of chunks) {
     const message = {
@@ -292,6 +315,8 @@ function sendAudioToTwilio(ws: WebSocket, streamSid: string, audio: Buffer) {
     ws.send(JSON.stringify(message));
   }
 
+  console.log('[Twilio] ✅ All audio chunks sent to Twilio');
+
   // Send mark to track playback
   const markMessage = {
     event: 'mark',
@@ -301,6 +326,7 @@ function sendAudioToTwilio(ws: WebSocket, streamSid: string, audio: Buffer) {
     },
   };
   ws.send(JSON.stringify(markMessage));
+  console.log('[Twilio] ✅ Mark message sent');
 }
 
 function sendClearMessage(ws: WebSocket, streamSid: string) {
