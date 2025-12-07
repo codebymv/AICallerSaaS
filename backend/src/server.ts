@@ -59,6 +59,16 @@ export async function createServer() {
     });
   });
 
+  // WebSocket test endpoint
+  app.get('/media-stream-test', (req, res) => {
+    res.json({
+      message: 'WebSocket endpoint ready',
+      path: '/media-stream',
+      protocol: req.secure || req.get('x-forwarded-proto') === 'https' ? 'wss' : 'ws',
+      fullUrl: `${req.secure || req.get('x-forwarded-proto') === 'https' ? 'wss' : 'ws'}://${req.get('host')}/media-stream`,
+    });
+  });
+
   // Basic middleware
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -112,17 +122,28 @@ export async function createServer() {
     
     // Handle WebSocket upgrade manually
     httpServer.on('upgrade', (request, socket, head) => {
-      const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
-      
-      console.log('[WebSocket] Upgrade request for:', pathname);
-      
-      if (pathname === '/media-stream') {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-          console.log('[WebSocket] Upgrade successful, emitting connection');
-          wss.emit('connection', ws, request);
-        });
-      } else {
-        console.log('[WebSocket] Unknown path, destroying socket');
+      try {
+        console.log('[WebSocket] Upgrade request received');
+        console.log('[WebSocket] URL:', request.url);
+        console.log('[WebSocket] Headers:', request.headers);
+        
+        const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
+        
+        console.log('[WebSocket] Parsed pathname:', pathname);
+        console.log('[WebSocket] Checking if pathname starts with /media-stream');
+        
+        if (pathname.startsWith('/media-stream')) {
+          console.log('[WebSocket] Path matched! Handling upgrade...');
+          wss.handleUpgrade(request, socket, head, (ws) => {
+            console.log('[WebSocket] Upgrade successful, emitting connection');
+            wss.emit('connection', ws, request);
+          });
+        } else {
+          console.log('[WebSocket] Unknown path:', pathname, '- destroying socket');
+          socket.destroy();
+        }
+      } catch (error) {
+        console.error('[WebSocket] Upgrade error:', error);
         socket.destroy();
       }
     });

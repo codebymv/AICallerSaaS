@@ -58,16 +58,19 @@ router.post('/twilio/voice', async (req, res) => {
     
     logger.info('[Webhook] Connecting to WebSocket:', websocketUrl);
     
-    res.type('text/xml').send(`
-      <Response>
-        <Connect>
-          <Stream url="${websocketUrl}">
-            <Parameter name="agentId" value="${agentId}" />
-            <Parameter name="callSid" value="${CallSid}" />
-          </Stream>
-        </Connect>
-      </Response>
-    `);
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <Stream url="${websocketUrl}">
+      <Parameter name="agentId" value="${agentId}" />
+      <Parameter name="callSid" value="${CallSid}" />
+    </Stream>
+  </Connect>
+</Response>`;
+
+    console.log('[Webhook] Sending TwiML:', twiml);
+    
+    res.type('text/xml').send(twiml);
   } catch (error) {
     logger.error('[Webhook] Voice error:', error);
     res.type('text/xml').send(`
