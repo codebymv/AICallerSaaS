@@ -4,13 +4,16 @@
 
 /**
  * Convert PCM audio to mu-law (required by Twilio)
+ * Assumes input is 16kHz 16-bit PCM, outputs 8kHz mulaw
  */
 export function pcmToMulaw(pcmData: Buffer): Buffer {
-  const mulawData = Buffer.alloc(pcmData.length / 2);
+  // Downsample from 16kHz to 8kHz by taking every other sample
+  const sampleCount = Math.floor(pcmData.length / 4); // 16-bit samples, downsampled by 2
+  const mulawData = Buffer.alloc(sampleCount);
   
-  for (let i = 0; i < pcmData.length / 2; i++) {
-    // Read 16-bit PCM sample
-    const sample = pcmData.readInt16LE(i * 2);
+  for (let i = 0; i < sampleCount; i++) {
+    // Read every other 16-bit PCM sample (16kHz -> 8kHz decimation)
+    const sample = pcmData.readInt16LE(i * 4); // Skip every other sample
     // Convert to mu-law
     mulawData[i] = linearToMulaw(sample);
   }
