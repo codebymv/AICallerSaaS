@@ -67,11 +67,12 @@ export class ElevenLabsService {
   ): Promise<Buffer> {
     try {
       // Request ulaw_8000 directly from ElevenLabs - no conversion needed!
+      // Using eleven_flash_v2_5 for lower latency (recommended for real-time)
       const response = await axios.post(
         `${this.baseUrl}/text-to-speech/${voiceId}`,
         {
           text,
-          model_id: 'eleven_turbo_v2_5',
+          model_id: 'eleven_flash_v2_5',  // Faster model for real-time
           voice_settings: {
             stability: settings?.stability ?? 0.5,
             similarity_boost: settings?.similarity_boost ?? 0.75,
