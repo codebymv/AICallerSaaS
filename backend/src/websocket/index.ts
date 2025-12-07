@@ -78,17 +78,9 @@ export function setupTwilioMediaStream(wss: WebSocketServer) {
     console.log('[MediaStream] Headers:', req.headers);
     console.log('[MediaStream] URL:', req.url);
     
-    const url = new URL(req.url || '', `http://${req.headers.host}`);
-    const agentId = url.searchParams.get('agentId');
-    const callSid = url.searchParams.get('callSid');
-
-    logger.info('[MediaStream] Connection opened', { agentId, callSid });
-
-    if (!agentId || !callSid) {
-      logger.error('[MediaStream] Missing agentId or callSid');
-      ws.close();
-      return;
-    }
+    // Twilio sends agentId/callSid via <Parameter> tags in TwiML
+    // These come in the 'start' event message, not as URL query params
+    logger.info('[MediaStream] Connection opened, waiting for start event');
 
     let session: CallSession | null = null;
 
@@ -98,7 +90,17 @@ export function setupTwilioMediaStream(wss: WebSocketServer) {
 
         switch (message.event) {
           case 'start':
-            session = await handleStreamStart(ws, message as TwilioMediaStart, agentId);
+            // Extract agentId from custom parameters sent via TwiML <Parameter> tags
+            const startMsg = message as TwilioMediaStart;
+            const agentId = startMsg.start.customParameters?.agentId;
+            
+            if (!agentId) {
+              logger.error('[MediaStream] No agentId in start event');
+              ws.close();
+              return;
+            }
+            
+            session = await handleStreamStart(ws, startMsg, agentId);
             break;
 
           case 'media':
