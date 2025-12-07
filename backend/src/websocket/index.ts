@@ -126,7 +126,7 @@ export function setupTwilioMediaStream(wss: WebSocketServer) {
     });
 
     ws.on('close', async () => {
-      logger.info('[MediaStream] Connection closed', { callSid });
+      logger.info('[MediaStream] Connection closed', { callSid: session?.callSid });
       if (session) {
         await handleStreamStop(session);
       }
