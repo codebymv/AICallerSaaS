@@ -1,18 +1,25 @@
 // Voice provider constants
 
+// Map of friendly names to actual ElevenLabs voice IDs
 export const ELEVENLABS_VOICES = [
-  { id: 'rachel', name: 'Rachel', description: 'Calm, professional female voice' },
-  { id: 'drew', name: 'Drew', description: 'Confident, articulate male voice' },
-  { id: 'clyde', name: 'Clyde', description: 'Warm, friendly male voice' },
-  { id: 'paul', name: 'Paul', description: 'Clear, authoritative male voice' },
-  { id: 'domi', name: 'Domi', description: 'Energetic, youthful female voice' },
-  { id: 'dave', name: 'Dave', description: 'Conversational male voice' },
-  { id: 'fin', name: 'Fin', description: 'Sophisticated Irish male voice' },
-  { id: 'sarah', name: 'Sarah', description: 'Soft, friendly female voice' },
-  { id: 'antoni', name: 'Antoni', description: 'Warm, expressive male voice' },
-  { id: 'thomas', name: 'Thomas', description: 'Calm, reassuring male voice' },
-  { id: 'charlie', name: 'Charlie', description: 'Natural Australian male voice' },
+  { id: 'rachel', name: 'Rachel', description: 'Calm, professional female voice', elevenLabsId: '21m00Tcm4TlvDq8ikWAM' },
+  { id: 'drew', name: 'Drew', description: 'Confident, articulate male voice', elevenLabsId: '29vD33N1CtxCmqQRPOHJ' },
+  { id: 'clyde', name: 'Clyde', description: 'Warm, friendly male voice', elevenLabsId: '2EiwWnXFnvU5JabPnv8n' },
+  { id: 'paul', name: 'Paul', description: 'Clear, authoritative male voice', elevenLabsId: '5Q0t7uMcjvnagumLfvZi' },
+  { id: 'domi', name: 'Domi', description: 'Energetic, youthful female voice', elevenLabsId: 'AZnzlk1XvdvUeBnXmlld' },
+  { id: 'dave', name: 'Dave', description: 'Conversational male voice', elevenLabsId: 'CYw3kZ02Hs0563khs1Fj' },
+  { id: 'fin', name: 'Fin', description: 'Sophisticated Irish male voice', elevenLabsId: 'D38z5RcWu1voky8WS1ja' },
+  { id: 'sarah', name: 'Sarah', description: 'Soft, friendly female voice', elevenLabsId: 'EXAVITQu4vr4xnSDxMaL' },
+  { id: 'antoni', name: 'Antoni', description: 'Warm, expressive male voice', elevenLabsId: 'ErXwobaYiN019PkySvjV' },
+  { id: 'thomas', name: 'Thomas', description: 'Calm, reassuring male voice', elevenLabsId: 'GBv7mTt0atIp3Br8iCZE' },
+  { id: 'charlie', name: 'Charlie', description: 'Natural Australian male voice', elevenLabsId: 'IKne3meq5aSn9XLyUdCD' },
 ];
+
+// Helper to get ElevenLabs voice ID from friendly name
+export function getElevenLabsVoiceId(friendlyId: string): string {
+  const voice = ELEVENLABS_VOICES.find(v => v.id === friendlyId);
+  return voice?.elevenLabsId || 'EXAVITQu4vr4xnSDxMaL'; // Default to Sarah
+}
 
 export const DEEPGRAM_VOICES = [
   { id: 'aura-asteria-en', name: 'Asteria', description: 'Professional female voice' },

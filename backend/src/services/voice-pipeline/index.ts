@@ -9,6 +9,7 @@ import { ElevenLabsService } from '../tts/elevenlabs.service';
 import { MetricsTracker } from '../../utils/metrics';
 import { logger } from '../../utils/logger';
 import { Agent } from '@prisma/client';
+import { getElevenLabsVoiceId } from '../../lib/constants';
 
 export interface PipelineConfig {
   agent: Agent;
@@ -166,9 +167,11 @@ export class VoicePipeline extends EventEmitter {
 
       // Generate TTS audio
       const voiceSettings = this.config.agent.voiceSettings as any;
+      // Map friendly voice name to actual ElevenLabs voice ID
+      const elevenLabsVoiceId = getElevenLabsVoiceId(this.config.agent.voice);
       const audioBuffer = await this.tts.textToSpeech(
         text,
-        this.config.agent.voice,
+        elevenLabsVoiceId,
         {
           stability: voiceSettings?.stability ?? 0.5,
           similarity_boost: voiceSettings?.similarityBoost ?? 0.75,
