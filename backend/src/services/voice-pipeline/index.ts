@@ -186,8 +186,8 @@ export class VoicePipeline extends EventEmitter {
       
       console.log('[Pipeline] Using voice:', this.config.agent.voice, '-> ElevenLabs ID:', elevenLabsVoiceId);
       
-      // Use Twilio-optimized TTS (PCM -> mulaw conversion)
-      console.log('[Pipeline] Requesting Twilio-optimized audio (16kHz PCM -> 8kHz mulaw)');
+      // Use Twilio-optimized TTS (ElevenLabs outputs ulaw_8000 directly!)
+      console.log('[Pipeline] Requesting ulaw_8000 audio from ElevenLabs (native Twilio format)');
       const audioBuffer = await this.tts.textToSpeechForTwilio(
         text,
         elevenLabsVoiceId,
@@ -197,7 +197,7 @@ export class VoicePipeline extends EventEmitter {
         }
       );
 
-      console.log('[Pipeline] ✅ TTS generated, 8kHz mulaw buffer size:', audioBuffer.length, 'bytes');
+      console.log('[Pipeline] ✅ TTS generated, ulaw_8000 buffer size:', audioBuffer.length, 'bytes');
       this.metrics.mark('audio_sent');
 
       // Send audio to client (if not interrupted)

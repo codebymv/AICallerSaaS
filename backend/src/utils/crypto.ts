@@ -63,3 +63,4 @@ export function maskSecret(secret: string): string {
   }
   return '••••••••' + secret.slice(-4);
 }
+

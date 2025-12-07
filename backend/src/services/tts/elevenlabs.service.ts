@@ -5,7 +5,6 @@
 import axios from 'axios';
 import { config } from '../../config';
 import { logger } from '../../utils/logger';
-import { pcmToMulaw } from '../../utils/audio';
 
 export interface VoiceSettings {
   stability?: number;
@@ -59,6 +58,7 @@ export class ElevenLabsService {
 
   /**
    * Generate TTS optimized for Twilio (mulaw 8kHz)
+   * ElevenLabs can directly output ulaw_8000 format!
    */
   async textToSpeechForTwilio(
     text: string,
@@ -66,7 +66,7 @@ export class ElevenLabsService {
     settings?: VoiceSettings
   ): Promise<Buffer> {
     try {
-      // Request PCM audio for better conversion
+      // Request ulaw_8000 directly from ElevenLabs - no conversion needed!
       const response = await axios.post(
         `${this.baseUrl}/text-to-speech/${voiceId}`,
         {
@@ -76,7 +76,7 @@ export class ElevenLabsService {
             stability: settings?.stability ?? 0.5,
             similarity_boost: settings?.similarity_boost ?? 0.75,
           },
-          output_format: 'pcm_16000', // 16kHz PCM
+          output_format: 'ulaw_8000', // Perfect for Twilio!
         },
         {
           headers: {
@@ -87,10 +87,8 @@ export class ElevenLabsService {
         }
       );
 
-      // Convert to mulaw 8kHz for Twilio
-      // Note: In production, use ffmpeg or similar for proper resampling
-      const pcmBuffer = Buffer.from(response.data);
-      return pcmToMulaw(pcmBuffer);
+      // ElevenLabs returns the audio in the exact format Twilio needs
+      return Buffer.from(response.data);
     } catch (error) {
       logger.error('[ElevenLabs] TTS for Twilio error:', error);
       throw error;
