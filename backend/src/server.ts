@@ -32,8 +32,9 @@ export async function createServer() {
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: config.corsOrigin,
-      methods: ['GET', 'POST'],
+      methods: ['GET', 'POST', 'OPTIONS'],
       credentials: true,
+      allowedHeaders: ['Content-Type', 'Authorization'],
     },
     path: '/socket.io',
   });
@@ -43,32 +44,14 @@ export async function createServer() {
     contentSecurityPolicy: false, // Disable for development
   }));
   
-  // CORS - Allow configured origin or any Railway domain in production
-  const allowedOrigins: Array<string | RegExp> = [config.corsOrigin];
-  if (config.nodeEnv === 'production') {
-    allowedOrigins.push(/\.railway\.app$/);
-  }
-  
+  // CORS configuration
   app.use(cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc)
-      if (!origin) return callback(null, true);
-      
-      // Check if origin matches any allowed pattern
-      const isAllowed = allowedOrigins.some((pattern) => {
-        if (typeof pattern === 'string') {
-          return origin === pattern;
-        }
-        return (pattern as RegExp).test(origin);
-      });
-      
-      if (isAllowed) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
+    origin: config.corsOrigin,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
+    maxAge: 3600,
   }));
   
   app.use(express.json({ limit: '10mb' }));
