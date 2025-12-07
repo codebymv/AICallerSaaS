@@ -51,22 +51,12 @@ router.post('/twilio/voice', async (req, res) => {
     }
 
     // Return TwiML to connect to media stream
-    // Use Railway TCP proxy URL if available, otherwise use the regular host
-    console.log('[Webhook] config.websocketUrl:', config.websocketUrl);
-    console.log('[Webhook] config.apiUrl:', config.apiUrl);
+    // Always use the regular host - Railway's HTTP proxy supports WebSockets
+    const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'wss' : 'ws';
+    const host = req.get('host');
+    const websocketUrl = `${protocol}://${host}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
     
-    let websocketUrl: string;
-    if (config.websocketUrl && config.websocketUrl !== config.apiUrl) {
-      // Use TCP proxy URL (already includes protocol)
-      websocketUrl = `${config.websocketUrl}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
-      console.log('[Webhook] Using TCP proxy URL');
-    } else {
-      // Fallback to regular host (for local dev)
-      const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'wss' : 'ws';
-      const host = req.get('host');
-      websocketUrl = `${protocol}://${host}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
-      console.log('[Webhook] Using regular host URL');
-    }
+    console.log('[Webhook] WebSocket URL:', websocketUrl);
     
     logger.info('[Webhook] Connecting to WebSocket:', websocketUrl);
     
