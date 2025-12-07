@@ -53,10 +53,18 @@ export async function createServer() {
   app.use(cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, Postman, etc)
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
+        console.log('CORS: No origin, allowing');
+        return callback(null, true);
+      }
+      
+      if (allowedOrigins.includes(origin)) {
+        console.log('CORS: Origin allowed:', origin);
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        console.log('CORS: Origin rejected:', origin);
+        // Don't throw error, just return false
+        callback(null, false);
       }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
