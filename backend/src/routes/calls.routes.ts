@@ -153,9 +153,9 @@ router.post('/', async (req: AuthRequest, res, next) => {
         agentId: data.agentId,
         direction: 'outbound',
         from: fromNumber,
-        to: data.toNumber,
+        to: data.toNumber || data.to,
         status: 'initiated',
-        metadata: data.metadata,
+        metadata: data.metadata || {},
         callSid: `pending_${Date.now()}`, // Will be updated by Twilio
       },
     });
@@ -163,8 +163,9 @@ router.post('/', async (req: AuthRequest, res, next) => {
     // Initiate Twilio call
     try {
       const twilioService = new TwilioService();
+      const toPhone = data.toNumber || data.to;
       const result = await twilioService.makeCall(
-        data.toNumber,
+        toPhone,
         fromNumber,
         `${config.apiUrl}/webhooks/twilio/voice?agentId=${data.agentId}&callId=${call.id}`
       );

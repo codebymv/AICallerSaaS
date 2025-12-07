@@ -76,8 +76,10 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const data = createAgentSchema.parse(req.body);
 
     // Set defaults based on provider
-    const voiceId = data.voiceId || DEFAULT_VOICES[data.voiceProvider || 'elevenlabs']?.id;
-    const llmModel = data.llmModel || DEFAULT_LLM_MODELS[data.llmProvider || 'openai'];
+    const provider = data.voiceProvider || 'elevenlabs';
+    const voices = DEFAULT_VOICES[provider] || DEFAULT_VOICES['elevenlabs'];
+    const voiceId = data.voiceId || (voices.length > 0 ? voices[0].id : 'rachel');
+    const llmModel = data.llmModel || 'gpt-4-turbo';
 
     const agent = await prisma.agent.create({
       data: {
