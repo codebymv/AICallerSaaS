@@ -54,7 +54,8 @@ router.post('/twilio/voice', async (req, res) => {
     // Always use the regular host - Railway's HTTP proxy supports WebSockets
     const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'wss' : 'ws';
     const host = req.get('host');
-    const websocketUrl = `${protocol}://${host}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
+    // IMPORTANT: & must be escaped as &amp; in XML attributes
+    const websocketUrl = `${protocol}://${host}/media-stream?agentId=${agentId}&amp;callSid=${CallSid}`;
     
     console.log('[Webhook] WebSocket URL:', websocketUrl);
     
