@@ -71,7 +71,13 @@ export function initializeWebSocket(io: SocketIOServer) {
  * Set up raw WebSocket server for Twilio Media Streams
  */
 export function setupTwilioMediaStream(wss: WebSocketServer) {
+  logger.info('[MediaStream] WebSocket server listening for connections');
+  
   wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
+    console.log('[MediaStream] NEW CONNECTION RECEIVED');
+    console.log('[MediaStream] Headers:', req.headers);
+    console.log('[MediaStream] URL:', req.url);
+    
     const url = new URL(req.url || '', `http://${req.headers.host}`);
     const agentId = url.searchParams.get('agentId');
     const callSid = url.searchParams.get('callSid');
@@ -129,7 +135,18 @@ export function setupTwilioMediaStream(wss: WebSocketServer) {
     });
   });
 
+  wss.on('error', (error) => {
+    console.error('[MediaStream] WebSocket Server Error:', error);
+    logger.error('[MediaStream] Server error:', error);
+  });
+
+  wss.on('listening', () => {
+    console.log('[MediaStream] WebSocket server is now listening');
+    logger.info('[MediaStream] Server listening');
+  });
+
   logger.info('[WebSocket] Twilio Media Stream server initialized');
+  console.log('[MediaStream] WebSocket Server initialized on path: /media-stream');
 }
 
 async function handleStreamStart(
