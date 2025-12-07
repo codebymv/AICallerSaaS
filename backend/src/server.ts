@@ -43,8 +43,31 @@ export async function createServer() {
     contentSecurityPolicy: false, // Disable for development
   }));
   
+  // CORS - Allow configured origin or any Railway domain in production
+  const allowedOrigins = [config.corsOrigin];
+  if (config.nodeEnv === 'production') {
+    allowedOrigins.push(/\.railway\.app$/);
+  }
+  
   app.use(cors({
-    origin: config.corsOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc)
+      if (!origin) return callback(null, true);
+      
+      // Check if origin matches any allowed pattern
+      const isAllowed = allowedOrigins.some((pattern) => {
+        if (typeof pattern === 'string') {
+          return origin === pattern;
+        }
+        return pattern.test(origin);
+      });
+      
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
   }));
   
