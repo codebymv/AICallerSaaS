@@ -29,7 +29,47 @@ export async function createServer() {
   const app = express();
   const httpServer = createHttpServer(app);
   
-  // Socket.IO server
+  // Initialize Twilio Media Stream WebSocket server FIRST (before Socket.IO)
+  console.log('Initializing Twilio Media Stream WebSocket...');
+  const wss = new WebSocketServer({ noServer: true });
+  
+  console.log('[WebSocket] Server created in noServer mode');
+  
+  // Handle upgrade at the HTTP server level (BEFORE Socket.IO)
+  httpServer.on('upgrade', (request, socket, head) => {
+    console.log('[UPGRADE] *** Upgrade request received ***');
+    console.log('[UPGRADE] URL:', request.url);
+    console.log('[UPGRADE] Headers:', JSON.stringify(request.headers, null, 2));
+    
+    const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
+    console.log('[UPGRADE] Parsed pathname:', pathname);
+    
+    if (pathname === '/media-stream' || pathname.startsWith('/media-stream')) {
+      console.log('[UPGRADE] Path matched /media-stream - handling upgrade');
+      
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        console.log('[UPGRADE] *** UPGRADE SUCCESSFUL ***');
+        wss.emit('connection', ws, request);
+      });
+    } else {
+      console.log('[UPGRADE] Path is NOT /media-stream, pathname:', pathname);
+      console.log('[UPGRADE] Assuming Socket.IO or other - not destroying');
+      // Don't destroy - let Socket.IO or other handlers deal with it
+    }
+  });
+  
+  // Add connection tracking
+  wss.on('connection', (ws, req) => {
+    console.log('[WebSocket] *** CONNECTION ESTABLISHED ***');
+    console.log('[WebSocket] Client connected from:', req.socket.remoteAddress);
+    console.log('[WebSocket] Request URL:', req.url);
+  });
+  
+  wss.on('error', (error) => {
+    console.error('[WebSocket] *** SERVER ERROR ***:', error);
+  });
+  
+  // Socket.IO server (initialized AFTER raw WebSocket)
   const io = new SocketIOServer(httpServer, {
     cors: {
       origin: config.corsOrigin,
@@ -115,7 +155,7 @@ export async function createServer() {
 
   // Initialize WebSocket handlers
   try {
-    console.log('Initializing Socket.IO...');
+    console.log('Initializing Socket.IO dashboard handlers...');
     initializeWebSocket(io);
     console.log('Socket.IO initialized');
   } catch (error) {
@@ -123,34 +163,8 @@ export async function createServer() {
     throw error;
   }
 
-  // Initialize Twilio Media Stream WebSocket server
+  // Set up Twilio Media Stream handler (wss already created above)
   try {
-    console.log('Initializing Twilio Media Stream WebSocket...');
-    const wss = new WebSocketServer({ 
-      server: httpServer,
-      path: '/media-stream',
-      perMessageDeflate: false,
-      clientTracking: true
-    });
-    
-    console.log('[WebSocket] Server bound to HTTP server on path /media-stream');
-    console.log('[WebSocket] Server config:', {
-      path: '/media-stream',
-      perMessageDeflate: false,
-      clientTracking: true
-    });
-    
-    // Add connection tracking
-    wss.on('connection', (ws, req) => {
-      console.log('[WebSocket] *** CONNECTION ESTABLISHED ***');
-      console.log('[WebSocket] Client connected from:', req.socket.remoteAddress);
-      console.log('[WebSocket] Request URL:', req.url);
-    });
-    
-    wss.on('error', (error) => {
-      console.error('[WebSocket] *** SERVER ERROR ***:', error);
-    });
-    
     setupTwilioMediaStream(wss);
     console.log('Twilio Media Stream WebSocket initialized');
     console.log('[WebSocket] Waiting for connections...');
