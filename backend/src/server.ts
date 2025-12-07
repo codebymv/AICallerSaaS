@@ -86,8 +86,9 @@ export async function createServer() {
   app.use('/api/phone-numbers', phoneNumberRoutes);
   app.use('/api/settings', settingsRoutes);
   
-  // Twilio webhooks (no auth required)
+  // Twilio webhooks (no auth required) - both paths for compatibility
   app.use('/webhooks', webhookRoutes);
+  app.use('/api/webhooks', webhookRoutes);
 
   // Error handler
   app.use(errorHandler);

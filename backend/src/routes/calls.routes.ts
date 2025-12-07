@@ -167,7 +167,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
       const result = await twilioService.makeCall(
         toPhone,
         fromNumber,
-        `${config.apiUrl}/webhooks/twilio/voice?agentId=${data.agentId}&callId=${call.id}`
+        `${config.apiUrl}/api/webhooks/twilio/voice?agentId=${data.agentId}&callId=${call.id}`
       );
 
       // Update with real call SID
