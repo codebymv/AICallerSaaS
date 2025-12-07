@@ -117,36 +117,11 @@ export async function createServer() {
   try {
     console.log('Initializing Twilio Media Stream WebSocket...');
     const wss = new WebSocketServer({ 
-      noServer: true  // Use noServer mode for better Railway compatibility
+      server: httpServer,
+      path: '/media-stream'
     });
     
-    // Handle WebSocket upgrade manually
-    httpServer.on('upgrade', (request, socket, head) => {
-      try {
-        console.log('[WebSocket] Upgrade request received');
-        console.log('[WebSocket] URL:', request.url);
-        console.log('[WebSocket] Headers:', request.headers);
-        
-        const { pathname } = new URL(request.url || '', `http://${request.headers.host}`);
-        
-        console.log('[WebSocket] Parsed pathname:', pathname);
-        console.log('[WebSocket] Checking if pathname starts with /media-stream');
-        
-        if (pathname.startsWith('/media-stream')) {
-          console.log('[WebSocket] Path matched! Handling upgrade...');
-          wss.handleUpgrade(request, socket, head, (ws) => {
-            console.log('[WebSocket] Upgrade successful, emitting connection');
-            wss.emit('connection', ws, request);
-          });
-        } else {
-          console.log('[WebSocket] Unknown path:', pathname, '- destroying socket');
-          socket.destroy();
-        }
-      } catch (error) {
-        console.error('[WebSocket] Upgrade error:', error);
-        socket.destroy();
-      }
-    });
+    console.log('[WebSocket] Server bound to HTTP server on path /media-stream');
     
     setupTwilioMediaStream(wss);
     console.log('Twilio Media Stream WebSocket initialized');
