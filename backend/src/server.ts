@@ -40,7 +40,6 @@ export async function createServer() {
     console.log('[UPGRADE] *** Upgrade request received ***');
     console.log('[UPGRADE] URL:', request.url);
     console.log('[UPGRADE] Headers:', JSON.stringify(request.headers, null, 2));
-    console.log('[UPGRADE] Remote Address:', socket.remoteAddress);
     
     try {
       const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
