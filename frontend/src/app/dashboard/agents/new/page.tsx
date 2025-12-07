@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
+import { VoiceSelector } from '@/components/VoiceSelector';
 
 const templates = [
   {
@@ -219,18 +220,10 @@ export default function NewAgentPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="voice">Voice</Label>
-              <select
-                id="voice"
-                className="w-full p-2 border rounded-md"
+              <VoiceSelector
                 value={formData.voiceId}
-                onChange={(e) => setFormData({ ...formData, voiceId: e.target.value })}
-              >
-                {ELEVENLABS_VOICES.map((voice) => (
-                  <option key={voice.id} value={voice.id}>
-                    {voice.name} - {voice.description}
-                  </option>
-                ))}
-              </select>
+                onChange={(voiceId) => setFormData({ ...formData, voiceId })}
+              />
             </div>
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={() => setStep(2)}>Back</Button>

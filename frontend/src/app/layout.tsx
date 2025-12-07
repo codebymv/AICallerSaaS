@@ -1,13 +1,16 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Work_Sans } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 
-const inter = Inter({ subsets: ['latin'] });
+const workSans = Work_Sans({ 
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+});
 
 export const metadata: Metadata = {
-  title: 'AI Caller SaaS - Build AI Voice Agents',
-  description: 'Create and deploy AI voice agents for inbound and outbound calls with natural conversation',
+  title: 'Gleam - AI Voice Agents for Modern Business',
+  description: 'Build, test, and deploy AI voice agents that handle inbound and outbound calls with natural conversation',
 };
 
 export default function RootLayout({
@@ -17,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={workSans.className}>
         {children}
         <Toaster />
       </body>

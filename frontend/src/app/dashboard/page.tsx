@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight } from 'lucide-react';
+import Image from 'next/image';
+import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { formatDuration, formatCurrency, formatRelativeTime } from '@/lib/utils';
+import { ELEVENLABS_VOICES } from '@/lib/constants';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
@@ -117,8 +119,18 @@ export default function DashboardPage() {
                     className="flex items-center justify-between p-3 rounded-lg border hover:bg-slate-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Bot className="h-5 w-5 text-primary" />
+                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
+                          <Image
+                            src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
+                            alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="h-5 w-5 text-gray-400" />
+                        )}
                       </div>
                       <div>
                         <p className="font-medium">{agent.name}</p>

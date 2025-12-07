@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,7 @@ export default function RegisterPage() {
       await api.register(email, password, name);
       toast({
         title: 'Account created!',
-        description: 'Welcome to AI Caller. Let\'s build your first agent.',
+        description: 'Welcome to Gleam. Let\'s build your first agent.',
       });
       router.push('/dashboard/agents/new');
     } catch (error) {
@@ -47,6 +48,16 @@ export default function RegisterPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="mb-4 flex justify-center">
+            <Image
+              src="/gleam-logo-text.png"
+              alt="Gleam"
+              width={150}
+              height={50}
+              priority
+              className="h-10 w-auto"
+            />
+          </div>
           <CardTitle className="text-2xl">Create your account</CardTitle>
           <CardDescription>
             Start building AI voice agents in minutes

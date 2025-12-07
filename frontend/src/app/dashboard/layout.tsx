@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
@@ -11,7 +12,8 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  Contact
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -19,7 +21,7 @@ import { api } from '@/lib/api';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
-  { href: '/dashboard/phone-numbers', label: 'Phone Numbers', icon: Phone },
+  { href: '/dashboard/phone-numbers', label: 'Phone Numbers', icon: Contact },
   { href: '/dashboard/calls', label: 'Calls', icon: PhoneCall },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
@@ -83,16 +85,33 @@ export default function DashboardLayout({
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center gap-2 px-6 py-4 border-b">
-            <Phone className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg">AI Caller</span>
+          <div className="flex items-center gap-3 px-6 py-4 border-b">
+            <Image
+              src="/gleam-logo -icon.png"
+              alt="Gleam Icon"
+              width={32}
+              height={32}
+              priority
+              className="h-8 w-8"
+            />
+            <Image
+              src="/gleam-logo-text.png"
+              alt="Gleam"
+              width={100}
+              height={32}
+              priority
+              className="h-7 w-auto"
+            />
           </div>
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-4 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              // For Dashboard, only match exact path. For others, match if starts with the path.
+              const isActive = item.href === '/dashboard' 
+                ? pathname === '/dashboard'
+                : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -46,9 +47,19 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="mb-4 flex justify-center">
+            <Image
+              src="/gleam-logo-text.png"
+              alt="Gleam"
+              width={150}
+              height={50}
+              priority
+              className="h-10 w-auto"
+            />
+          </div>
           <CardTitle className="text-2xl">Welcome back</CardTitle>
           <CardDescription>
-            Sign in to your AI Caller account
+            Sign in to your Gleam account
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>

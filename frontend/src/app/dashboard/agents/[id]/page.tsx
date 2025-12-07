@@ -3,12 +3,16 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { ELEVENLABS_VOICES } from '@/lib/constants';
+import { VoiceSelector } from '@/components/VoiceSelector';
+import { User } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -41,6 +45,7 @@ export default function AgentDetailPage() {
   const [description, setDescription] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [greeting, setGreeting] = useState('');
+  const [voiceId, setVoiceId] = useState('');
 
   useEffect(() => {
     fetchAgent();
@@ -55,6 +60,7 @@ export default function AgentDetailPage() {
         setDescription(response.data.description || '');
         setSystemPrompt(response.data.systemPrompt);
         setGreeting(response.data.greeting || '');
+        setVoiceId(response.data.voice || ELEVENLABS_VOICES[0].id);
       }
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Failed to load agent';
@@ -77,6 +83,7 @@ export default function AgentDetailPage() {
         description,
         systemPrompt,
         greeting,
+        voiceId,
       });
       toast({
         title: 'Agent updated',
@@ -240,6 +247,13 @@ export default function AgentDetailPage() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="voice">Voice</Label>
+                <VoiceSelector
+                  value={voiceId}
+                  onChange={setVoiceId}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="systemPrompt">System Prompt</Label>
                 <textarea
                   id="systemPrompt"
@@ -250,34 +264,61 @@ export default function AgentDetailPage() {
               </div>
             </>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <Label className="text-muted-foreground">Voice Provider</Label>
-                <p className="font-medium">{agent.voiceProvider}</p>
+            <div className="space-y-6">
+              {/* Voice Avatar Section */}
+              <div className="flex items-center gap-6 pb-6 border-b">
+                <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
+                    <Image
+                      src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
+                      alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
+                      width={96}
+                      height={96}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 text-gray-400" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="mb-4">
+                    <Label className="text-muted-foreground">Voice</Label>
+                    <p className="font-medium text-lg">
+                      {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || agent.voice}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.description}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Voice Provider</Label>
+                    <p className="font-medium">{agent.voiceProvider}</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label className="text-muted-foreground">Voice ID</Label>
-                <p className="font-medium font-mono text-sm">{agent.voice}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">LLM Model</Label>
-                <p className="font-medium">{agent.llmModel}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Created</Label>
-                <p className="font-medium">
-                  {new Date(agent.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-muted-foreground">Greeting</Label>
-                <p className="font-medium">{agent.greeting || 'No greeting set'}</p>
-              </div>
-              <div className="md:col-span-2">
-                <Label className="text-muted-foreground">System Prompt</Label>
-                <p className="font-medium whitespace-pre-wrap bg-muted p-3 rounded-md text-sm mt-1">
-                  {agent.systemPrompt}
-                </p>
+
+              {/* Other Info */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label className="text-muted-foreground">LLM Model</Label>
+                  <p className="font-medium">{agent.llmModel}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Created</Label>
+                  <p className="font-medium">
+                    {new Date(agent.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground">Greeting</Label>
+                  <p className="font-medium">{agent.greeting || 'No greeting set'}</p>
+                </div>
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground">System Prompt</Label>
+                  <p className="font-medium whitespace-pre-wrap bg-muted p-3 rounded-md text-sm mt-1">
+                    {agent.systemPrompt}
+                  </p>
+                </div>
               </div>
             </div>
           )}

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Bot, MoreVertical, Trash2, Edit } from 'lucide-react';
+import Image from 'next/image';
+import { Plus, Bot, MoreVertical, Trash2, Edit, User } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { ELEVENLABS_VOICES } from '@/lib/constants';
 
 export default function AgentsPage() {
   const { toast } = useToast();
@@ -89,8 +91,18 @@ export default function AgentsPage() {
             <Card key={agent.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-start justify-between space-y-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Bot className="h-6 w-6 text-primary" />
+                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
+                      <Image
+                        src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
+                        alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
+                        width={48}
+                        height={48}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-6 w-6 text-gray-400" />
+                    )}
                   </div>
                   <div>
                     <CardTitle className="text-lg">{agent.name}</CardTitle>
@@ -131,7 +143,7 @@ export default function AgentsPage() {
                 </div>
                 <div className="mt-4 pt-4 border-t">
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span>Voice: {agent.voiceProvider}</span>
+                    <span>Voice: {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || agent.voiceProvider}</span>
                     <span>LLM: {agent.llmProvider || 'openai'}</span>
                   </div>
                 </div>

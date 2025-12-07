@@ -154,7 +154,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
 // PUT /api/phone-numbers/:id - Update phone number
 router.put('/:id', async (req: AuthRequest, res, next) => {
   try {
-    const { friendlyName, defaultAgentId, isActive } = req.body;
+    const { friendlyName, agentId, isActive } = req.body;
 
     // Verify ownership
     const existing = await prisma.phoneNumber.findFirst({
@@ -166,9 +166,9 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     }
 
     // Verify agent ownership if provided
-    if (defaultAgentId) {
+    if (agentId) {
       const agent = await prisma.agent.findFirst({
-        where: { id: defaultAgentId, userId: req.user!.id },
+        where: { id: agentId, userId: req.user!.id },
       });
       if (!agent) {
         throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
@@ -179,8 +179,13 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       where: { id: req.params.id },
       data: {
         friendlyName,
-        agentId: defaultAgentId,
+        agentId: agentId || null,
         isActive,
+      },
+      include: {
+        agent: {
+          select: { id: true, name: true },
+        },
       },
     });
 

@@ -1,17 +1,17 @@
 // Voice provider constants
 
 export const ELEVENLABS_VOICES = [
-  { id: 'rachel', name: 'Rachel', description: 'Calm, professional female voice' },
-  { id: 'drew', name: 'Drew', description: 'Confident, articulate male voice' },
-  { id: 'clyde', name: 'Clyde', description: 'Warm, friendly male voice' },
-  { id: 'paul', name: 'Paul', description: 'Clear, authoritative male voice' },
-  { id: 'domi', name: 'Domi', description: 'Energetic, youthful female voice' },
-  { id: 'dave', name: 'Dave', description: 'Conversational male voice' },
-  { id: 'fin', name: 'Fin', description: 'Sophisticated Irish male voice' },
-  { id: 'sarah', name: 'Sarah', description: 'Soft, friendly female voice' },
-  { id: 'antoni', name: 'Antoni', description: 'Warm, expressive male voice' },
-  { id: 'thomas', name: 'Thomas', description: 'Calm, reassuring male voice' },
-  { id: 'charlie', name: 'Charlie', description: 'Natural Australian male voice' },
+  { id: 'rachel', name: 'Rachel', description: 'Calm, professional female voice', avatar: '/rachel.png' },
+  { id: 'drew', name: 'Drew', description: 'Confident, articulate male voice', avatar: undefined },
+  { id: 'clyde', name: 'Clyde', description: 'Warm, friendly male voice', avatar: undefined },
+  { id: 'paul', name: 'Paul', description: 'Clear, authoritative male voice', avatar: undefined },
+  { id: 'domi', name: 'Domi', description: 'Energetic, youthful female voice', avatar: undefined },
+  { id: 'dave', name: 'Dave', description: 'Conversational male voice', avatar: undefined },
+  { id: 'fin', name: 'Fin', description: 'Sophisticated Irish male voice', avatar: '/fin.png' },
+  { id: 'sarah', name: 'Sarah', description: 'Soft, friendly female voice', avatar: undefined },
+  { id: 'antoni', name: 'Antoni', description: 'Warm, expressive male voice', avatar: undefined },
+  { id: 'thomas', name: 'Thomas', description: 'Calm, reassuring male voice', avatar: undefined },
+  { id: 'charlie', name: 'Charlie', description: 'Natural Australian male voice', avatar: '/charlie.png' },
 ] as const;
 
 export const DEFAULT_VOICES = {

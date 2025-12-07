@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Phone, Zap, MessageSquare, BarChart3 } from 'lucide-react';
 
@@ -8,6 +9,16 @@ export default function Home() {
       {/* Hero Section */}
       <section className="flex flex-col items-center justify-center px-6 py-24 bg-gradient-to-b from-slate-50 to-white">
         <div className="max-w-4xl text-center">
+          <div className="mb-8 flex justify-center">
+            <Image
+              src="/gleam-logo-text.png"
+              alt="Gleam"
+              width={200}
+              height={60}
+              priority
+              className="h-16 w-auto"
+            />
+          </div>
           <h1 className="text-5xl font-bold tracking-tight text-slate-900 sm:text-6xl">
             AI Voice Agents for{' '}
             <span className="text-primary">Modern Business</span>

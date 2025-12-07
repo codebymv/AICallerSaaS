@@ -35,7 +35,7 @@ export default function PhoneNumbersPage() {
   const [loadingTwilio, setLoadingTwilio] = useState(false);
   const [addingNumber, setAddingNumber] = useState<string | null>(null);
   const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
-  const [selectedAgent, setSelectedAgent] = useState<string>('');
+  const [updatingNumber, setUpdatingNumber] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -88,7 +88,6 @@ export default function PhoneNumbersPage() {
         phoneNumber: twilioNumber.phoneNumber,
         twilioSid: twilioNumber.sid,
         friendlyName: twilioNumber.friendlyName,
-        agentId: selectedAgent || undefined,
       });
 
       toast({
@@ -107,6 +106,43 @@ export default function PhoneNumbersPage() {
       });
     } finally {
       setAddingNumber(null);
+    }
+  };
+
+  const handleAssignAgent = async (numberId: string, agentId: string) => {
+    setUpdatingNumber(numberId);
+    
+    // Optimistic update
+    const selectedAgentObj = agents.find(a => a.id === agentId);
+    setPhoneNumbers(prev => prev.map(num => 
+      num.id === numberId 
+        ? { ...num, agent: agentId ? selectedAgentObj : null }
+        : num
+    ));
+    
+    try {
+      await api.updatePhoneNumber(numberId, {
+        agentId: agentId || null,
+      });
+
+      toast({
+        title: 'Agent assigned',
+        description: 'Phone number updated successfully.',
+      });
+
+      // Refresh to confirm
+      await fetchData();
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Failed to assign agent';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+      // Revert optimistic update on error
+      await fetchData();
+    } finally {
+      setUpdatingNumber(null);
     }
   };
 
@@ -225,18 +261,23 @@ export default function PhoneNumbersPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    {number.agent ? (
-                      <Link
-                        href={`/dashboard/agents/${number.agent.id}`}
-                        className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <Bot className="h-4 w-4 text-muted-foreground" />
+                      <select
+                        className="px-3 py-1.5 text-sm border rounded-md bg-white disabled:opacity-50"
+                        value={number.agent?.id || ''}
+                        onChange={(e) => handleAssignAgent(number.id, e.target.value)}
+                        disabled={updatingNumber === number.id || agents.length === 0}
                       >
-                        <Bot className="h-4 w-4" />
-                        {number.agent.name}
-                      </Link>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">No agent assigned</span>
-                    )}
+                        <option value="">No agent</option>
+                        {agents.map((agent) => (
+                          <option key={agent.id} value={agent.id}>
+                            {agent.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -255,31 +296,10 @@ export default function PhoneNumbersPage() {
       {/* Available Twilio Numbers */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Available from Twilio</CardTitle>
-              <CardDescription>
-                Phone numbers in your Twilio account that can be added
-              </CardDescription>
-            </div>
-            {agents.length > 0 && (
-              <div className="flex items-center gap-2">
-                <label className="text-sm text-muted-foreground">Assign to:</label>
-                <select
-                  className="px-3 py-1.5 text-sm border rounded-md"
-                  value={selectedAgent}
-                  onChange={(e) => setSelectedAgent(e.target.value)}
-                >
-                  <option value="">No agent</option>
-                  {agents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
+          <CardTitle>Available from Twilio</CardTitle>
+          <CardDescription>
+            Phone numbers in your Twilio account that can be added
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loadingTwilio ? (
