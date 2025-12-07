@@ -2,7 +2,8 @@
 // ElevenLabs TTS Service - Text to Speech
 // ============================================
 
-import axios from 'axios';
+import { ElevenLabsClient } from 'elevenlabs';
+import { Readable } from 'stream';
 import { config } from '../../config';
 import { logger } from '../../utils/logger';
 
@@ -14,11 +15,12 @@ export interface VoiceSettings {
 }
 
 export class ElevenLabsService {
-  private apiKey: string;
-  private baseUrl = 'https://api.elevenlabs.io/v1';
+  private client: ElevenLabsClient;
 
   constructor() {
-    this.apiKey = config.elevenlabsApiKey;
+    this.client = new ElevenLabsClient({
+      apiKey: config.elevenlabsApiKey,
+    });
   }
 
   async textToSpeech(
@@ -27,29 +29,20 @@ export class ElevenLabsService {
     settings?: VoiceSettings
   ): Promise<Buffer> {
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/text-to-speech/${voiceId}`,
-        {
-          text,
-          model_id: 'eleven_turbo_v2_5',
-          voice_settings: {
-            stability: settings?.stability ?? 0.5,
-            similarity_boost: settings?.similarity_boost ?? 0.75,
-            style: settings?.style ?? 0,
-            use_speaker_boost: settings?.use_speaker_boost ?? true,
-          },
+      const response = await this.client.textToSpeech.convert(voiceId, {
+        model_id: 'eleven_turbo_v2_5',
+        output_format: 'mp3_44100_128',
+        text,
+        voice_settings: {
+          stability: settings?.stability ?? 0.5,
+          similarity_boost: settings?.similarity_boost ?? 0.75,
         },
-        {
-          headers: {
-            'xi-api-key': this.apiKey,
-            'Content-Type': 'application/json',
-            Accept: 'audio/mpeg',
-          },
-          responseType: 'arraybuffer',
-        }
-      );
+      });
 
-      return Buffer.from(response.data);
+      const readableStream = Readable.from(response);
+      const audioArrayBuffer = await this.streamToArrayBuffer(readableStream);
+      
+      return Buffer.from(audioArrayBuffer);
     } catch (error) {
       logger.error('[ElevenLabs] TTS error:', error);
       throw error;
@@ -58,7 +51,7 @@ export class ElevenLabsService {
 
   /**
    * Generate TTS optimized for Twilio (mulaw 8kHz)
-   * ElevenLabs can directly output ulaw_8000 format!
+   * Uses ElevenLabs SDK - matches their official Twilio integration example
    */
   async textToSpeechForTwilio(
     text: string,
@@ -66,30 +59,24 @@ export class ElevenLabsService {
     settings?: VoiceSettings
   ): Promise<Buffer> {
     try {
-      // Request ulaw_8000 directly from ElevenLabs - no conversion needed!
-      // Using eleven_flash_v2_5 for lower latency (recommended for real-time)
-      const response = await axios.post(
-        `${this.baseUrl}/text-to-speech/${voiceId}`,
-        {
-          text,
-          model_id: 'eleven_flash_v2_5',  // Faster model for real-time
-          voice_settings: {
-            stability: settings?.stability ?? 0.5,
-            similarity_boost: settings?.similarity_boost ?? 0.75,
-          },
-          output_format: 'ulaw_8000', // Perfect for Twilio!
+      console.log('[ElevenLabs] Using SDK to generate audio for Twilio');
+      
+      // Use ElevenLabs SDK (matching their official Twilio example)
+      const response = await this.client.textToSpeech.convert(voiceId, {
+        model_id: 'eleven_flash_v2_5',
+        output_format: 'ulaw_8000',
+        text,
+        voice_settings: {
+          stability: settings?.stability ?? 0.5,
+          similarity_boost: settings?.similarity_boost ?? 0.75,
         },
-        {
-          headers: {
-            'xi-api-key': this.apiKey,
-            'Content-Type': 'application/json',
-          },
-          responseType: 'arraybuffer',
-        }
-      );
+      });
 
-      // ElevenLabs returns the audio in the exact format Twilio needs
-      return Buffer.from(response.data);
+      // Convert stream to buffer (matching ElevenLabs example)
+      const readableStream = Readable.from(response);
+      const audioArrayBuffer = await this.streamToArrayBuffer(readableStream);
+      
+      return Buffer.from(audioArrayBuffer);
     } catch (error) {
       logger.error('[ElevenLabs] TTS for Twilio error:', error);
       throw error;
@@ -97,50 +84,28 @@ export class ElevenLabsService {
   }
 
   /**
-   * Stream TTS for lower latency
+   * Convert readable stream to ArrayBuffer (from ElevenLabs example)
    */
-  async *streamTextToSpeech(
-    text: string,
-    voiceId: string = 'EXAVITQu4vr4xnSDxMaL',
-    settings?: VoiceSettings
-  ): AsyncGenerator<Buffer, void, unknown> {
-    try {
-      const response = await axios.post(
-        `${this.baseUrl}/text-to-speech/${voiceId}/stream`,
-        {
-          text,
-          model_id: 'eleven_turbo_v2_5',
-          voice_settings: {
-            stability: settings?.stability ?? 0.5,
-            similarity_boost: settings?.similarity_boost ?? 0.75,
-          },
-        },
-        {
-          headers: {
-            'xi-api-key': this.apiKey,
-            'Content-Type': 'application/json',
-          },
-          responseType: 'stream',
-        }
-      );
+  private streamToArrayBuffer(readableStream: Readable): Promise<ArrayBuffer> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
 
-      for await (const chunk of response.data) {
-        yield Buffer.from(chunk);
-      }
-    } catch (error) {
-      logger.error('[ElevenLabs] Streaming error:', error);
-      throw error;
-    }
+      readableStream.on('data', (chunk) => {
+        chunks.push(chunk);
+      });
+
+      readableStream.on('end', () => {
+        resolve(Buffer.concat(chunks).buffer);
+      });
+
+      readableStream.on('error', reject);
+    });
   }
 
   async getVoices(): Promise<any[]> {
     try {
-      const response = await axios.get(`${this.baseUrl}/voices`, {
-        headers: {
-          'xi-api-key': this.apiKey,
-        },
-      });
-      return response.data.voices;
+      const response = await this.client.voices.getAll();
+      return response.voices;
     } catch (error) {
       logger.error('[ElevenLabs] Get voices error:', error);
       throw error;

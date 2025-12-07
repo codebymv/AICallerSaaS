@@ -9,7 +9,7 @@ import { prisma } from '../lib/prisma';
 import { VoicePipeline } from '../services/voice-pipeline';
 import { logger } from '../utils/logger';
 import { metricsCollector } from '../utils/metrics';
-import { decodeFromTwilio, chunkAudio } from '../utils/audio';
+import { decodeFromTwilio } from '../utils/audio';
 import { TwilioMediaEvent, TwilioMediaStart, TwilioMediaPayload } from '../lib/types';
 
 interface CallSession {
@@ -300,24 +300,18 @@ async function handleStreamStop(session: CallSession) {
 function sendAudioToTwilio(ws: WebSocket, streamSid: string, audio: Buffer) {
   console.log('[Twilio] sendAudioToTwilio called, audio size:', audio.length);
   
-  // For ulaw_8000 at 8kHz: 160 bytes = 20ms of audio
-  // Send chunks immediately - Twilio handles timing
-  const chunks = chunkAudio(audio, 160);
-  console.log('[Twilio] Sending', chunks.length, 'chunks to Twilio');
+  // Send ENTIRE audio buffer in ONE message (matching ElevenLabs example)
+  // ulaw_8000 from ElevenLabs should be sent as a single payload
+  const message = {
+    event: 'media',
+    streamSid,
+    media: {
+      payload: audio.toString('base64'),
+    },
+  };
   
-  for (const chunk of chunks) {
-    const message = {
-      event: 'media',
-      streamSid,
-      media: {
-        payload: chunk.toString('base64'),
-      },
-    };
-    
-    ws.send(JSON.stringify(message));
-  }
-
-  console.log('[Twilio] ✅ All audio chunks sent');
+  ws.send(JSON.stringify(message));
+  console.log('[Twilio] ✅ Entire audio buffer sent to Twilio in one message');
 
   // Send mark to track playback completion
   const markMessage = {
