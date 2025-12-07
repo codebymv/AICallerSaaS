@@ -51,10 +51,17 @@ router.post('/twilio/voice', async (req, res) => {
     }
 
     // Return TwiML to connect to media stream
-    // Use wss:// for production (HTTPS) or ws:// for local dev (HTTP)
-    const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'wss' : 'ws';
-    const host = req.get('host');
-    const websocketUrl = `${protocol}://${host}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
+    // Use Railway TCP proxy URL if available, otherwise use the regular host
+    let websocketUrl: string;
+    if (config.websocketUrl && config.websocketUrl !== config.apiUrl) {
+      // Use TCP proxy URL (already includes protocol)
+      websocketUrl = `${config.websocketUrl}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
+    } else {
+      // Fallback to regular host (for local dev)
+      const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'wss' : 'ws';
+      const host = req.get('host');
+      websocketUrl = `${protocol}://${host}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
+    }
     
     logger.info('[Webhook] Connecting to WebSocket:', websocketUrl);
     

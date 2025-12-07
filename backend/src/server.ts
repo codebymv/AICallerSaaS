@@ -40,21 +40,27 @@ export async function createServer() {
     console.log('[UPGRADE] *** Upgrade request received ***');
     console.log('[UPGRADE] URL:', request.url);
     console.log('[UPGRADE] Headers:', JSON.stringify(request.headers, null, 2));
+    console.log('[UPGRADE] Remote Address:', socket.remoteAddress);
     
-    const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
-    console.log('[UPGRADE] Parsed pathname:', pathname);
-    
-    if (pathname === '/media-stream' || pathname.startsWith('/media-stream')) {
-      console.log('[UPGRADE] Path matched /media-stream - handling upgrade');
+    try {
+      const pathname = new URL(request.url || '', `http://${request.headers.host}`).pathname;
+      console.log('[UPGRADE] Parsed pathname:', pathname);
       
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        console.log('[UPGRADE] *** UPGRADE SUCCESSFUL ***');
-        wss.emit('connection', ws, request);
-      });
-    } else {
-      console.log('[UPGRADE] Path is NOT /media-stream, pathname:', pathname);
-      console.log('[UPGRADE] Assuming Socket.IO or other - not destroying');
-      // Don't destroy - let Socket.IO or other handlers deal with it
+      if (pathname === '/media-stream' || pathname.startsWith('/media-stream')) {
+        console.log('[UPGRADE] Path matched /media-stream - handling upgrade');
+        
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          console.log('[UPGRADE] *** UPGRADE SUCCESSFUL ***');
+          wss.emit('connection', ws, request);
+        });
+      } else {
+        console.log('[UPGRADE] Path is NOT /media-stream, pathname:', pathname);
+        console.log('[UPGRADE] Assuming Socket.IO or other - not destroying');
+        // Don't destroy - let Socket.IO or other handlers deal with it
+      }
+    } catch (error) {
+      console.error('[UPGRADE] Error processing upgrade:', error);
+      socket.destroy();
     }
   });
   

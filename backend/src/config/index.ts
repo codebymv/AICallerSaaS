@@ -41,6 +41,7 @@ const configSchema = z.object({
   // App URL
   appUrl: z.string().default('http://localhost:3000'),
   apiUrl: z.string().default('http://localhost:3001'),
+  websocketUrl: z.string().optional(),
 });
 
 function loadConfig() {
@@ -79,6 +80,7 @@ function loadConfig() {
     
     appUrl: process.env.APP_URL,
     apiUrl: process.env.API_URL,
+    websocketUrl: process.env.WEBSOCKET_URL,
   });
 
   if (!result.success) {
