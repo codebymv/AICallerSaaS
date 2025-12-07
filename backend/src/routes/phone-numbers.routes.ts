@@ -204,9 +204,16 @@ router.delete('/:id', async (req: AuthRequest, res, next) => {
       throw createError('Phone number not found', 404, ERROR_CODES.PHONE_NUMBER_NOT_FOUND);
     }
 
-    // Release from Twilio
-    const twilioService = new TwilioService();
-    await twilioService.releasePhoneNumber(phoneNumber.twilioSid);
+    // Release from Twilio (if we have the SID and user has Twilio configured)
+    if (phoneNumber.twilioSid) {
+      try {
+        const twilioService = await getUserTwilioService(req.user!.id);
+        await twilioService.releasePhoneNumber(phoneNumber.twilioSid);
+      } catch (error) {
+        logger.warn('[PhoneNumbers] Could not release from Twilio:', error);
+        // Continue anyway - just remove from our database
+      }
+    }
 
     // Delete from database
     await prisma.phoneNumber.delete({
