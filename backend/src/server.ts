@@ -39,52 +39,21 @@ export async function createServer() {
     path: '/socket.io',
   });
 
-  // Middleware
-  app.use(helmet({
-    contentSecurityPolicy: false, // Disable for development
-  }));
-  
-  // CORS configuration - allow multiple origins
-  const allowedOrigins = [
-    config.corsOrigin,
-    'http://localhost:3000', // Local development
-  ];
-  
-  app.use(cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, Postman, etc)
-      if (!origin) {
-        console.log('CORS: No origin, allowing');
-        return callback(null, true);
-      }
-      
-      if (allowedOrigins.includes(origin)) {
-        console.log('CORS: Origin allowed:', origin);
-        callback(null, true);
-      } else {
-        console.log('CORS: Origin rejected:', origin);
-        // Don't throw error, just return false
-        callback(null, false);
-      }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
-    credentials: true,
-    allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
-    exposedHeaders: ['Content-Range', 'X-Content-Range'],
-    maxAge: 3600,
-  }));
-  
+  // Basic middleware first
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
   
-  app.use(requestLogger);
+  app.use(helmet({
+    contentSecurityPolicy: false,
+  }));
   
-  // Rate limiting (skip in development)
-  if (config.nodeEnv === 'production') {
-    app.use('/api', rateLimiter);
-  }
+  // Simple CORS - match working backends
+  app.use(cors({
+    origin: config.corsOrigin,
+    credentials: true,
+  }));
 
-  // Health check
+  // Health check BEFORE any other middleware or logging
   app.get('/health', (req, res) => {
     res.json({ 
       status: 'ok', 
@@ -92,6 +61,9 @@ export async function createServer() {
       version: '1.0.0',
     });
   });
+  
+  // Request logger AFTER health check
+  app.use(requestLogger);
 
   // API Routes
   app.use('/api/auth', authRoutes);
