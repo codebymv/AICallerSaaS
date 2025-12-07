@@ -25,12 +25,12 @@ router.post('/twilio/voice', async (req, res) => {
 
     if (!agent) {
       logger.error('[Webhook] Agent not found', { agentId });
-      res.type('text/xml').send(`
-        <Response>
-          <Say>Sorry, the agent is not available.</Say>
-          <Hangup/>
-        </Response>
-      `);
+      const errorTwiml = '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<Response>' +
+          '<Say>Sorry, the agent is not available.</Say>' +
+          '<Hangup/>' +
+        '</Response>';
+      res.type('text/xml').send(errorTwiml);
       return;
     }
 
@@ -76,12 +76,12 @@ router.post('/twilio/voice', async (req, res) => {
     res.type('text/xml').send(twiml);
   } catch (error) {
     logger.error('[Webhook] Voice error:', error);
-    res.type('text/xml').send(`
-      <Response>
-        <Say>Sorry, an error occurred.</Say>
-        <Hangup/>
-      </Response>
-    `);
+    const errorTwiml = '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<Response>' +
+        '<Say>Sorry, an error occurred.</Say>' +
+        '<Hangup/>' +
+      '</Response>';
+    res.type('text/xml').send(errorTwiml);
   }
 });
 
