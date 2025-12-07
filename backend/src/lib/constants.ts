@@ -34,10 +34,10 @@ export const DEEPGRAM_VOICES = [
   { id: 'aura-orpheus-en', name: 'Orpheus', description: 'Deep male voice' },
 ];
 
-export const DEFAULT_VOICES: Record<string, typeof ELEVENLABS_VOICES> = {
+export const DEFAULT_VOICES = {
   elevenlabs: ELEVENLABS_VOICES,
   deepgram: DEEPGRAM_VOICES,
-};
+} as const;
 
 export const DEFAULT_LLM_MODELS = [
   { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'openai' },
