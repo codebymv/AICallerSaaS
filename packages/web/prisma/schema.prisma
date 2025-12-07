@@ -1,0 +1,175 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Stripe
+  stripeCustomerId String? @unique
+  
+  // Usage tracking
+  creditsBalance Decimal  @default(0) @db.Decimal(10, 2)
+  minutesUsed    Int      @default(0)
+  
+  agents        Agent[]
+  phoneNumbers  PhoneNumber[]
+  calls         Call[]
+  usageMetrics  UsageMetric[]
+  
+  @@index([email])
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  // Configuration
+  systemPrompt     String   @db.Text
+  voice            String   @default("rachel")
+  voiceProvider    String   @default("elevenlabs") // elevenlabs, google
+  voiceSettings    Json?    // speed, pitch, stability
+  
+  // Template
+  template         String?  // appointmentBooking, leadQualification, etc
+  
+  // Behavior
+  greeting         String?  @db.Text
+  maxCallDuration  Int      @default(600) // seconds
+  interruptible    Boolean  @default(false)
+  
+  // Integration
+  webhookUrl       String?
+  webhookEvents    String[] // call_started, call_ended, etc
+  
+  // Status
+  isActive         Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  calls       Call[]
+  phoneNumbers PhoneNumber[]
+  
+  @@index([userId])
+  @@index([template])
+}
+
+model PhoneNumber {
+  id              String   @id @default(cuid())
+  phoneNumber     String   @unique
+  friendlyName    String?
+  
+  // Twilio
+  twilioSid       String   @unique
+  
+  // Routing
+  agentId         String?
+  agent           Agent?   @relation(fields: [agentId], references: [id])
+  
+  // Status
+  isActive        Boolean  @default(true)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  calls           Call[]
+  
+  @@index([userId])
+  @@index([agentId])
+}
+
+model Call {
+  id              String   @id @default(cuid())
+  
+  // Call details
+  callSid         String   @unique
+  direction       String   // inbound, outbound
+  from            String
+  to              String
+  status          String   @default("queued") // queued, ringing, in-progress, completed, failed
+  
+  // Timing
+  startTime       DateTime?
+  endTime         DateTime?
+  duration        Int?     // seconds
+  
+  // Content
+  transcript      Json?    // Array of {speaker, text, timestamp}
+  recordingUrl    String?
+  
+  // Cost tracking
+  costUsd         Decimal? @db.Decimal(10, 4)
+  minutesUsed     Decimal? @db.Decimal(10, 2)
+  
+  // Metadata
+  metadata        Json?
+  errorMessage    String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  agentId         String
+  agent           Agent    @relation(fields: [agentId], references: [id])
+  
+  phoneNumberId   String?
+  phoneNumber     PhoneNumber? @relation(fields: [phoneNumberId], references: [id])
+  
+  @@index([userId])
+  @@index([agentId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model UsageMetric {
+  id              String   @id @default(cuid())
+  
+  // Tracking
+  type            String   // minutes, api_calls, stt_requests, tts_characters
+  quantity        Decimal  @db.Decimal(10, 2)
+  costUsd         Decimal  @db.Decimal(10, 4)
+  
+  // Metadata
+  metadata        Json?
+  
+  createdAt       DateTime @default(now())
+  
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+model StripeEvent {
+  id              String   @id @default(cuid())
+  eventId         String   @unique
+  type            String
+  processed       Boolean  @default(false)
+  data            Json
+  createdAt       DateTime @default(now())
+  
+  @@index([type])
+  @@index([processed])
+}

@@ -1,0 +1,240 @@
+// API Client for backend communication
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: any;
+  };
+  meta?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    hasMore?: boolean;
+  };
+}
+
+class ApiClient {
+  private baseUrl: string;
+  private token: string | null = null;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+    // Load token from localStorage on client side
+    if (typeof window !== 'undefined') {
+      this.token = localStorage.getItem('auth_token');
+    }
+  }
+
+  setToken(token: string | null) {
+    this.token = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('auth_token', token);
+      } else {
+        localStorage.removeItem('auth_token');
+      }
+    }
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<ApiResponse<T>> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      ...options,
+      headers,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new ApiError(
+        data.error?.message || 'An error occurred',
+        data.error?.code || 'UNKNOWN_ERROR',
+        response.status,
+        data.error?.details
+      );
+    }
+
+    return data;
+  }
+
+  // Auth endpoints
+  async login(email: string, password: string) {
+    const response = await this.request<{ user: any; token: string }>(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }
+    );
+    if (response.data?.token) {
+      this.setToken(response.data.token);
+    }
+    return response;
+  }
+
+  async register(email: string, password: string, name?: string) {
+    const response = await this.request<{ user: any; token: string }>(
+      '/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name }),
+      }
+    );
+    if (response.data?.token) {
+      this.setToken(response.data.token);
+    }
+    return response;
+  }
+
+  async getMe() {
+    return this.request<any>('/api/auth/me');
+  }
+
+  logout() {
+    this.setToken(null);
+  }
+
+  // Agent endpoints
+  async getAgents() {
+    return this.request<any[]>('/api/agents');
+  }
+
+  async getAgent(id: string) {
+    return this.request<any>(`/api/agents/${id}`);
+  }
+
+  async createAgent(data: any) {
+    return this.request<any>('/api/agents', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAgent(id: string, data: any) {
+    return this.request<any>(`/api/agents/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAgent(id: string) {
+    return this.request<any>(`/api/agents/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async testAgent(id: string, testMessage: string) {
+    return this.request<{ response: string; latency: any }>(
+      `/api/agents/${id}/test`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ testMessage }),
+      }
+    );
+  }
+
+  // Call endpoints
+  async getCalls(params?: {
+    page?: number;
+    limit?: number;
+    agentId?: string;
+    status?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.agentId) searchParams.set('agentId', params.agentId);
+    if (params?.status) searchParams.set('status', params.status);
+
+    const query = searchParams.toString();
+    return this.request<any[]>(`/api/calls${query ? `?${query}` : ''}`);
+  }
+
+  async getCall(id: string) {
+    return this.request<any>(`/api/calls/${id}`);
+  }
+
+  async initiateCall(data: {
+    agentId: string;
+    toNumber: string;
+    fromNumber?: string;
+  }) {
+    return this.request<any>('/api/calls', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async endCall(id: string) {
+    return this.request<any>(`/api/calls/${id}/end`, {
+      method: 'POST',
+    });
+  }
+
+  async getCallAnalytics(params?: { startDate?: string; endDate?: string; agentId?: string }) {
+    const searchParams = new URLSearchParams();
+    if (params?.startDate) searchParams.set('startDate', params.startDate);
+    if (params?.endDate) searchParams.set('endDate', params.endDate);
+    if (params?.agentId) searchParams.set('agentId', params.agentId);
+
+    const query = searchParams.toString();
+    return this.request<any>(`/api/calls/analytics/summary${query ? `?${query}` : ''}`);
+  }
+
+  // Phone number endpoints
+  async getPhoneNumbers() {
+    return this.request<any[]>('/api/phone-numbers');
+  }
+
+  async purchasePhoneNumber(areaCode?: string, defaultAgentId?: string) {
+    return this.request<any>('/api/phone-numbers', {
+      method: 'POST',
+      body: JSON.stringify({ areaCode, defaultAgentId }),
+    });
+  }
+
+  async updatePhoneNumber(id: string, data: any) {
+    return this.request<any>(`/api/phone-numbers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deletePhoneNumber(id: string) {
+    return this.request<any>(`/api/phone-numbers/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+export class ApiError extends Error {
+  code: string;
+  status: number;
+  details?: any;
+
+  constructor(message: string, code: string, status: number, details?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+
+export const api = new ApiClient(API_BASE_URL);

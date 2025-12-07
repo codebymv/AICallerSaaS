@@ -1,0 +1,266 @@
+// ============================================
+// Prisma Schema - AI Caller SaaS
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ USER & AUTH ============
+
+enum Plan {
+  FREE
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  
+  // Subscription
+  plan          Plan      @default(FREE)
+  minutesUsed   Int       @default(0)
+  minutesLimit  Int       @default(100)
+  
+  // Billing
+  stripeCustomerId String? @unique
+  creditsBalance   Decimal @default(0) @db.Decimal(10, 2)
+  
+  // Relations
+  agents        Agent[]
+  calls         Call[]
+  phoneNumbers  PhoneNumber[]
+  apiKeys       ApiKey[]
+  usageMetrics  UsageMetric[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([email])
+}
+
+model ApiKey {
+  id        String    @id @default(cuid())
+  key       String    @unique
+  name      String
+  lastUsed  DateTime?
+  expiresAt DateTime?
+  
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime  @default(now())
+  
+  @@index([key])
+  @@index([userId])
+}
+
+// ============ AGENTS ============
+
+model Agent {
+  id              String    @id @default(cuid())
+  name            String
+  description     String?
+  
+  // Voice Configuration
+  voiceProvider   String    @default("elevenlabs")
+  voice           String    @default("EXAVITQu4vr4xnSDxMaL")
+  voiceSettings   Json?
+  
+  // LLM Configuration
+  llmProvider     String    @default("openai")
+  llmModel        String    @default("gpt-4o")
+  systemPrompt    String    @db.Text
+  temperature     Float     @default(0.7)
+  maxTokens       Int       @default(150)
+  
+  // Behavior
+  greeting        String?   @db.Text
+  interruptible   Boolean   @default(true)
+  interruptThreshold Int    @default(500)
+  maxCallDuration Int       @default(600)
+  endCallPhrases  String[]  @default([])
+  transferNumber  String?
+  
+  // Template
+  template        String?
+  
+  // Integrations
+  webhookUrl      String?
+  webhookEvents   String[]  @default([])
+  
+  // Status
+  isActive        Boolean   @default(true)
+  
+  // Analytics
+  totalCalls      Int       @default(0)
+  avgDuration     Float     @default(0)
+  
+  // Relations
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calls           Call[]
+  phoneNumbers    PhoneNumber[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([template])
+  @@index([isActive])
+}
+
+// ============ PHONE NUMBERS ============
+
+model PhoneNumber {
+  id              String    @id @default(cuid())
+  phoneNumber     String    @unique
+  twilioSid       String    @unique
+  friendlyName    String?
+  
+  // Routing
+  agentId         String?
+  agent           Agent?    @relation(fields: [agentId], references: [id])
+  
+  // Status
+  isActive        Boolean   @default(true)
+  
+  // Relations
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  calls           Call[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId])
+  @@index([agentId])
+}
+
+// ============ CALLS ============
+
+model Call {
+  id              String    @id @default(cuid())
+  
+  // Twilio IDs
+  callSid         String    @unique
+  streamSid       String?
+  
+  // Call Details
+  direction       String    // inbound, outbound
+  status          String    @default("initiated")
+  from            String
+  to              String
+  
+  // Timing
+  startTime       DateTime?
+  endTime         DateTime?
+  duration        Int?
+  
+  // Content
+  transcript      Json?
+  recordingUrl    String?
+  
+  // Cost & Usage
+  costUsd         Decimal?  @db.Decimal(10, 4)
+  minutesUsed     Decimal?  @db.Decimal(10, 2)
+  
+  // Quality Metrics
+  avgLatency      Int?
+  interruptions   Int       @default(0)
+  
+  // Outcome
+  endReason       String?
+  sentiment       String?
+  summary         String?   @db.Text
+  
+  // Metadata
+  metadata        Json?
+  errorMessage    String?
+  
+  // Relations
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  agentId         String
+  agent           Agent     @relation(fields: [agentId], references: [id])
+  
+  phoneNumberId   String?
+  phoneNumber     PhoneNumber? @relation(fields: [phoneNumberId], references: [id])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId, createdAt])
+  @@index([agentId])
+  @@index([status])
+  @@index([callSid])
+}
+
+// ============ USAGE TRACKING ============
+
+model UsageMetric {
+  id              String    @id @default(cuid())
+  
+  type            String    // minutes, api_calls, stt_requests, tts_characters
+  quantity        Decimal   @db.Decimal(10, 2)
+  costUsd         Decimal   @db.Decimal(10, 4)
+  
+  metadata        Json?
+  
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+// ============ TEMPLATES ============
+
+model PromptTemplate {
+  id              String    @id @default(cuid())
+  userId          String?   // null = system template
+  
+  name            String
+  description     String?
+  category        String
+  
+  systemPrompt    String    @db.Text
+  greeting        String?
+  variables       String[]  @default([])
+  
+  isPublic        Boolean   @default(false)
+  usageCount      Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([category])
+  @@index([isPublic])
+}
+
+// ============ STRIPE EVENTS ============
+
+model StripeEvent {
+  id              String    @id @default(cuid())
+  eventId         String    @unique
+  type            String
+  processed       Boolean   @default(false)
+  data            Json
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([type])
+  @@index([processed])
+}
