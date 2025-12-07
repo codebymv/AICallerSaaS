@@ -69,7 +69,14 @@ export default function NewAgentPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    template: string;
+    systemPrompt: string;
+    voiceId: string;
+    greeting: string;
+  }>({
     name: '',
     description: '',
     template: 'custom',
