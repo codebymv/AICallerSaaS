@@ -62,8 +62,14 @@ export async function createServer() {
     });
   });
   
-  // Request logger AFTER health check
-  app.use(requestLogger);
+  // TEMP: Disable request logger for debugging
+  // app.use(requestLogger);
+  
+  // Manual logging for OPTIONS
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path} from ${req.get('origin')}`);
+    next();
+  });
 
   // API Routes
   app.use('/api/auth', authRoutes);
