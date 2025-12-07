@@ -86,7 +86,8 @@ export class DeepgramSTTService extends EventEmitter {
 
   sendAudio(audioData: Buffer): void {
     if (this.connection) {
-      this.connection.send(audioData);
+      // Convert Buffer to Uint8Array for WebSocket compatibility
+      this.connection.send(new Uint8Array(audioData));
     }
   }
 

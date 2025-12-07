@@ -19,11 +19,15 @@ export const createAgentSchema = z.object({
   systemPrompt: z.string().min(1, 'System prompt is required').max(10000),
   voiceId: z.string().optional(),
   voiceProvider: z.enum(['elevenlabs', 'deepgram']).default('elevenlabs'),
+  voiceSettings: z.record(z.any()).optional(),
   llmModel: z.string().default('gpt-4-turbo'),
   llmProvider: z.enum(['openai', 'anthropic']).default('openai'),
   greeting: z.string().max(500).optional(),
   maxCallDuration: z.number().min(30).max(3600).default(600),
   interruptible: z.boolean().default(true),
+  webhookUrl: z.string().url().optional(),
+  webhookEvents: z.array(z.string()).optional(),
+  isActive: z.boolean().default(true),
 });
 
 export const updateAgentSchema = createAgentSchema.partial();
@@ -32,7 +36,10 @@ export const updateAgentSchema = createAgentSchema.partial();
 export const initiateCallSchema = z.object({
   agentId: z.string().uuid('Invalid agent ID'),
   to: z.string().min(10, 'Invalid phone number'),
+  toNumber: z.string().optional(),
   from: z.string().optional(),
+  fromNumber: z.string().optional(),
+  metadata: z.record(z.any()).optional(),
 });
 
 export const callFilterSchema = z.object({
@@ -46,6 +53,8 @@ export const callFilterSchema = z.object({
 export const paginationSchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
+  sortBy: z.string().default('createdAt'),
+  sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

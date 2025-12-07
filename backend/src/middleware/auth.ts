@@ -13,7 +13,7 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
-    name?: string;
+    name?: string | null;
   };
 }
 

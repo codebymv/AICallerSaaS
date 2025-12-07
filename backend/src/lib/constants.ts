@@ -12,25 +12,43 @@ export const ELEVENLABS_VOICES = [
   { id: 'antoni', name: 'Antoni', description: 'Warm, expressive male voice' },
   { id: 'thomas', name: 'Thomas', description: 'Calm, reassuring male voice' },
   { id: 'charlie', name: 'Charlie', description: 'Natural Australian male voice' },
-] as const;
+];
 
-export const DEFAULT_VOICES = {
+export const DEEPGRAM_VOICES = [
+  { id: 'aura-asteria-en', name: 'Asteria', description: 'Professional female voice' },
+  { id: 'aura-luna-en', name: 'Luna', description: 'Warm female voice' },
+  { id: 'aura-stella-en', name: 'Stella', description: 'Friendly female voice' },
+  { id: 'aura-athena-en', name: 'Athena', description: 'Authoritative female voice' },
+  { id: 'aura-hera-en', name: 'Hera', description: 'Confident female voice' },
+  { id: 'aura-orion-en', name: 'Orion', description: 'Professional male voice' },
+  { id: 'aura-arcas-en', name: 'Arcas', description: 'Warm male voice' },
+  { id: 'aura-perseus-en', name: 'Perseus', description: 'Friendly male voice' },
+  { id: 'aura-angus-en', name: 'Angus', description: 'Scottish male voice' },
+  { id: 'aura-orpheus-en', name: 'Orpheus', description: 'Deep male voice' },
+];
+
+export const DEFAULT_VOICES: Record<string, typeof ELEVENLABS_VOICES> = {
   elevenlabs: ELEVENLABS_VOICES,
-} as const;
+  deepgram: DEEPGRAM_VOICES,
+};
 
 export const DEFAULT_LLM_MODELS = [
   { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'openai' },
   { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
   { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai' },
   { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'openai' },
-] as const;
+];
 
-// Error codes
+// Error codes - comprehensive list
 export const ERROR_CODES = {
   // Auth errors
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  AUTH_INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  AUTH_TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  AUTH_TOKEN_INVALID: 'TOKEN_INVALID',
   UNAUTHORIZED: 'UNAUTHORIZED',
+  AUTH_UNAUTHORIZED: 'UNAUTHORIZED',
   
   // Validation errors
   VALIDATION_ERROR: 'VALIDATION_ERROR',
@@ -38,10 +56,15 @@ export const ERROR_CODES = {
   
   // Resource errors
   NOT_FOUND: 'NOT_FOUND',
+  USER_NOT_FOUND: 'USER_NOT_FOUND',
+  AGENT_NOT_FOUND: 'AGENT_NOT_FOUND',
+  CALL_NOT_FOUND: 'CALL_NOT_FOUND',
+  PHONE_NUMBER_NOT_FOUND: 'PHONE_NUMBER_NOT_FOUND',
   ALREADY_EXISTS: 'ALREADY_EXISTS',
   
   // Rate limiting
   RATE_LIMITED: 'RATE_LIMITED',
+  RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
   
   // Server errors
   INTERNAL_ERROR: 'INTERNAL_ERROR',
@@ -50,6 +73,8 @@ export const ERROR_CODES = {
   // Call errors
   CALL_FAILED: 'CALL_FAILED',
   CALL_IN_PROGRESS: 'CALL_IN_PROGRESS',
+  CALL_QUOTA_EXCEEDED: 'CALL_QUOTA_EXCEEDED',
+  TWILIO_ERROR: 'TWILIO_ERROR',
 } as const;
 
 export const ERROR_MESSAGES: Record<string, string> = {
