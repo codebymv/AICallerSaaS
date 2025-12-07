@@ -22,8 +22,7 @@
       "@/components/*": ["./src/components/*"],
       "@/lib/*": ["./src/lib/*"],
       "@/hooks/*": ["./src/hooks/*"],
-      "@/stores/*": ["./src/stores/*"],
-      "@aicaller/shared": ["../shared/src"]
+      "@/stores/*": ["./src/stores/*"]
     },
     "baseUrl": "."
   },

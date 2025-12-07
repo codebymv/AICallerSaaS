@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES } from '@aicaller/shared';
+import { ELEVENLABS_VOICES } from '@/lib/constants';
 
 const templates = [
   {

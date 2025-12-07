@@ -7,8 +7,8 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../lib/prisma';
 import { createError } from '../middleware/error-handler';
 import { authenticate, generateToken, AuthRequest } from '../middleware/auth';
-import { loginSchema, registerSchema } from '@aicaller/shared';
-import { ERROR_CODES } from '@aicaller/shared';
+import { loginSchema, registerSchema } from '../lib/validators';
+import { ERROR_CODES } from '../lib/constants';
 
 const router = Router();
 

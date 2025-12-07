@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { config } from '../config';
-import { TwilioMediaEvent } from '@aicaller/shared';
+import { TwilioMediaEvent } from '../lib/types';
 
 const router = Router();
 

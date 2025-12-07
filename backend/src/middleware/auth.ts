@@ -7,7 +7,7 @@ import * as jose from 'jose';
 import { config } from '../config';
 import { prisma } from '../lib/prisma';
 import { createError } from './error-handler';
-import { ERROR_CODES } from '@aicaller/shared';
+import { ERROR_CODES } from '../lib/constants';
 
 export interface AuthRequest extends Request {
   user?: {

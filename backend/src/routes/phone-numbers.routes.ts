@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { createError } from '../middleware/error-handler';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { ERROR_CODES } from '@aicaller/shared';
+import { ERROR_CODES } from '../lib/constants';
 import { TwilioService } from '../services/twilio.service';
 import { config } from '../config';
 

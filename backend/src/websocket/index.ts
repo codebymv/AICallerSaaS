@@ -10,7 +10,7 @@ import { VoicePipeline } from '../services/voice-pipeline';
 import { logger } from '../utils/logger';
 import { metricsCollector } from '../utils/metrics';
 import { decodeFromTwilio, encodeForTwilio, chunkAudio } from '../utils/audio';
-import { TwilioMediaEvent, TwilioMediaStart, TwilioMediaPayload } from '@aicaller/shared';
+import { TwilioMediaEvent, TwilioMediaStart, TwilioMediaPayload } from '../lib/types';
 
 interface CallSession {
   callSid: string;

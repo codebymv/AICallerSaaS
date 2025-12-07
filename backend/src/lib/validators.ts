@@ -1,0 +1,57 @@
+import { z } from 'zod';
+
+// Auth schemas
+export const loginSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+
+export const registerSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  name: z.string().min(1, 'Name is required').max(100),
+});
+
+// Agent schemas
+export const createAgentSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  description: z.string().max(500).optional(),
+  systemPrompt: z.string().min(1, 'System prompt is required').max(10000),
+  voiceId: z.string().optional(),
+  voiceProvider: z.enum(['elevenlabs', 'deepgram']).default('elevenlabs'),
+  llmModel: z.string().default('gpt-4-turbo'),
+  llmProvider: z.enum(['openai', 'anthropic']).default('openai'),
+  greeting: z.string().max(500).optional(),
+  maxCallDuration: z.number().min(30).max(3600).default(600),
+  interruptible: z.boolean().default(true),
+});
+
+export const updateAgentSchema = createAgentSchema.partial();
+
+// Call schemas
+export const initiateCallSchema = z.object({
+  agentId: z.string().uuid('Invalid agent ID'),
+  to: z.string().min(10, 'Invalid phone number'),
+  from: z.string().optional(),
+});
+
+export const callFilterSchema = z.object({
+  status: z.string().optional(),
+  agentId: z.string().uuid().optional(),
+  direction: z.enum(['inbound', 'outbound']).optional(),
+  startDate: z.string().datetime().optional(),
+  endDate: z.string().datetime().optional(),
+});
+
+export const paginationSchema = z.object({
+  page: z.coerce.number().min(1).default(1),
+  limit: z.coerce.number().min(1).max(100).default(20),
+});
+
+export type LoginInput = z.infer<typeof loginSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
+export type CreateAgentInput = z.infer<typeof createAgentSchema>;
+export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
+export type InitiateCallInput = z.infer<typeof initiateCallSchema>;
+export type CallFilterInput = z.infer<typeof callFilterSchema>;
+export type PaginationInput = z.infer<typeof paginationSchema>;

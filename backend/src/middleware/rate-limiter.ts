@@ -3,7 +3,7 @@
 // ============================================
 
 import { Request, Response, NextFunction } from 'express';
-import { ERROR_CODES } from '@aicaller/shared';
+import { ERROR_CODES } from '../lib/constants';
 
 interface RateLimitEntry {
   count: number;

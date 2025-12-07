@@ -5,7 +5,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { logger } from '../utils/logger';
-import { ERROR_CODES, ERROR_MESSAGES } from '@aicaller/shared';
+import { ERROR_CODES, ERROR_MESSAGES } from '../lib/constants';
 
 export interface AppError extends Error {
   statusCode?: number;

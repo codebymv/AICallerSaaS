@@ -6,8 +6,8 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { createError } from '../middleware/error-handler';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { createAgentSchema, updateAgentSchema } from '@aicaller/shared';
-import { ERROR_CODES, DEFAULT_VOICES, DEFAULT_LLM_MODELS } from '@aicaller/shared';
+import { createAgentSchema, updateAgentSchema } from '../lib/validators';
+import { ERROR_CODES, DEFAULT_VOICES, DEFAULT_LLM_MODELS } from '../lib/constants';
 
 const router = Router();
 
