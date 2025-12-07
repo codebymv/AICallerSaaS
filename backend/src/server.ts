@@ -44,7 +44,7 @@ export async function createServer() {
   }));
   
   // CORS - Allow configured origin or any Railway domain in production
-  const allowedOrigins = [config.corsOrigin];
+  const allowedOrigins: Array<string | RegExp> = [config.corsOrigin];
   if (config.nodeEnv === 'production') {
     allowedOrigins.push(/\.railway\.app$/);
   }
@@ -59,7 +59,7 @@ export async function createServer() {
         if (typeof pattern === 'string') {
           return origin === pattern;
         }
-        return pattern.test(origin);
+        return (pattern as RegExp).test(origin);
       });
       
       if (isAllowed) {
