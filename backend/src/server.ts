@@ -69,6 +69,16 @@ export async function createServer() {
     });
   });
 
+  // HTTP handler for /media-stream path (for debugging)
+  app.get('/media-stream', (req, res) => {
+    console.log('[HTTP] GET request to /media-stream - this should be a WebSocket upgrade!');
+    res.status(426).json({
+      error: 'Upgrade Required',
+      message: 'This endpoint requires WebSocket connection',
+      expectedProtocol: 'WebSocket'
+    });
+  });
+
   // Basic middleware
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
@@ -118,13 +128,32 @@ export async function createServer() {
     console.log('Initializing Twilio Media Stream WebSocket...');
     const wss = new WebSocketServer({ 
       server: httpServer,
-      path: '/media-stream'
+      path: '/media-stream',
+      perMessageDeflate: false,
+      clientTracking: true
     });
     
     console.log('[WebSocket] Server bound to HTTP server on path /media-stream');
+    console.log('[WebSocket] Server config:', {
+      path: '/media-stream',
+      perMessageDeflate: false,
+      clientTracking: true
+    });
+    
+    // Add connection tracking
+    wss.on('connection', (ws, req) => {
+      console.log('[WebSocket] *** CONNECTION ESTABLISHED ***');
+      console.log('[WebSocket] Client connected from:', req.socket.remoteAddress);
+      console.log('[WebSocket] Request URL:', req.url);
+    });
+    
+    wss.on('error', (error) => {
+      console.error('[WebSocket] *** SERVER ERROR ***:', error);
+    });
     
     setupTwilioMediaStream(wss);
     console.log('Twilio Media Stream WebSocket initialized');
+    console.log('[WebSocket] Waiting for connections...');
   } catch (error) {
     console.error('Failed to initialize Twilio WebSocket:', error);
     throw error;
