@@ -75,6 +75,9 @@ export const ERROR_CODES = {
   CALL_IN_PROGRESS: 'CALL_IN_PROGRESS',
   CALL_QUOTA_EXCEEDED: 'CALL_QUOTA_EXCEEDED',
   TWILIO_ERROR: 'TWILIO_ERROR',
+  
+  // Twilio configuration
+  TWILIO_NOT_CONFIGURED: 'TWILIO_NOT_CONFIGURED',
 } as const;
 
 export const ERROR_MESSAGES: Record<string, string> = {

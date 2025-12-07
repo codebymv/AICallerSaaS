@@ -223,6 +223,57 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+  // Get phone numbers from user's Twilio account
+  async getTwilioPhoneNumbers() {
+    return this.request<any[]>('/api/phone-numbers/twilio');
+  }
+
+  // Add an existing Twilio phone number
+  async addPhoneNumber(data: {
+    phoneNumber: string;
+    twilioSid?: string;
+    friendlyName?: string;
+    agentId?: string;
+  }) {
+    return this.request<any>('/api/phone-numbers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // Settings endpoints
+  async getTwilioSettings() {
+    return this.request<{
+      configured: boolean;
+      accountSid: string | null;
+      authTokenSet: boolean;
+      authTokenMasked: string | null;
+    }>('/api/settings/twilio');
+  }
+
+  async updateTwilioSettings(accountSid: string, authToken: string) {
+    return this.request<any>('/api/settings/twilio', {
+      method: 'PUT',
+      body: JSON.stringify({ accountSid, authToken }),
+    });
+  }
+
+  async deleteTwilioSettings() {
+    return this.request<any>('/api/settings/twilio', {
+      method: 'DELETE',
+    });
+  }
+
+  async testTwilioConnection() {
+    return this.request<{
+      valid: boolean;
+      accountName: string;
+      accountStatus: string;
+    }>('/api/settings/twilio/test', {
+      method: 'POST',
+    });
+  }
 }
 
 export class ApiError extends Error {

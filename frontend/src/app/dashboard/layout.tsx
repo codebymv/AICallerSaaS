@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { 
   Phone, 
+  PhoneCall,
   Bot, 
   BarChart3, 
   Settings, 
@@ -18,7 +19,8 @@ import { api } from '@/lib/api';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
-  { href: '/dashboard/calls', label: 'Calls', icon: Phone },
+  { href: '/dashboard/phone-numbers', label: 'Phone Numbers', icon: Phone },
+  { href: '/dashboard/calls', label: 'Calls', icon: PhoneCall },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

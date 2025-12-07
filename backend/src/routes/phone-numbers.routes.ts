@@ -8,14 +8,37 @@ import { createError } from '../middleware/error-handler';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { ERROR_CODES } from '../lib/constants';
 import { TwilioService } from '../services/twilio.service';
+import { decrypt } from '../utils/crypto';
 import { config } from '../config';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
 // Apply auth to all routes
 router.use(authenticate);
 
-// GET /api/phone-numbers - List phone numbers
+// Helper to get user's Twilio service
+async function getUserTwilioService(userId: string): Promise<TwilioService> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { twilioAccountSid: true, twilioAuthToken: true, twilioConfigured: true },
+  });
+
+  if (!user?.twilioConfigured || !user.twilioAccountSid || !user.twilioAuthToken) {
+    throw createError(
+      'Twilio credentials not configured. Please add your Twilio credentials in Settings.',
+      400,
+      ERROR_CODES.TWILIO_NOT_CONFIGURED
+    );
+  }
+
+  return new TwilioService({
+    accountSid: user.twilioAccountSid,
+    authToken: decrypt(user.twilioAuthToken),
+  });
+}
+
+// GET /api/phone-numbers - List phone numbers in database
 router.get('/', async (req: AuthRequest, res, next) => {
   try {
     const phoneNumbers = await prisma.phoneNumber.findMany({
@@ -37,39 +60,91 @@ router.get('/', async (req: AuthRequest, res, next) => {
   }
 });
 
-// POST /api/phone-numbers - Purchase a phone number
+// GET /api/phone-numbers/twilio - List phone numbers from user's Twilio account
+router.get('/twilio', async (req: AuthRequest, res, next) => {
+  try {
+    const twilioService = await getUserTwilioService(req.user!.id);
+    const twilioNumbers = await twilioService.listPhoneNumbers();
+
+    // Get already-added numbers from our database
+    const existingNumbers = await prisma.phoneNumber.findMany({
+      where: { userId: req.user!.id },
+      select: { phoneNumber: true },
+    });
+    const existingSet = new Set(existingNumbers.map((n) => n.phoneNumber));
+
+    // Mark which numbers are already added
+    const numbersWithStatus = twilioNumbers.map((n) => ({
+      ...n,
+      alreadyAdded: existingSet.has(n.phoneNumber),
+    }));
+
+    res.json({
+      success: true,
+      data: numbersWithStatus,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/phone-numbers - Add an existing Twilio phone number
 router.post('/', async (req: AuthRequest, res, next) => {
   try {
-    const { areaCode, defaultAgentId } = req.body;
+    const { phoneNumber, twilioSid, friendlyName, agentId } = req.body;
+
+    if (!phoneNumber) {
+      throw createError('Phone number is required', 400, ERROR_CODES.VALIDATION_ERROR);
+    }
 
     // Verify agent ownership if provided
-    if (defaultAgentId) {
+    if (agentId) {
       const agent = await prisma.agent.findFirst({
-        where: { id: defaultAgentId, userId: req.user!.id },
+        where: { id: agentId, userId: req.user!.id },
       });
       if (!agent) {
         throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
       }
     }
 
-    // Purchase from Twilio
-    const twilioService = new TwilioService();
-    const purchased = await twilioService.purchasePhoneNumber(areaCode);
+    // Check if number already exists
+    const existing = await prisma.phoneNumber.findUnique({
+      where: { phoneNumber },
+    });
+    if (existing) {
+      throw createError('Phone number already added', 400, ERROR_CODES.ALREADY_EXISTS);
+    }
+
+    // Configure webhook URLs on Twilio (if we have the SID)
+    if (twilioSid) {
+      try {
+        const twilioService = await getUserTwilioService(req.user!.id);
+        await twilioService.configurePhoneNumber(twilioSid, config.apiUrl);
+      } catch (error) {
+        logger.warn('[PhoneNumbers] Could not configure webhooks:', error);
+        // Continue anyway - user can configure manually
+      }
+    }
 
     // Save to database
-    const phoneNumber = await prisma.phoneNumber.create({
+    const savedNumber = await prisma.phoneNumber.create({
       data: {
         userId: req.user!.id,
-        phoneNumber: purchased.phoneNumber,
-        twilioSid: purchased.sid,
-        friendlyName: purchased.friendlyName,
-        agentId: defaultAgentId,
+        phoneNumber,
+        twilioSid,
+        friendlyName: friendlyName || phoneNumber,
+        agentId,
       },
+    });
+
+    logger.info('[PhoneNumbers] Phone number added', { 
+      userId: req.user!.id, 
+      phoneNumber 
     });
 
     res.status(201).json({
       success: true,
-      data: phoneNumber,
+      data: savedNumber,
     });
   } catch (error) {
     next(error);

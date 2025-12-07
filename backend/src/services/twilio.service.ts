@@ -6,11 +6,82 @@ import twilio from 'twilio';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
+export interface TwilioCredentials {
+  accountSid: string;
+  authToken: string;
+}
+
 export class TwilioService {
   private client: ReturnType<typeof twilio>;
+  private accountSid: string;
 
-  constructor() {
-    this.client = twilio(config.twilioAccountSid, config.twilioAuthToken);
+  /**
+   * Create a TwilioService instance
+   * @param credentials - Optional user-provided credentials. Falls back to env vars if not provided.
+   */
+  constructor(credentials?: TwilioCredentials) {
+    const accountSid = credentials?.accountSid || config.twilioAccountSid;
+    const authToken = credentials?.authToken || config.twilioAuthToken;
+    
+    this.accountSid = accountSid;
+    this.client = twilio(accountSid, authToken);
+  }
+
+  /**
+   * Validate Twilio credentials by fetching account info
+   */
+  async validateCredentials(): Promise<{ friendlyName: string; status: string }> {
+    try {
+      const account = await this.client.api.accounts(this.accountSid).fetch();
+      return {
+        friendlyName: account.friendlyName,
+        status: account.status,
+      };
+    } catch (error: any) {
+      logger.error('[Twilio] Credential validation failed:', error.message);
+      throw new Error('Invalid Twilio credentials');
+    }
+  }
+
+  /**
+   * List phone numbers owned by this Twilio account
+   */
+  async listPhoneNumbers(): Promise<Array<{
+    phoneNumber: string;
+    sid: string;
+    friendlyName: string;
+    capabilities: any;
+  }>> {
+    try {
+      const numbers = await this.client.incomingPhoneNumbers.list({ limit: 100 });
+      return numbers.map((n) => ({
+        phoneNumber: n.phoneNumber,
+        sid: n.sid,
+        friendlyName: n.friendlyName,
+        capabilities: n.capabilities,
+      }));
+    } catch (error) {
+      logger.error('[Twilio] List phone numbers error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Configure webhook URLs for an existing phone number
+   */
+  async configurePhoneNumber(sid: string, webhookBaseUrl: string): Promise<void> {
+    try {
+      await this.client.incomingPhoneNumbers(sid).update({
+        voiceUrl: `${webhookBaseUrl}/api/webhooks/twilio/voice`,
+        voiceMethod: 'POST',
+        statusCallback: `${webhookBaseUrl}/api/webhooks/twilio/status`,
+        statusCallbackMethod: 'POST',
+      });
+      logger.info('[Twilio] Phone number configured', { sid });
+    } catch (error) {
+      logger.error('[Twilio] Configure phone number error:', error);
+      throw error;
+    }
   }
 
   async purchasePhoneNumber(areaCode?: string) {

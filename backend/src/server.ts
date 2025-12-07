@@ -19,6 +19,7 @@ import agentRoutes from './routes/agents.routes';
 import callRoutes from './routes/calls.routes';
 import webhookRoutes from './routes/webhooks.routes';
 import phoneNumberRoutes from './routes/phone-numbers.routes';
+import settingsRoutes from './routes/settings.routes';
 
 // WebSocket
 import { initializeWebSocket } from './websocket';
@@ -71,6 +72,7 @@ export async function createServer() {
   app.use('/api/agents', agentRoutes);
   app.use('/api/calls', callRoutes);
   app.use('/api/phone-numbers', phoneNumberRoutes);
+  app.use('/api/settings', settingsRoutes);
   
   // Twilio webhooks (no auth required)
   app.use('/webhooks', webhookRoutes);
