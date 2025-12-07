@@ -7,6 +7,7 @@ import { createServer as createHttpServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
 import { Server as SocketIOServer } from 'socket.io';
+import { WebSocketServer } from 'ws';
 
 import { config } from './config';
 import { errorHandler } from './middleware/error-handler';
@@ -22,7 +23,7 @@ import phoneNumberRoutes from './routes/phone-numbers.routes';
 import settingsRoutes from './routes/settings.routes';
 
 // WebSocket
-import { initializeWebSocket } from './websocket';
+import { initializeWebSocket, setupTwilioMediaStream } from './websocket';
 
 export async function createServer() {
   const app = express();
@@ -93,6 +94,13 @@ export async function createServer() {
 
   // Initialize WebSocket handlers
   initializeWebSocket(io);
+
+  // Initialize Twilio Media Stream WebSocket server
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/media-stream'
+  });
+  setupTwilioMediaStream(wss);
 
   return { app, httpServer, io };
 }

@@ -51,7 +51,12 @@ router.post('/twilio/voice', async (req, res) => {
     }
 
     // Return TwiML to connect to media stream
-    const websocketUrl = `wss://${req.get('host')}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
+    // Use wss:// for production (HTTPS) or ws:// for local dev (HTTP)
+    const protocol = req.secure || req.get('x-forwarded-proto') === 'https' ? 'wss' : 'ws';
+    const host = req.get('host');
+    const websocketUrl = `${protocol}://${host}/media-stream?agentId=${agentId}&callSid=${CallSid}`;
+    
+    logger.info('[Webhook] Connecting to WebSocket:', websocketUrl);
     
     res.type('text/xml').send(`
       <Response>
