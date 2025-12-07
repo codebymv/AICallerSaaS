@@ -55,6 +55,7 @@ function loadConfig() {
   console.log('DEEPGRAM_API_KEY:', process.env.DEEPGRAM_API_KEY ? 'SET' : 'MISSING');
   console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'SET' : 'MISSING');
   console.log('ELEVENLABS_API_KEY:', process.env.ELEVENLABS_API_KEY ? 'SET' : 'MISSING');
+  console.log('WEBSOCKET_URL:', process.env.WEBSOCKET_URL ? process.env.WEBSOCKET_URL : 'NOT SET');
   
   const result = configSchema.safeParse({
     nodeEnv: process.env.NODE_ENV,
