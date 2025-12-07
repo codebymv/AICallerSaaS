@@ -94,14 +94,29 @@ export async function createServer() {
   app.use(errorHandler);
 
   // Initialize WebSocket handlers
-  initializeWebSocket(io);
+  try {
+    console.log('Initializing Socket.IO...');
+    initializeWebSocket(io);
+    console.log('Socket.IO initialized');
+  } catch (error) {
+    console.error('Failed to initialize Socket.IO:', error);
+    throw error;
+  }
 
   // Initialize Twilio Media Stream WebSocket server
-  const wss = new WebSocketServer({ 
-    server: httpServer,
-    path: '/media-stream'
-  });
-  setupTwilioMediaStream(wss);
+  try {
+    console.log('Initializing Twilio Media Stream WebSocket...');
+    const wss = new WebSocketServer({ 
+      server: httpServer,
+      path: '/media-stream'
+    });
+    setupTwilioMediaStream(wss);
+    console.log('Twilio Media Stream WebSocket initialized');
+  } catch (error) {
+    console.error('Failed to initialize Twilio WebSocket:', error);
+    throw error;
+  }
 
+  console.log('Server setup complete');
   return { app, httpServer, io };
 }
