@@ -1,4 +1,5 @@
 # Nixpacks configuration for Railway deployment
+# This is for a monorepo - Railway sets root to frontend/
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
