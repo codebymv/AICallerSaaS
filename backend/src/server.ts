@@ -44,9 +44,21 @@ export async function createServer() {
     contentSecurityPolicy: false, // Disable for development
   }));
   
-  // CORS configuration
+  // CORS configuration - allow multiple origins
+  const allowedOrigins = [
+    config.corsOrigin,
+    'http://localhost:3000', // Local development
+  ];
+  
   app.use(cors({
-    origin: config.corsOrigin,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH', 'HEAD'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],

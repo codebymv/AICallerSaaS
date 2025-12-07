@@ -9,9 +9,15 @@ import { logger } from './utils/logger';
 
 async function main() {
   try {
+    // Log startup configuration
+    logger.info('Starting server...');
+    logger.info(`NODE_ENV: ${config.nodeEnv}`);
+    logger.info(`PORT: ${config.port}`);
+    logger.info(`CORS_ORIGIN: ${config.corsOrigin}`);
+    
     const { httpServer, app } = await createServer();
     
-    httpServer.listen(config.port, () => {
+    httpServer.listen(config.port, '0.0.0.0', () => {
       logger.info(`🚀 Server running on port ${config.port}`);
       logger.info(`📡 WebSocket server ready`);
       logger.info(`🌍 Environment: ${config.nodeEnv}`);
