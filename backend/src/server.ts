@@ -39,21 +39,17 @@ export async function createServer() {
     path: '/socket.io',
   });
 
-  // Basic middleware first
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true }));
-  
-  app.use(helmet({
-    contentSecurityPolicy: false,
-  }));
-  
-  // Simple CORS - match working backends
-  app.use(cors({
-    origin: config.corsOrigin,
-    credentials: true,
-  }));
+  // Handle OPTIONS preflight FIRST - before ANY middleware
+  app.options('*', (req, res) => {
+    console.log(`OPTIONS ${req.path} from ${req.get('origin')}`);
+    res.header('Access-Control-Allow-Origin', config.corsOrigin);
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH,HEAD');
+    res.header('Access-Control-Allow-Headers', 'Content-Type,Accept,Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.status(200).send();
+  });
 
-  // Health check BEFORE any other middleware or logging
+  // Health check
   app.get('/health', (req, res) => {
     res.json({ 
       status: 'ok', 
@@ -61,11 +57,22 @@ export async function createServer() {
       version: '1.0.0',
     });
   });
+
+  // Basic middleware
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: true }));
   
-  // TEMP: Disable request logger for debugging
-  // app.use(requestLogger);
+  app.use(helmet({
+    contentSecurityPolicy: false,
+  }));
   
-  // Manual logging for OPTIONS
+  // Simple CORS for actual requests
+  app.use(cors({
+    origin: config.corsOrigin,
+    credentials: true,
+  }));
+  
+  // Manual logging
   app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} from ${req.get('origin')}`);
     next();

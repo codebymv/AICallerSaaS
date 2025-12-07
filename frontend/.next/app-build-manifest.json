@@ -1,9 +1,14 @@
 {
   "pages": {
-    "/page": [
+    "/dashboard/agents/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/page.js"
+      "static/chunks/app/dashboard/agents/page.js"
+    ],
+    "/dashboard/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/layout.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -11,20 +16,20 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
-    "/login/page": [
+    "/dashboard/agents/[id]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/login/page.js"
+      "static/chunks/app/dashboard/agents/[id]/page.js"
     ],
-    "/dashboard/page": [
+    "/dashboard/phone-numbers/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/page.js"
+      "static/chunks/app/dashboard/phone-numbers/page.js"
     ],
-    "/dashboard/layout": [
+    "/dashboard/calls/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/layout.js"
+      "static/chunks/app/dashboard/calls/page.js"
     ]
   }
 }
