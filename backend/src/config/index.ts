@@ -44,6 +44,17 @@ const configSchema = z.object({
 });
 
 function loadConfig() {
+  console.log('Loading configuration...');
+  console.log('NODE_ENV:', process.env.NODE_ENV);
+  console.log('PORT:', process.env.PORT);
+  console.log('CORS_ORIGIN:', process.env.CORS_ORIGIN);
+  console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'MISSING');
+  console.log('JWT_SECRET:', process.env.JWT_SECRET ? `SET (${process.env.JWT_SECRET.length} chars)` : 'MISSING');
+  console.log('TWILIO_ACCOUNT_SID:', process.env.TWILIO_ACCOUNT_SID ? 'SET' : 'MISSING');
+  console.log('DEEPGRAM_API_KEY:', process.env.DEEPGRAM_API_KEY ? 'SET' : 'MISSING');
+  console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'SET' : 'MISSING');
+  console.log('ELEVENLABS_API_KEY:', process.env.ELEVENLABS_API_KEY ? 'SET' : 'MISSING');
+  
   const result = configSchema.safeParse({
     nodeEnv: process.env.NODE_ENV,
     port: parseInt(process.env.PORT || '3001', 10),
@@ -72,10 +83,11 @@ function loadConfig() {
 
   if (!result.success) {
     console.error('❌ Invalid configuration:');
-    console.error(result.error.format());
+    console.error(JSON.stringify(result.error.format(), null, 2));
     process.exit(1);
   }
 
+  console.log('✅ Configuration loaded successfully');
   return result.data;
 }
 

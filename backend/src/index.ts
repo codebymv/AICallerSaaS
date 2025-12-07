@@ -2,6 +2,10 @@
 // Backend Entry Point
 // ============================================
 
+console.log('===================================');
+console.log('Starting AICallerSaaS Backend');
+console.log('===================================');
+
 import 'dotenv/config';
 import { createServer } from './server';
 import { config } from './config';
