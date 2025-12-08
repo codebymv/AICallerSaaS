@@ -170,12 +170,16 @@ class ApiClient {
     limit?: number;
     agentId?: string;
     status?: string;
+    startDate?: string;
+    endDate?: string;
   }) {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.set('page', params.page.toString());
     if (params?.limit) searchParams.set('limit', params.limit.toString());
     if (params?.agentId) searchParams.set('agentId', params.agentId);
     if (params?.status) searchParams.set('status', params.status);
+    if (params?.startDate) searchParams.set('startDate', params.startDate);
+    if (params?.endDate) searchParams.set('endDate', params.endDate);
 
     const query = searchParams.toString();
     return this.request<any[]>(`/api/calls${query ? `?${query}` : ''}`);
