@@ -476,7 +476,7 @@ export default function LandingPage() {
             Ready to Automate Your Phone Operations?
           </h2>
           <p className="text-lg text-slate-300 mb-8">
-            Join businesses using Gleam to handle customer calls with AI. 
+            Use Gleam to handle customer calls with AI. 
             Start for free, no credit card required.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
