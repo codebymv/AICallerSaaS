@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User } from 'lucide-react';
+import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
-import { formatDuration, formatCurrency, formatRelativeTime } from '@/lib/utils';
+import { formatDuration, formatCurrency, formatRelativeTime, formatPhoneNumber } from '@/lib/utils';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
 
 export default function DashboardPage() {
@@ -180,20 +180,34 @@ export default function DashboardPage() {
                   <Link
                     key={call.id}
                     href={`/dashboard/calls/${call.id}`}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-slate-50 transition-colors"
+                    className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-teal-100">
-                        <Phone className="h-5 w-5 text-teal-600" />
+                    <div className="flex flex-col gap-1 w-full">
+                      <div className="flex items-center gap-2 w-full flex-wrap">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {call.direction === 'inbound' ? (
+                            <>
+                              <span className="font-medium text-base sm:text-lg whitespace-nowrap block">{formatPhoneNumber(call.to)}</span>
+                              <ArrowDownLeft className="h-4 w-4 text-teal-600 mx-1" />
+                              <span className="font-medium text-base sm:text-lg whitespace-nowrap block">{formatPhoneNumber(call.from)}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="font-medium text-base sm:text-lg whitespace-nowrap block">{formatPhoneNumber(call.from)}</span>
+                              <ArrowUpRight className="h-4 w-4 text-teal-600 mx-1" />
+                              <span className="font-medium text-base sm:text-lg whitespace-nowrap block">{formatPhoneNumber(call.to)}</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="sm:ml-auto">
+                          <CallStatusBadge status={call.status} />
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{call.to}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatRelativeTime(call.createdAt)}
-                        </p>
-                      </div>
+                      <span className="flex items-center gap-2 w-full">
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">{formatRelativeTime(call.createdAt)}</span>
+                        <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">{call.duration ? formatDuration(call.duration) : '-'}</span>
+                      </span>
                     </div>
-                    <CallStatusBadge status={call.status} />
                   </Link>
                 ))}
               </div>

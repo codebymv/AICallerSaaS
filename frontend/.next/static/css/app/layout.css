@@ -767,6 +767,10 @@ video {
   margin-left: auto;
   margin-right: auto;
 }
+.mx-1 {
+  margin-left: 0.25rem;
+  margin-right: 0.25rem;
+}
 .-ml-2 {
   margin-left: -0.5rem;
 }
@@ -824,11 +828,17 @@ video {
 .mt-6 {
   margin-top: 1.5rem;
 }
+.ml-4 {
+  margin-left: 1rem;
+}
 .line-clamp-1 {
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
+}
+.block {
+  display: block;
 }
 .inline-block {
   display: inline-block;
@@ -2183,6 +2193,14 @@ video {
 
   .sm\:mt-1 {
     margin-top: 0.25rem;
+  }
+
+  .sm\:ml-3 {
+    margin-left: 0.75rem;
+  }
+
+  .sm\:ml-auto {
+    margin-left: auto;
   }
 
   .sm\:block {

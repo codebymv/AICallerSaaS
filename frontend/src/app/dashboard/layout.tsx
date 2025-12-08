@@ -101,8 +101,8 @@ export default function DashboardLayout({
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo - Teal background with inverted icon and text */}
-          <div className="flex items-center gap-3 px-6 py-5" style={{ backgroundColor: '#14b8a6' }}>
+          {/* Logo - Teal background with inverted icon and text, matches selected tab */}
+          <div className="flex items-center gap-3 px-6 py-5 bg-teal-600">
             <Image
               src="/logo-icon-transparent-inverted.png"
               alt="Gleam Icon"
