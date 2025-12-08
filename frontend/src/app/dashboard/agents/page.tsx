@@ -167,9 +167,9 @@ export default function AgentsPage() {
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 sm:gap-4 text-xs text-muted-foreground flex-wrap">
                     <span>Voice: {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || agent.voiceProvider}</span>
-                    <span className="hidden sm:inline">•</span>
+                    <span>•</span>
                     <span>Created: {new Date(agent.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>

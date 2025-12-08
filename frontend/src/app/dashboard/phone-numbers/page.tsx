@@ -331,7 +331,7 @@ export default function PhoneNumbersPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Settings className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Twilio Not Configured</h3>
+            <h3 className="text-lg font-semibold text-slate-600 mb-2">Twilio Not Configured</h3>
             <p className="text-muted-foreground text-center max-w-md mb-6">
               You need to connect your Twilio account before you can manage phone numbers.
             </p>
@@ -379,7 +379,7 @@ export default function PhoneNumbersPage() {
           ) : phoneNumbers.length === 0 ? (
             <div className="text-center py-8">
               <Phone className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
-              <p className="font-semibold mb-2">No phone numbers added yet</p>
+              <p className="font-semibold text-slate-600 mb-2">No phone numbers added yet</p>
               <p className="text-sm text-muted-foreground mb-4">
                 Purchase a phone number in your Twilio Console to get started
               </p>
@@ -405,7 +405,7 @@ export default function PhoneNumbersPage() {
                       <Phone className="h-5 w-5 text-teal-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-mono font-medium text-sm sm:text-base">
+                      <p className="font-mono font-medium text-sm sm:text-base text-slate-600">
                         {formatPhoneNumber(number.phoneNumber)}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">

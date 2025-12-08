@@ -205,31 +205,29 @@ export default function DashboardPage() {
                     href={`/dashboard/calls/${call.id}`}
                     className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex flex-col gap-1 w-full">
-                      <div className="flex items-center gap-2 w-full flex-wrap">
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {call.direction === 'inbound' ? (
-                            <>
-                              <span className="font-medium text-base sm:text-lg whitespace-nowrap block">{formatPhoneNumber(call.to)}</span>
-                              <ArrowDownLeft className="h-4 w-4 text-teal-600 mx-1" />
-                              <span className="font-medium text-base sm:text-lg whitespace-nowrap block">{formatPhoneNumber(call.from)}</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="font-medium text-base sm:text-lg whitespace-nowrap block">{formatPhoneNumber(call.from)}</span>
-                              <ArrowUpRight className="h-4 w-4 text-teal-600 mx-1" />
-                              <span className="font-medium text-base sm:text-lg whitespace-nowrap block">{formatPhoneNumber(call.to)}</span>
-                            </>
-                          )}
+                    <div className="flex flex-col gap-3 w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
+                            {call.direction === 'inbound' ? (
+                              <ArrowDownLeft className="h-4 w-4 text-teal-600" />
+                            ) : (
+                              <ArrowUpRight className="h-4 w-4 text-teal-600" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-mono text-sm font-medium text-slate-600">
+                              {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{call.agent?.name || 'Unknown'}</p>
+                          </div>
                         </div>
-                        <div className="sm:ml-auto">
-                          <CallStatusBadge status={call.status} />
-                        </div>
+                        <CallStatusBadge status={call.status} />
                       </div>
-                      <span className="flex items-center gap-2 w-full">
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">{formatRelativeTime(call.createdAt)}</span>
-                        <span className="text-sm text-muted-foreground whitespace-nowrap ml-4">{call.duration ? formatDuration(call.duration) : '-'}</span>
-                      </span>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{call.duration ? formatDuration(call.duration) : '-'}</span>
+                        <span>{formatRelativeTime(call.createdAt)}</span>
+                      </div>
                     </div>
                   </Link>
                 ))}

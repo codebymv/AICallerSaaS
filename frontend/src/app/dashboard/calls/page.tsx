@@ -361,7 +361,7 @@ export default function CallsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Phone className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No calls yet</h3>
+            <h3 className="text-lg font-semibold text-slate-600 mb-2">No calls yet</h3>
             <p className="text-muted-foreground text-center max-w-md">
               When you make or receive calls with your agents, they'll appear here.
             </p>
@@ -385,7 +385,7 @@ export default function CallsPage() {
                           )}
                         </div>
                         <div>
-                          <p className="font-mono text-sm font-medium">
+                          <p className="font-mono text-sm font-medium text-slate-600">
                             {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
                           </p>
                           <p className="text-xs text-muted-foreground">{call.agent?.name || 'Unknown'}</p>
@@ -432,15 +432,15 @@ export default function CallsPage() {
                           </div>
                         </td>
                         <td className="p-4">
-                          <span className="font-mono text-sm">
+                          <span className="font-mono text-sm text-slate-600">
                             {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
                           </span>
                         </td>
                         <td className="p-4">
-                          <span className="text-sm">{call.agent?.name || 'Unknown'}</span>
+                          <span className="text-sm text-slate-600">{call.agent?.name || 'Unknown'}</span>
                         </td>
                         <td className="p-4">
-                          <span className="text-sm">
+                          <span className="text-sm text-slate-600">
                             {call.duration ? formatDuration(call.duration) : '-'}
                           </span>
                         </td>

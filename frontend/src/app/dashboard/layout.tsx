@@ -66,7 +66,7 @@ export default function DashboardLayout({
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Mobile header with menu button and logo */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-3 flex items-center gap-3">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-3 flex items-center justify-between">
         <Button
           variant="ghost"
           size="icon"
@@ -75,27 +75,29 @@ export default function DashboardLayout({
         >
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-        <Image
-          src="/gleam-logo -icon.png"
-          alt="Gleam"
-          width={28}
-          height={28}
-          priority
-          className="h-7 w-7"
-        />
-        <Image
-          src="/gleam-logo-text.png"
-          alt="Gleam"
-          width={80}
-          height={24}
-          priority
-          className="h-6 w-auto"
-        />
+        <div className="flex items-center gap-3 absolute left-1/2 transform -translate-x-1/2">
+          <Image
+            src="/gleam-logo -icon.png"
+            alt="Gleam"
+            width={28}
+            height={28}
+            priority
+            className="h-7 w-7"
+          />
+          <Image
+            src="/gleam-logo-text.png"
+            alt="Gleam"
+            width={80}
+            height={24}
+            priority
+            className="h-6 w-auto"
+          />
+        </div>
       </div>
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-white border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-[60px] lg:top-0 bottom-0 left-0 z-40 w-64 bg-white border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

@@ -396,7 +396,7 @@ export default function AgentDetailPage() {
                 <div className="flex-1">
                   <div className="mb-4">
                     <Label className="text-muted-foreground">Voice</Label>
-                    <p className="font-medium text-lg">
+                    <p className="font-medium text-lg text-slate-600">
                       {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || agent.voice}
                     </p>
                     <p className="text-sm text-muted-foreground">
@@ -405,7 +405,7 @@ export default function AgentDetailPage() {
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Voice Provider</Label>
-                    <p className="font-medium">{agent.voiceProvider}</p>
+                    <p className="font-medium text-slate-600">{agent.voiceProvider}</p>
                   </div>
                 </div>
               </div>
@@ -420,7 +420,7 @@ export default function AgentDetailPage() {
                         <span className="w-6 h-6 rounded-full flex items-center justify-center bg-teal-100">
                           {getModeIcon(agent.mode)}
                         </span>
-                        <span className="font-medium">{AGENT_MODES[agent.mode].label}</span>
+                        <span className="font-medium text-slate-600">{AGENT_MODES[agent.mode].label}</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">{AGENT_MODES[agent.mode].description}</p>
                     </div>
@@ -428,33 +428,33 @@ export default function AgentDetailPage() {
                 )}
                 <div>
                   <Label className="text-muted-foreground">LLM Model</Label>
-                  <p className="font-medium">{agent.llmModel}</p>
+                  <p className="font-medium text-slate-600">{agent.llmModel}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
-                  <p className="font-medium">
+                  <p className="font-medium text-slate-600">
                     {new Date(agent.createdAt).toLocaleDateString()}
                   </p>
                 </div>
                 {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && agent.callWindowStart && agent.callWindowEnd && (
                   <div>
                     <Label className="text-muted-foreground">Call Window</Label>
-                    <p className="font-medium">{agent.callWindowStart} - {agent.callWindowEnd}</p>
+                    <p className="font-medium text-slate-600">{agent.callWindowStart} - {agent.callWindowEnd}</p>
                   </div>
                 )}
                 <div className="md:col-span-2">
                   <Label className="text-muted-foreground">Greeting</Label>
-                  <p className="font-medium">{agent.greeting || 'No greeting set'}</p>
+                  <p className="font-medium text-slate-600">{agent.greeting || 'No greeting set'}</p>
                 </div>
                 {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && agent.outboundGreeting && (
                   <div className="md:col-span-2">
                     <Label className="text-muted-foreground">Outbound Greeting</Label>
-                    <p className="font-medium">{agent.outboundGreeting}</p>
+                    <p className="font-medium text-slate-600">{agent.outboundGreeting}</p>
                   </div>
                 )}
                 <div className="md:col-span-2">
                   <Label className="text-muted-foreground">System Prompt</Label>
-                  <p className="font-medium whitespace-pre-wrap bg-muted p-3 rounded-md text-sm mt-1">
+                  <p className="font-medium text-slate-600 whitespace-pre-wrap bg-muted p-3 rounded-md text-sm mt-1">
                     {agent.systemPrompt}
                   </p>
                 </div>

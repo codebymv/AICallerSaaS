@@ -161,7 +161,7 @@ export default function CallDetailPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <Phone className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Call not found</h3>
+            <h3 className="text-lg font-semibold text-slate-600 mb-2">Call not found</h3>
             <p className="text-muted-foreground text-center">
               The call you're looking for doesn't exist or has been deleted.
             </p>
@@ -223,9 +223,9 @@ export default function CallDetailPage() {
                   {call.direction === 'inbound' ? 'Inbound Call' : 'Outbound Call'}
                 </p>
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="font-mono">{formatPhoneNumber(call.from)}</span>
+                  <span className="font-mono text-slate-600">{formatPhoneNumber(call.from)}</span>
                   <span className="text-muted-foreground">→</span>
-                  <span className="font-mono">{formatPhoneNumber(call.to)}</span>
+                  <span className="font-mono text-slate-600">{formatPhoneNumber(call.to)}</span>
                 </div>
               </div>
             </div>
@@ -234,11 +234,11 @@ export default function CallDetailPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-muted-foreground">Duration</p>
-                <p className="font-medium">{formatDuration(call.duration || 0)}</p>
+                <p className="font-medium text-slate-600">{formatDuration(call.duration || 0)}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Date</p>
-                <p className="font-medium text-sm">
+                <p className="font-medium text-sm text-slate-600">
                   {new Date(call.startTime || call.createdAt).toLocaleDateString()}
                 </p>
               </div>
@@ -248,7 +248,7 @@ export default function CallDetailPage() {
             {call.costUsd !== undefined && Number(call.costUsd) > 0 && (
               <div className="pt-2 border-t">
                 <p className="text-sm text-muted-foreground">Estimated Cost</p>
-                <p className="font-medium">${Number(call.costUsd).toFixed(4)}</p>
+                <p className="font-medium text-slate-600">${Number(call.costUsd).toFixed(4)}</p>
               </div>
             )}
           </CardContent>
@@ -276,7 +276,7 @@ export default function CallDetailPage() {
                   </div>
                 )}
                 <div>
-                  <p className="font-semibold">{call.agent.name}</p>
+                  <p className="font-semibold text-slate-600">{call.agent.name}</p>
                   {call.agent.voice && (
                     <p className="text-sm text-muted-foreground capitalize">
                       Voice: {call.agent.voice}
