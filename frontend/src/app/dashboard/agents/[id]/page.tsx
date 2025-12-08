@@ -217,7 +217,7 @@ export default function AgentDetailPage() {
                   Make Call
                 </Button>
               )}
-              <Button variant="outline" onClick={() => setEditing(true)}>
+              <Button variant="outline" onClick={() => setEditing(true)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
                 Edit
               </Button>
               <Button variant="destructive" onClick={handleDelete}>

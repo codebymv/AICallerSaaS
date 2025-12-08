@@ -232,21 +232,15 @@ export default function CallDetailPage() {
 
             {/* Details Grid */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Duration</p>
-                  <p className="font-medium">{formatDuration(call.duration || 0)}</p>
-                </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Duration</p>
+                <p className="font-medium">{formatDuration(call.duration || 0)}</p>
               </div>
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-xs text-muted-foreground">Date</p>
-                  <p className="font-medium text-sm">
-                    {new Date(call.startTime || call.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Date</p>
+                <p className="font-medium text-sm">
+                  {new Date(call.startTime || call.createdAt).toLocaleDateString()}
+                </p>
               </div>
             </div>
 

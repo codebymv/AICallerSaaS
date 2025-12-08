@@ -98,8 +98,8 @@ export const AGENT_STATUS_COLORS = {
 } as const;
 
 export const DIRECTION_COLORS = {
-  inbound: { bg: 'bg-blue-100', icon: 'text-blue-600' },
-  outbound: { bg: 'bg-green-100', icon: 'text-green-600' },
+  inbound: { bg: 'bg-teal-100', icon: 'text-teal-600' },
+  outbound: { bg: 'bg-teal-100', icon: 'text-teal-600' },
 } as const;
 
 // Agent modes
