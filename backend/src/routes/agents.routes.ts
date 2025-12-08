@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { createError } from '../middleware/error-handler';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { createAgentSchema, updateAgentSchema } from '../lib/validators';
+import { createAgentSchema, updateAgentSchema, makeOutboundCallSchema } from '../lib/validators';
 import { ERROR_CODES, DEFAULT_VOICES, DEFAULT_LLM_MODELS } from '../lib/constants';
 
 const router = Router();
@@ -27,12 +27,31 @@ router.get('/', async (req: AuthRequest, res, next) => {
       },
     });
 
+    // Calculate average duration for each agent
+    const agentsWithStats = await Promise.all(
+      agents.map(async (agent) => {
+        const avgDurationResult = await prisma.call.aggregate({
+          where: {
+            agentId: agent.id,
+            status: 'completed',
+            duration: { not: null },
+          },
+          _avg: {
+            duration: true,
+          },
+        });
+
+        return {
+          ...agent,
+          totalCalls: agent._count.calls,
+          avgDuration: Math.round(avgDurationResult._avg.duration || 0),
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: agents.map((agent) => ({
-        ...agent,
-        totalCalls: agent._count.calls,
-      })),
+      data: agentsWithStats,
     });
   } catch (error) {
     next(error);
@@ -58,11 +77,24 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
       throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
     }
 
+    // Calculate average duration of completed calls
+    const avgDurationResult = await prisma.call.aggregate({
+      where: {
+        agentId: agent.id,
+        status: 'completed',
+        duration: { not: null },
+      },
+      _avg: {
+        duration: true,
+      },
+    });
+
     res.json({
       success: true,
       data: {
         ...agent,
         totalCalls: agent._count.calls,
+        avgDuration: Math.round(avgDurationResult._avg.duration || 0),
       },
     });
   } catch (error) {
@@ -95,6 +127,12 @@ router.post('/', async (req: AuthRequest, res, next) => {
         interruptible: data.interruptible ?? true,
         webhookUrl: data.webhookUrl || null,
         webhookEvents: data.webhookEvents || [],
+        mode: data.mode || 'INBOUND',
+        outboundGreeting: data.outboundGreeting,
+        callTimeout: data.callTimeout || 600,
+        retryAttempts: data.retryAttempts || 0,
+        callWindowStart: data.callWindowStart,
+        callWindowEnd: data.callWindowEnd,
       },
     });
 
@@ -139,6 +177,12 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
         webhookUrl: data.webhookUrl,
         webhookEvents: data.webhookEvents,
         isActive: data.isActive,
+        mode: data.mode,
+        outboundGreeting: data.outboundGreeting,
+        callTimeout: data.callTimeout,
+        retryAttempts: data.retryAttempts,
+        callWindowStart: data.callWindowStart,
+        callWindowEnd: data.callWindowEnd,
       },
     });
 
@@ -241,6 +285,113 @@ router.post('/:id/test', async (req: AuthRequest, res, next) => {
           tts: ttsTime,
           total: totalTime,
         },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/agents/:id/call - Make an outbound call
+router.post('/:id/call', async (req: AuthRequest, res, next) => {
+  try {
+    const data = makeOutboundCallSchema.parse(req.body);
+
+    // Get agent and verify ownership
+    const agent = await prisma.agent.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user!.id,
+      },
+    });
+
+    if (!agent) {
+      throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
+    }
+
+    // Verify agent mode allows outbound calls
+    if (agent.mode === 'INBOUND') {
+      throw createError('Agent is configured for inbound calls only', 400, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    // Check call window restrictions if configured
+    if (agent.callWindowStart && agent.callWindowEnd) {
+      const now = new Date();
+      const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      
+      if (currentTime < agent.callWindowStart || currentTime > agent.callWindowEnd) {
+        throw createError(
+          `Calls are only allowed between ${agent.callWindowStart} and ${agent.callWindowEnd}`,
+          400,
+          ERROR_CODES.VALIDATION_ERROR
+        );
+      }
+    }
+
+    // Get user's Twilio phone number
+    const phoneNumber = await prisma.phoneNumber.findFirst({
+      where: {
+        userId: req.user!.id,
+        agentId: agent.id,
+        isActive: true,
+      },
+    });
+
+    if (!phoneNumber) {
+      throw createError('No active phone number assigned to this agent', 400, ERROR_CODES.VALIDATION_ERROR);
+    }
+
+    // Get user's Twilio credentials
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        twilioAccountSid: true,
+        twilioAuthToken: true,
+        twilioConfigured: true,
+      },
+    });
+
+    if (!user?.twilioConfigured || !user.twilioAccountSid || !user.twilioAuthToken) {
+      throw createError('Twilio account not configured', 400, ERROR_CODES.TWILIO_NOT_CONFIGURED);
+    }
+
+    // Initialize Twilio service with user's credentials
+    const { TwilioService } = await import('../services/twilio.service');
+    const twilioService = new TwilioService({
+      accountSid: user.twilioAccountSid,
+      authToken: user.twilioAuthToken,
+    });
+
+    // Make the outbound call
+    const result = await twilioService.makeOutboundCall(
+      data.phoneNumber,
+      agent.id,
+      phoneNumber.phoneNumber
+    );
+
+    // Create call record
+    const call = await prisma.call.create({
+      data: {
+        callSid: result.callSid,
+        userId: req.user!.id,
+        agentId: agent.id,
+        phoneNumberId: phoneNumber.id,
+        direction: 'outbound',
+        from: phoneNumber.phoneNumber,
+        to: data.phoneNumber,
+        status: 'initiated',
+        startTime: new Date(),
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        callSid: result.callSid,
+        callId: call.id,
+        status: 'initiated',
+        to: data.phoneNumber,
+        from: phoneNumber.phoneNumber,
       },
     });
   } catch (error) {

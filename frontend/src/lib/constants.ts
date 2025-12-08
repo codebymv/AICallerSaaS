@@ -101,3 +101,27 @@ export const DIRECTION_COLORS = {
   inbound: { bg: 'bg-blue-100', icon: 'text-blue-600' },
   outbound: { bg: 'bg-green-100', icon: 'text-green-600' },
 } as const;
+
+// Agent modes
+export const AGENT_MODES = {
+  INBOUND: { 
+    id: 'INBOUND',
+    label: 'Inbound', 
+    description: 'Receive inbound calls only',
+    iconType: 'ArrowDownLeft'
+  },
+  OUTBOUND: { 
+    id: 'OUTBOUND',
+    label: 'Outbound', 
+    description: 'Make outbound calls only',
+    iconType: 'ArrowUpRight'
+  },
+  HYBRID: { 
+    id: 'HYBRID',
+    label: 'Hybrid', 
+    description: 'Both inbound and outbound calls',
+    iconType: 'ArrowLeftRight'
+  },
+} as const;
+
+export type AgentMode = keyof typeof AGENT_MODES;

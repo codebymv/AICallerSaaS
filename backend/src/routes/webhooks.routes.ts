@@ -34,6 +34,30 @@ router.post('/twilio/voice', async (req, res) => {
       return;
     }
 
+    // Validate agent mode matches call direction
+    const callDirection = Direction?.toLowerCase() || 'inbound';
+    if (callDirection === 'inbound' && agent.mode === 'OUTBOUND') {
+      logger.error('[Webhook] Agent mode mismatch - inbound call to outbound-only agent', { agentId, mode: agent.mode });
+      const errorTwiml = '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<Response>' +
+          '<Say>This agent is not configured to receive inbound calls.</Say>' +
+          '<Hangup/>' +
+        '</Response>';
+      res.type('text/xml').send(errorTwiml);
+      return;
+    }
+    
+    if (callDirection === 'outbound' && agent.mode === 'INBOUND') {
+      logger.error('[Webhook] Agent mode mismatch - outbound call from inbound-only agent', { agentId, mode: agent.mode });
+      const errorTwiml = '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<Response>' +
+          '<Say>This agent is not configured to make outbound calls.</Say>' +
+          '<Hangup/>' +
+        '</Response>';
+      res.type('text/xml').send(errorTwiml);
+      return;
+    }
+
     // Update call record for inbound calls
     if (Direction === 'inbound') {
       await prisma.call.create({

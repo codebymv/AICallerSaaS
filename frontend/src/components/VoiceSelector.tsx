@@ -45,20 +45,20 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="w-full flex items-center gap-3 px-3 py-2 border rounded-md bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full flex items-center gap-3 px-3 py-2.5 border rounded-md bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {/* Avatar */}
-        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
           {selectedVoice.avatar ? (
             <Image
               src={selectedVoice.avatar}
               alt={selectedVoice.name}
-              width={32}
-              height={32}
+              width={48}
+              height={48}
               className="w-full h-full object-cover"
             />
           ) : (
-            <User className="w-4 h-4 text-slate-400" />
+            <User className="w-6 h-6 text-slate-400" />
           )}
         </div>
         
@@ -80,22 +80,22 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
               key={voice.id}
               type="button"
               onClick={() => handleSelect(voice.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 hover:bg-slate-50 transition-colors ${
                 voice.id === value ? 'bg-primary/5' : ''
               }`}
             >
               {/* Avatar */}
-              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {voice.avatar ? (
                   <Image
                     src={voice.avatar}
                     alt={voice.name}
-                    width={32}
-                    height={32}
+                    width={48}
+                    height={48}
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <User className="w-4 h-4 text-slate-400" />
+                  <User className="w-6 h-6 text-slate-400" />
                 )}
               </div>
               

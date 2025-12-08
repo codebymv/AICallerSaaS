@@ -8,8 +8,22 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES } from '@/lib/constants';
+import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot } from 'lucide-react';
+
+const getModeIcon = (mode: string) => {
+  switch (mode) {
+    case 'INBOUND':
+      return <ArrowDownLeft className="h-4 w-4 text-teal-600" />;
+    case 'OUTBOUND':
+      return <ArrowUpRight className="h-4 w-4 text-teal-600" />;
+    case 'HYBRID':
+      return <ArrowLeftRight className="h-4 w-4 text-teal-600" />;
+    default:
+      return null;
+  }
+};
 
 const templates = [
   {
@@ -77,6 +91,12 @@ export default function NewAgentPage() {
     systemPrompt: string;
     voiceId: string;
     greeting: string;
+    mode: AgentMode;
+    outboundGreeting: string;
+    callTimeout: number;
+    retryAttempts: number;
+    callWindowStart: string;
+    callWindowEnd: string;
   }>({
     name: '',
     description: '',
@@ -84,6 +104,12 @@ export default function NewAgentPage() {
     systemPrompt: '',
     voiceId: ELEVENLABS_VOICES[0].id,
     greeting: '',
+    mode: 'INBOUND',
+    outboundGreeting: '',
+    callTimeout: 600,
+    retryAttempts: 0,
+    callWindowStart: '',
+    callWindowEnd: '',
   });
 
   const selectedTemplate = templates.find((t) => t.id === formData.template);
@@ -109,6 +135,12 @@ export default function NewAgentPage() {
         voiceId: formData.voiceId,
         greeting: formData.greeting,
         template: formData.template !== 'custom' ? formData.template : undefined,
+        mode: formData.mode,
+        outboundGreeting: formData.outboundGreeting || undefined,
+        callTimeout: formData.callTimeout,
+        retryAttempts: formData.retryAttempts,
+        callWindowStart: formData.callWindowStart || undefined,
+        callWindowEnd: formData.callWindowEnd || undefined,
       });
 
       toast({ title: 'Agent created!', description: `${formData.name} is ready to use.` });
@@ -123,16 +155,18 @@ export default function NewAgentPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Create New Agent</h1>
-        <p className="text-muted-foreground">Build an AI voice agent step by step</p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Bot className="h-8 w-8 text-slate-600" />
+        <h1 className="text-3xl font-bold text-slate-600">Create New Agent</h1>
+        <span className="hidden sm:inline text-slate-400">•</span>
+        <p className="text-muted-foreground w-full sm:w-auto">Build an AI voice agent step by step</p>
       </div>
 
       {/* Step 1: Choose Template */}
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>Choose a Template</CardTitle>
+            <CardTitle className="text-slate-600">Choose a Template</CardTitle>
             <CardDescription>Start with a pre-built template or create from scratch</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -151,7 +185,7 @@ export default function NewAgentPage() {
               ))}
             </div>
             <div className="flex justify-end">
-              <Button onClick={() => setStep(2)}>Continue</Button>
+              <Button onClick={() => setStep(2)} className="bg-teal-600 hover:bg-teal-700">Continue</Button>
             </div>
           </CardContent>
         </Card>
@@ -183,9 +217,57 @@ export default function NewAgentPage() {
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
+            <div className="space-y-2">
+              <Label>Agent Mode *</Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {Object.entries(AGENT_MODES).map(([key, mode]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`p-4 border rounded-lg text-left hover:border-primary transition-colors ${
+                      formData.mode === key ? 'border-primary bg-primary/5' : ''
+                    }`}
+                    onClick={() => setFormData({ ...formData, mode: key as AgentMode })}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                        {getModeIcon(key)}
+                      </span>
+                      <h3 className="font-semibold text-sm">{mode.label}</h3>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{mode.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {(formData.mode === 'OUTBOUND' || formData.mode === 'HYBRID') && (
+              <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
+                <h3 className="font-semibold text-sm">Outbound Call Settings</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="callWindowStart">Call Window (optional)</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      id="callWindowStart"
+                      type="time"
+                      placeholder="Start time"
+                      value={formData.callWindowStart}
+                      onChange={(e) => setFormData({ ...formData, callWindowStart: e.target.value })}
+                    />
+                    <Input
+                      id="callWindowEnd"
+                      type="time"
+                      placeholder="End time"
+                      value={formData.callWindowEnd}
+                      onChange={(e) => setFormData({ ...formData, callWindowEnd: e.target.value })}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Restrict when outbound calls can be made (e.g., 09:00-17:00)</p>
+                </div>
+              </div>
+            )}
             <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}>Back</Button>
-              <Button onClick={() => setStep(3)} disabled={!formData.name.trim()}>Continue</Button>
+              <Button variant="outline" onClick={() => setStep(1)} className="text-teal-600 border-teal-600 hover:bg-teal-50">Back</Button>
+              <Button onClick={() => setStep(3)} disabled={!formData.name.trim()} className="bg-teal-600 hover:bg-teal-700">Continue</Button>
             </div>
           </CardContent>
         </Card>
@@ -195,7 +277,7 @@ export default function NewAgentPage() {
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle>Behavior & Voice</CardTitle>
+            <CardTitle className="text-slate-600">Behavior & Voice</CardTitle>
             <CardDescription>Configure how your agent talks and responds</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -224,10 +306,25 @@ export default function NewAgentPage() {
                 value={formData.greeting}
                 onChange={(e) => setFormData({ ...formData, greeting: e.target.value })}
               />
+              <p className="text-xs text-muted-foreground">
+                {formData.mode === 'INBOUND' ? 'Greeting for inbound calls' : 'Default greeting for inbound calls'}
+              </p>
             </div>
+            {(formData.mode === 'OUTBOUND' || formData.mode === 'HYBRID') && (
+              <div className="space-y-2">
+                <Label htmlFor="outboundGreeting">Outbound Greeting (optional)</Label>
+                <Input
+                  id="outboundGreeting"
+                  placeholder="e.g., Hi, this is calling from [company]..."
+                  value={formData.outboundGreeting}
+                  onChange={(e) => setFormData({ ...formData, outboundGreeting: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">Different greeting when making outbound calls</p>
+              </div>
+            )}
             <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={() => setStep(2)}>Back</Button>
-              <Button onClick={handleSubmit} disabled={loading}>
+              <Button variant="outline" onClick={() => setStep(2)} className="text-teal-600 border-teal-600 hover:bg-teal-50">Back</Button>
+              <Button onClick={handleSubmit} disabled={loading} className="bg-teal-600 hover:bg-teal-700">
                 {loading ? 'Creating...' : 'Create Agent'}
               </Button>
             </div>

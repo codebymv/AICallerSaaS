@@ -3,12 +3,25 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { formatDuration, formatCurrency, formatRelativeTime, formatPhoneNumber } from '@/lib/utils';
-import { ELEVENLABS_VOICES } from '@/lib/constants';
+import { ELEVENLABS_VOICES, AGENT_MODES } from '@/lib/constants';
+
+const getModeIcon = (mode: string) => {
+  switch (mode) {
+    case 'INBOUND':
+      return <ArrowDownLeft className="h-3.5 w-3.5 text-teal-600" />;
+    case 'OUTBOUND':
+      return <ArrowUpRight className="h-3.5 w-3.5 text-teal-600" />;
+    case 'HYBRID':
+      return <ArrowLeftRight className="h-3.5 w-3.5 text-teal-600" />;
+    default:
+      return null;
+  }
+};
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<any>(null);
@@ -47,9 +60,11 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Overview of your AI calling activity</p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <BarChart3 className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Dashboard</h1>
+          <span className="hidden sm:inline text-slate-400">•</span>
+          <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">Overview of your agent activity</p>
         </div>
         <Link href="/dashboard/agents/new" className="w-full sm:w-auto">
           <Button className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
@@ -92,8 +107,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Your Agents</CardTitle>
-              <CardDescription>AI voice agents you've created</CardDescription>
+              <CardTitle className="text-slate-600">Your Agents</CardTitle>
             </div>
             <Link href="/dashboard/agents">
               <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
@@ -133,21 +147,31 @@ export default function DashboardPage() {
                         )}
                       </div>
                       <div>
-                        <p className="font-medium">{agent.name}</p>
+                        <p className="font-medium text-slate-600">{agent.name}</p>
                         <p className="text-sm text-muted-foreground">
                           {agent.totalCalls || 0} calls
                         </p>
                       </div>
                     </div>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        agent.isActive
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {agent.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {agent.mode && AGENT_MODES[agent.mode as keyof typeof AGENT_MODES] && (
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                            {getModeIcon(agent.mode)}
+                          </span>
+                          {AGENT_MODES[agent.mode as keyof typeof AGENT_MODES].label}
+                        </span>
+                      )}
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          agent.isActive
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {agent.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -159,8 +183,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle>Recent Calls</CardTitle>
-              <CardDescription>Latest call activity</CardDescription>
+              <CardTitle className="text-slate-600">Recent Calls</CardTitle>
             </div>
             <Link href="/dashboard/calls">
               <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
@@ -236,7 +259,7 @@ function StatCard({
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-xs sm:text-sm text-muted-foreground truncate">{title}</p>
-            <p className="text-lg sm:text-2xl font-bold truncate">{value}</p>
+            <p className="text-lg sm:text-2xl font-bold text-slate-600 truncate">{value}</p>
             <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 truncate">{description}</p>
           </div>
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 flex-shrink-0">

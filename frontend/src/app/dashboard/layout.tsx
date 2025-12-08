@@ -23,7 +23,6 @@ const navItems = [
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
   { href: '/dashboard/phone-numbers', label: 'Phone Numbers', icon: Contact },
   { href: '/dashboard/calls', label: 'Calls', icon: PhoneCall },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 
 export default function DashboardLayout({
@@ -147,22 +146,38 @@ export default function DashboardLayout({
             })}
           </nav>
 
+          {/* Settings */}
+          <div className="px-4 pb-4">
+            <Link
+              href="/dashboard/settings"
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                pathname.startsWith('/dashboard/settings')
+                  ? 'bg-teal-600 text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <Settings className="h-5 w-5" />
+              Settings
+            </Link>
+          </div>
+
           {/* User info */}
-          <div className="p-4 border-t">
+          <div className="p-4 bg-teal-600">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
-                <span className="text-sm font-medium text-teal-700">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+                <span className="text-sm font-medium text-white">
                   {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user?.name || 'User'}</p>
-                <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                <p className="text-sm font-medium text-white truncate">{user?.name || 'User'}</p>
+                <p className="text-xs text-white truncate">{user?.email}</p>
               </div>
             </div>
             <Button
               variant="ghost"
-              className="w-full justify-start mt-2"
+              className="w-full justify-start mt-2 text-white hover:bg-white/10"
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4 mr-2" />

@@ -20,6 +20,12 @@ enum Plan {
   ENTERPRISE
 }
 
+enum AgentMode {
+  INBOUND
+  OUTBOUND
+  HYBRID
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -95,6 +101,14 @@ model Agent {
   maxCallDuration Int       @default(600)
   endCallPhrases  String[]  @default([])
   transferNumber  String?
+  
+  // Mode Configuration
+  mode            AgentMode @default(INBOUND)
+  outboundGreeting String?   @db.Text
+  callTimeout      Int       @default(600)
+  retryAttempts    Int       @default(0)
+  callWindowStart  String?
+  callWindowEnd    String?
   
   // Template
   template        String?

@@ -248,7 +248,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-slate-900">Rachel - Booking Agent</h3>
-                    <p className="text-sm text-slate-500">Placing outbound call to lead minutes after qualifying...</p>
+                    <p className="text-sm text-slate-500">Places call to qualified leads in just 5 minutes</p>
                   </div>
                   <div className="ml-auto flex items-center gap-2">
                     <span className="flex h-2 w-2 bg-green-500 rounded-full animate-pulse" />
@@ -269,7 +269,7 @@ export default function LandingPage() {
                   <div className="flex gap-3">
                     <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs">👤</div>
                     <div className="flex-1 bg-white rounded-lg p-3 text-sm">
-                      I&apos;m available this Tuesday and Thursday in the afternoon.
+                      Sure I&apos;m available this Tuesday and Thursday in the afternoon!
                     </div>
                   </div>
                 </div>

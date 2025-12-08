@@ -156,6 +156,36 @@ export class TwilioService {
     }
   }
 
+  /**
+   * Make an outbound call for an agent
+   */
+  async makeOutboundCall(toNumber: string, agentId: string, fromNumber: string): Promise<{ callSid: string }> {
+    try {
+      const webhookUrl = `${config.apiUrl}/webhooks/twilio/voice?agentId=${agentId}`;
+      
+      const call = await this.client.calls.create({
+        to: toNumber,
+        from: fromNumber,
+        url: webhookUrl,
+        method: 'POST',
+        statusCallback: `${config.apiUrl}/webhooks/twilio/status`,
+        statusCallbackMethod: 'POST',
+        statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+        record: true,
+        recordingStatusCallback: `${config.apiUrl}/webhooks/twilio/recording`,
+      });
+
+      logger.info('[Twilio] Outbound call initiated', { callSid: call.sid, to: toNumber, from: fromNumber, agentId });
+
+      return {
+        callSid: call.sid,
+      };
+    } catch (error) {
+      logger.error('[Twilio] Make outbound call error:', error);
+      throw error;
+    }
+  }
+
   async endCall(callSid: string) {
     try {
       await this.client.calls(callSid).update({

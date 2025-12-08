@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Phone, RefreshCw, Settings, Trash2, ChevronDown, Bot } from 'lucide-react';
+import { Phone, RefreshCw, Settings, Trash2, ChevronDown, Bot, Contact } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/api';
@@ -76,27 +76,31 @@ function AgentSelector({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="flex items-center gap-2 px-3 py-1.5 text-sm border rounded-md bg-white disabled:opacity-50 min-w-[160px] justify-between hover:bg-slate-50 transition-colors"
+        className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md bg-white disabled:opacity-50 min-w-[180px] justify-between hover:bg-slate-50 transition-colors"
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           {selectedAgent ? (
             <>
-              {selectedAvatar ? (
-                <Image
-                  src={selectedAvatar}
-                  alt={selectedAgent.name}
-                  width={20}
-                  height={20}
-                  className="rounded-full flex-shrink-0"
-                />
-              ) : (
-                <Bot className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-              )}
-              <span className="truncate">{selectedAgent.name}</span>
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {selectedAvatar ? (
+                  <Image
+                    src={selectedAvatar}
+                    alt={selectedAgent.name}
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Bot className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <span className="truncate font-medium">{selectedAgent.name}</span>
             </>
           ) : (
             <>
-              <Bot className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <Bot className="h-5 w-5 text-muted-foreground" />
+              </div>
               <span className="text-muted-foreground">No agent</span>
             </>
           )}
@@ -105,16 +109,18 @@ function AgentSelector({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-white border rounded-md shadow-lg py-1 max-h-60 overflow-auto right-0 sm:right-auto">
+        <div className="absolute z-50 mt-1 w-full min-w-[240px] bg-white border rounded-md shadow-lg py-1 max-h-60 overflow-auto right-0 sm:right-auto">
           <button
             type="button"
             onClick={() => {
               onSelect('');
               setIsOpen(false);
             }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 text-left"
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left"
           >
-            <Bot className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+              <Bot className="h-5 w-5 text-muted-foreground" />
+            </div>
             <span className="text-muted-foreground">No agent</span>
           </button>
           {agents.map((agent) => {
@@ -127,22 +133,24 @@ function AgentSelector({
                   onSelect(agent.id);
                   setIsOpen(false);
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 text-left ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left ${
                   agent.id === selectedAgentId ? 'bg-blue-50' : ''
                 }`}
               >
-                {avatar ? (
-                  <Image
-                    src={avatar}
-                    alt={agent.name}
-                    width={24}
-                    height={24}
-                    className="rounded-full flex-shrink-0"
-                  />
-                ) : (
-                  <Bot className="h-6 w-6 text-muted-foreground flex-shrink-0" />
-                )}
-                <span className="truncate">{agent.name}</span>
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {avatar ? (
+                    <Image
+                      src={avatar}
+                      alt={agent.name}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Bot className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <span className="truncate font-medium">{agent.name}</span>
               </button>
             );
           })}
@@ -313,9 +321,11 @@ export default function PhoneNumbersPage() {
   if (!twilioConfigured) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Phone Numbers</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Manage your Twilio phone numbers</p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Contact className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Phone Numbers</h1>
+          <span className="hidden sm:inline text-slate-400">•</span>
+          <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">Manage your Twilio phone numbers</p>
         </div>
 
         <Card>
@@ -341,9 +351,11 @@ export default function PhoneNumbersPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Phone Numbers</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">Manage your Twilio phone numbers</p>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Contact className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Phone Numbers</h1>
+          <span className="hidden sm:inline text-slate-400">•</span>
+          <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">Manage your Twilio phone numbers</p>
         </div>
         <Button onClick={fetchTwilioNumbers} disabled={loadingTwilio} className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
           <RefreshCw className={`h-4 w-4 mr-2 ${loadingTwilio ? 'animate-spin' : ''}`} />
@@ -354,7 +366,7 @@ export default function PhoneNumbersPage() {
       {/* Phone Numbers Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Twilio</CardTitle>
+          <CardTitle className="text-slate-600">Twilio</CardTitle>
           {/* <CardDescription>
             Phone numbers from your Twilio account connected to AI agents
           </CardDescription> */}
@@ -393,17 +405,14 @@ export default function PhoneNumbersPage() {
                       <Phone className="h-5 w-5 text-teal-600" />
                     </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="font-mono font-medium text-sm sm:text-base">
-                          {formatPhoneNumber(number.phoneNumber)}
-                        </p>
+                      <p className="font-mono font-medium text-sm sm:text-base">
+                        {formatPhoneNumber(number.phoneNumber)}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
                           Twilio
                         </span>
                       </div>
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                        {number.friendlyName || number.phoneNumber}
-                      </p>
                     </div>
                   </div>
                   

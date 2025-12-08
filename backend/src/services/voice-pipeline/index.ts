@@ -13,6 +13,7 @@ import { getElevenLabsVoiceId } from '../../lib/constants';
 
 export interface PipelineConfig {
   agent: Agent;
+  callDirection?: string;
   onTranscript: (text: string, isFinal: boolean, speaker: 'user' | 'agent') => void;
   onAudio: (audio: Buffer) => void;
   onError: (error: Error) => void;
@@ -85,16 +86,27 @@ export class VoicePipeline extends EventEmitter {
 
   async start(): Promise<void> {
     console.log('[Pipeline] start() called');
-    console.log('[Pipeline] Agent greeting:', this.config.agent.greeting);
+    console.log('[Pipeline] Call direction:', this.config.callDirection);
     
     console.log('[Pipeline] Starting Deepgram STT...');
     await this.stt.startStream();
     console.log('[Pipeline] ✅ Deepgram STT started');
 
+    // Determine which greeting to use based on call direction
+    let greeting = this.config.agent.greeting;
+    if (this.config.callDirection === 'outbound' && this.config.agent.outboundGreeting) {
+      greeting = this.config.agent.outboundGreeting;
+      console.log('[Pipeline] Using outbound greeting');
+    } else {
+      console.log('[Pipeline] Using regular greeting');
+    }
+    
+    console.log('[Pipeline] Greeting:', greeting);
+
     // Send greeting if configured
-    if (this.config.agent.greeting) {
+    if (greeting) {
       console.log('[Pipeline] Generating greeting audio...');
-      await this.generateAndSendAudio(this.config.agent.greeting);
+      await this.generateAndSendAudio(greeting);
       console.log('[Pipeline] ✅ Greeting sent');
     } else {
       console.log('[Pipeline] ⚠️ No greeting configured');

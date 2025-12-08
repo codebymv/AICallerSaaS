@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Phone,
+  PhoneCall,
   ArrowLeft,
   Clock,
   Calendar,
@@ -62,13 +63,17 @@ const formatDuration = (seconds: number): string => {
 };
 
 const formatDate = (dateString: string): string => {
-  return new Date(dateString).toLocaleDateString('en-US', {
+  const date = new Date(dateString);
+  const dateStr = date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+  });
+  const timeStr = date.toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
   });
+  return `${dateStr} at ${timeStr}`;
 };
 
 const formatPhoneNumber = (phone?: string): string => {
@@ -147,7 +152,7 @@ export default function CallDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/calls">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Calls
             </Button>
@@ -174,13 +179,16 @@ export default function CallDetailPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/calls">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Call Details</h1>
+            <div className="flex items-center gap-3">
+              <PhoneCall className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Call Details</h1>
+            </div>
             <p className="text-muted-foreground text-sm">
               {formatDate(call.startTime || call.createdAt)}
             </p>
@@ -196,7 +204,7 @@ export default function CallDetailPage() {
         {/* Call Info Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Call Information</CardTitle>
+            <CardTitle className="text-lg text-slate-600">Call Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Direction & Numbers */}
@@ -255,7 +263,7 @@ export default function CallDetailPage() {
         {/* Agent Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">AI Agent</CardTitle>
+            <CardTitle className="text-lg text-slate-600">AI Agent</CardTitle>
           </CardHeader>
           <CardContent>
             {call.agent ? (
@@ -282,7 +290,7 @@ export default function CallDetailPage() {
                   )}
                 </div>
                 <Link href={`/dashboard/agents/${call.agent.id}`} className="ml-auto">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="text-teal-600 border-teal-600 hover:bg-teal-50">
                     View Agent
                   </Button>
                 </Link>
@@ -303,11 +311,7 @@ export default function CallDetailPage() {
       {call.transcript && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Transcript
-            </CardTitle>
-            <CardDescription>Full conversation transcript</CardDescription>
+            <CardTitle className="text-lg text-slate-600">Transcript</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="bg-slate-50 rounded-lg p-4 max-h-96 overflow-y-auto">
@@ -340,7 +344,7 @@ export default function CallDetailPage() {
       {call.summary && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Call Summary</CardTitle>
+            <CardTitle className="text-lg text-slate-600">Call Summary</CardTitle>
             {call.sentiment && (
               <CardDescription>
                 Sentiment: <span className="capitalize">{call.sentiment}</span>
@@ -357,7 +361,7 @@ export default function CallDetailPage() {
       {call.recordingUrl && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Recording</CardTitle>
+            <CardTitle className="text-lg text-slate-600">Recording</CardTitle>
           </CardHeader>
           <CardContent>
             <audio controls className="w-full">

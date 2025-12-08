@@ -143,24 +143,21 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground text-sm sm:text-base">Configure your integrations and preferences</p>
+      <div className="flex items-center gap-3 flex-wrap">
+        <Settings className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Settings</h1>
+        <span className="hidden sm:inline text-slate-400">•</span>
+        <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">Configure your integrations and preferences</p>
       </div>
 
       {/* Twilio Integration */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
-                <Phone className="h-5 w-5 text-teal-600" />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <CardTitle className="text-base sm:text-lg">Twilio Integration</CardTitle>
-                  {/* Help Tooltip */}
-                  <div className="relative">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base sm:text-lg text-slate-600">Twilio Integration</CardTitle>
+              {/* Help Tooltip */}
+              <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowHelp(!showHelp)}
@@ -176,6 +173,7 @@ export default function SettingsPage() {
                           onClick={() => setShowHelp(false)}
                         />
                         <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-72 bg-white border rounded-lg shadow-lg p-4">
+                          <span className="text-sm mb">You will need a Twilio number to place or receive calls.</span>
                           <h4 className="font-medium text-sm mb-2">How to get your Twilio credentials:</h4>
                           <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
                             <li>Go to your Twilio Console</li>
@@ -195,11 +193,6 @@ export default function SettingsPage() {
                       </>
                     )}
                   </div>
-                </div>
-                <CardDescription className="text-xs sm:text-sm">
-                  Connect your Twilio account to make and receive calls
-                </CardDescription>
-              </div>
             </div>
             <div className="flex items-center gap-2 ml-13 sm:ml-0">
               {settings?.configured ? (
@@ -316,7 +309,7 @@ export default function SettingsPage() {
       {settings?.configured && !hasPhoneNumbers && (
         <Card>
           <CardHeader>
-            <CardTitle>Next Steps</CardTitle>
+            <CardTitle className="text-slate-600">Next Steps</CardTitle>
             <CardDescription>
               Your Twilio account is connected. Here's what to do next:
             </CardDescription>

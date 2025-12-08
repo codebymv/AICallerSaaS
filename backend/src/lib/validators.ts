@@ -28,9 +28,20 @@ export const createAgentSchema = z.object({
   webhookUrl: z.string().url().optional(),
   webhookEvents: z.array(z.string()).optional(),
   isActive: z.boolean().default(true),
+  // Mode-specific fields
+  mode: z.enum(['INBOUND', 'OUTBOUND', 'HYBRID']).default('INBOUND'),
+  outboundGreeting: z.string().max(500).optional(),
+  callTimeout: z.number().min(30).max(3600).default(600),
+  retryAttempts: z.number().min(0).max(5).default(0),
+  callWindowStart: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format').optional(),
+  callWindowEnd: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format').optional(),
 });
 
 export const updateAgentSchema = createAgentSchema.partial();
+
+export const makeOutboundCallSchema = z.object({
+  phoneNumber: z.string().min(10, 'Invalid phone number').max(15),
+});
 
 // Call schemas
 export const initiateCallSchema = z.object({
@@ -61,6 +72,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type CreateAgentInput = z.infer<typeof createAgentSchema>;
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
+export type MakeOutboundCallInput = z.infer<typeof makeOutboundCallSchema>;
 export type InitiateCallInput = z.infer<typeof initiateCallSchema>;
 export type CallFilterInput = z.infer<typeof callFilterSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

@@ -151,6 +151,19 @@ class ApiClient {
     );
   }
 
+  async makeOutboundCall(agentId: string, phoneNumber: string) {
+    return this.request<{
+      callSid: string;
+      callId: string;
+      status: string;
+      to: string;
+      from: string;
+    }>(`/api/agents/${agentId}/call`, {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber }),
+    });
+  }
+
   // Call endpoints
   async getCalls(params?: {
     page?: number;

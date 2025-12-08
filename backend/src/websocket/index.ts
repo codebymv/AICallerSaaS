@@ -189,11 +189,18 @@ async function handleStreamStart(
     ws,
   };
 
+  // Get call direction from database
+  const call = await prisma.call.findUnique({
+    where: { callSid },
+    select: { direction: true },
+  });
+
   // Initialize voice pipeline
   console.log('[MediaStream] Creating voice pipeline...');
   session.pipeline = new VoicePipeline(
     {
       agent,
+      callDirection: call?.direction || 'inbound',
       onTranscript: (text, isFinal, speaker) => {
         console.log('[Pipeline] Transcript:', { text, isFinal, speaker });
         // Broadcast to dashboard
@@ -273,14 +280,29 @@ async function handleStreamStop(session: CallSession) {
 
   // Stop pipeline
   if (session.pipeline) {
-    // Save transcript to database
+    // Get call to calculate duration
+    const call = await prisma.call.findUnique({
+      where: { callSid: session.callSid },
+      select: { startTime: true },
+    });
+
+    const endTime = new Date();
+    let duration: number | undefined;
+
+    // Calculate duration in seconds if startTime exists
+    if (call?.startTime) {
+      duration = Math.round((endTime.getTime() - call.startTime.getTime()) / 1000);
+    }
+
+    // Save transcript and update call status
     const messages = session.pipeline.getMessages();
     await prisma.call.update({
       where: { callSid: session.callSid },
       data: {
         transcript: messages as any,
         status: 'completed',
-        endTime: new Date(),
+        endTime,
+        duration,
       },
     });
 
