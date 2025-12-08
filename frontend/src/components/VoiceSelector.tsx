@@ -45,10 +45,10 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="w-full flex items-center gap-3 px-3 py-2 border rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="w-full flex items-center gap-3 px-3 py-2 border rounded-md bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {/* Avatar */}
-        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
           {selectedVoice.avatar ? (
             <Image
               src={selectedVoice.avatar}
@@ -58,7 +58,7 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
               className="w-full h-full object-cover"
             />
           ) : (
-            <User className="w-4 h-4 text-gray-400" />
+            <User className="w-4 h-4 text-slate-400" />
           )}
         </div>
         
@@ -69,7 +69,7 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
         </div>
         
         {/* Chevron */}
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown */}
@@ -80,12 +80,12 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
               key={voice.id}
               type="button"
               onClick={() => handleSelect(voice.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2 hover:bg-slate-50 transition-colors ${
                 voice.id === value ? 'bg-primary/5' : ''
               }`}
             >
               {/* Avatar */}
-              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {voice.avatar ? (
                   <Image
                     src={voice.avatar}
@@ -95,7 +95,7 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <User className="w-4 h-4 text-gray-400" />
+                  <User className="w-4 h-4 text-slate-400" />
                 )}
               </div>
               

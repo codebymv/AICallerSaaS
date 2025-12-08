@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import { Phone, Plus, RefreshCw, Loader2, CheckCircle, Settings, Bot, Trash2 } from 'lucide-react';
+import { Phone, RefreshCw, Settings, Trash2, ChevronDown, Bot } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { ELEVENLABS_VOICES } from '@/lib/constants';
 
 interface PhoneNumber {
   id: string;
@@ -14,7 +16,7 @@ interface PhoneNumber {
   twilioSid?: string;
   friendlyName?: string;
   isActive: boolean;
-  agent?: { id: string; name: string } | null;
+  agent?: { id: string; name: string; voice?: string } | null;
   createdAt: string;
 }
 
@@ -26,6 +28,130 @@ interface TwilioNumber {
   alreadyAdded: boolean;
 }
 
+interface Agent {
+  id: string;
+  name: string;
+  voice?: string;
+}
+
+// Helper to get avatar for a voice
+const getVoiceAvatar = (voiceId?: string): string | null => {
+  if (!voiceId) return null;
+  const voice = ELEVENLABS_VOICES.find(v => v.id === voiceId.toLowerCase());
+  return voice?.avatar || null;
+};
+
+// Custom Agent Selector with avatars
+function AgentSelector({
+  agents,
+  selectedAgentId,
+  onSelect,
+  disabled,
+}: {
+  agents: Agent[];
+  selectedAgentId: string | null;
+  onSelect: (agentId: string) => void;
+  disabled: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const selectedAgent = agents.find(a => a.id === selectedAgentId);
+  const selectedAvatar = selectedAgent ? getVoiceAvatar(selectedAgent.voice) : null;
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className="flex items-center gap-2 px-3 py-1.5 text-sm border rounded-md bg-white disabled:opacity-50 min-w-[160px] justify-between hover:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {selectedAgent ? (
+            <>
+              {selectedAvatar ? (
+                <Image
+                  src={selectedAvatar}
+                  alt={selectedAgent.name}
+                  width={20}
+                  height={20}
+                  className="rounded-full flex-shrink-0"
+                />
+              ) : (
+                <Bot className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              )}
+              <span className="truncate">{selectedAgent.name}</span>
+            </>
+          ) : (
+            <>
+              <Bot className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <span className="text-muted-foreground">No agent</span>
+            </>
+          )}
+        </div>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-white border rounded-md shadow-lg py-1 max-h-60 overflow-auto right-0 sm:right-auto">
+          <button
+            type="button"
+            onClick={() => {
+              onSelect('');
+              setIsOpen(false);
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 text-left"
+          >
+            <Bot className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <span className="text-muted-foreground">No agent</span>
+          </button>
+          {agents.map((agent) => {
+            const avatar = getVoiceAvatar(agent.voice);
+            return (
+              <button
+                key={agent.id}
+                type="button"
+                onClick={() => {
+                  onSelect(agent.id);
+                  setIsOpen(false);
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-slate-100 text-left ${
+                  agent.id === selectedAgentId ? 'bg-blue-50' : ''
+                }`}
+              >
+                {avatar ? (
+                  <Image
+                    src={avatar}
+                    alt={agent.name}
+                    width={24}
+                    height={24}
+                    className="rounded-full flex-shrink-0"
+                  />
+                ) : (
+                  <Bot className="h-6 w-6 text-muted-foreground flex-shrink-0" />
+                )}
+                <span className="truncate">{agent.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PhoneNumbersPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -34,7 +160,7 @@ export default function PhoneNumbersPage() {
   const [twilioNumbers, setTwilioNumbers] = useState<TwilioNumber[]>([]);
   const [loadingTwilio, setLoadingTwilio] = useState(false);
   const [addingNumber, setAddingNumber] = useState<string | null>(null);
-  const [agents, setAgents] = useState<Array<{ id: string; name: string }>>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [updatingNumber, setUpdatingNumber] = useState<string | null>(null);
 
   useEffect(() => {
@@ -188,8 +314,8 @@ export default function PhoneNumbersPage() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Phone Numbers</h1>
-          <p className="text-muted-foreground">Manage your Twilio phone numbers</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Phone Numbers</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Manage your Twilio phone numbers</p>
         </div>
 
         <Card>
@@ -213,75 +339,87 @@ export default function PhoneNumbersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Phone Numbers</h1>
-          <p className="text-muted-foreground">Manage your Twilio phone numbers</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Phone Numbers</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Manage your Twilio phone numbers</p>
         </div>
-        <Button variant="outline" onClick={fetchTwilioNumbers} disabled={loadingTwilio}>
+        <Button onClick={fetchTwilioNumbers} disabled={loadingTwilio} className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
           <RefreshCw className={`h-4 w-4 mr-2 ${loadingTwilio ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
       </div>
 
-      {/* Your Phone Numbers */}
+      {/* Phone Numbers Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Your Phone Numbers</CardTitle>
-          <CardDescription>
-            Phone numbers connected to your AI agents
-          </CardDescription>
+          <CardTitle>Twilio</CardTitle>
+          {/* <CardDescription>
+            Phone numbers from your Twilio account connected to AI agents
+          </CardDescription> */}
         </CardHeader>
         <CardContent>
-          {phoneNumbers.length === 0 ? (
+          {loadingTwilio && phoneNumbers.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : phoneNumbers.length === 0 ? (
             <div className="text-center py-8">
-              <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-2">No phone numbers added yet</p>
-              <p className="text-sm text-muted-foreground">
-                Add a phone number from your Twilio account below
+              <Phone className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <p className="font-semibold mb-2">No phone numbers added yet</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Purchase a phone number in your Twilio Console to get started
               </p>
+              <a
+                href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center text-sm text-blue-600 hover:underline"
+              >
+                Open Twilio Console →
+              </a>
             </div>
           ) : (
             <div className="space-y-3">
               {phoneNumbers.map((number) => (
                 <div
                   key={number.id}
-                  className="flex items-center justify-between p-4 rounded-lg border"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border gap-4"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                      <Phone className="h-5 w-5 text-green-600" />
+                  {/* Phone Info */}
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                      <Phone className="h-5 w-5 text-teal-600" />
                     </div>
-                    <div>
-                      <p className="font-mono font-medium">
-                        {formatPhoneNumber(number.phoneNumber)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {number.friendlyName || 'No name'}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-mono font-medium text-sm sm:text-base">
+                          {formatPhoneNumber(number.phoneNumber)}
+                        </p>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                          Twilio
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                        {number.friendlyName || number.phoneNumber}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <Bot className="h-4 w-4 text-muted-foreground" />
-                      <select
-                        className="px-3 py-1.5 text-sm border rounded-md bg-white disabled:opacity-50"
-                        value={number.agent?.id || ''}
-                        onChange={(e) => handleAssignAgent(number.id, e.target.value)}
-                        disabled={updatingNumber === number.id || agents.length === 0}
-                      >
-                        <option value="">No agent</option>
-                        {agents.map((agent) => (
-                          <option key={agent.id} value={agent.id}>
-                            {agent.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 sm:gap-3 ml-13 sm:ml-0">
+                    <AgentSelector
+                      agents={agents}
+                      selectedAgentId={number.agent?.id || null}
+                      onSelect={(agentId) => handleAssignAgent(number.id, agentId)}
+                      disabled={updatingNumber === number.id || agents.length === 0}
+                    />
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteNumber(number.id)}
+                      className="flex-shrink-0"
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
@@ -293,93 +431,21 @@ export default function PhoneNumbersPage() {
         </CardContent>
       </Card>
 
-      {/* Available Twilio Numbers */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Available from Twilio</CardTitle>
-          <CardDescription>
-            Phone numbers in your Twilio account that can be added
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {loadingTwilio ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : twilioNumbers.length === 0 ? (
-            <div className="text-center py-8">
-              <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground mb-2">No phone numbers found in Twilio</p>
-              <p className="text-sm text-muted-foreground">
-                Purchase a phone number in your{' '}
-                <a
-                  href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  Twilio Console
-                </a>
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {twilioNumbers.map((number) => (
-                <div
-                  key={number.sid}
-                  className={`flex items-center justify-between p-4 rounded-lg border ${
-                    number.alreadyAdded ? 'bg-slate-50' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      number.alreadyAdded ? 'bg-gray-100' : 'bg-blue-100'
-                    }`}>
-                      <Phone className={`h-5 w-5 ${
-                        number.alreadyAdded ? 'text-gray-500' : 'text-blue-600'
-                      }`} />
-                    </div>
-                    <div>
-                      <p className="font-mono font-medium">
-                        {formatPhoneNumber(number.phoneNumber)}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {number.friendlyName}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    {number.alreadyAdded ? (
-                      <span className="flex items-center gap-1 text-sm text-green-600">
-                        <CheckCircle className="h-4 w-4" />
-                        Added
-                      </span>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => handleAddNumber(number)}
-                        disabled={addingNumber === number.phoneNumber}
-                      >
-                        {addingNumber === number.phoneNumber ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Adding...
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Help text */}
+      {phoneNumbers.length > 0 && (
+        <p className="text-xs sm:text-sm text-muted-foreground text-center">
+          Need more numbers?{' '}
+          <a
+            href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-teal-600 hover:underline"
+          >
+            Purchase in Twilio Console
+          </a>
+          {' '}then refresh to see them here.
+        </p>
+      )}
     </div>
   );
 }

@@ -47,10 +47,18 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mb-4 flex justify-center">
+        <CardHeader className="text-center p-0">
+          <div className="mb-4 flex justify-center items-center bg-teal-600 rounded-t-md py-6">
             <Image
-              src="/gleam-logo-text.png"
+              src="/logo-icon-transparent-inverted.png"
+              alt="Gleam Icon"
+              width={32}
+              height={32}
+              priority
+              className="h-8 w-8 mr-3"
+            />
+            <Image
+              src="/gleam-logo-text-inverted.png"
               alt="Gleam"
               width={150}
               height={50}
@@ -103,12 +111,12 @@ export default function RegisterPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={loading}>
               {loading ? 'Creating account...' : 'Create Account'}
             </Button>
             <p className="text-sm text-muted-foreground text-center">
               Already have an account?{' '}
-              <Link href="/login" className="text-primary hover:underline">
+              <Link href="/login" className="text-teal-600 hover:underline">
                 Sign in
               </Link>
             </p>

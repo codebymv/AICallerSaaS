@@ -45,14 +45,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of your AI calling activity</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Overview of your AI calling activity</p>
         </div>
-        <Link href="/dashboard/agents/new">
-          <Button>
+        <Link href="/dashboard/agents/new" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
             <Plus className="h-4 w-4 mr-2" />
             New Agent
           </Button>
@@ -60,7 +60,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="Total Calls"
           value={stats?.totalCalls || 0}
@@ -96,7 +96,7 @@ export default function DashboardPage() {
               <CardDescription>AI voice agents you've created</CardDescription>
             </div>
             <Link href="/dashboard/agents">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
                 View all <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </Link>
@@ -119,7 +119,7 @@ export default function DashboardPage() {
                     className="flex items-center justify-between p-3 rounded-lg border hover:bg-slate-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                         {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
                           <Image
                             src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
@@ -129,7 +129,7 @@ export default function DashboardPage() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <User className="h-5 w-5 text-gray-400" />
+                          <User className="h-5 w-5 text-slate-400" />
                         )}
                       </div>
                       <div>
@@ -143,7 +143,7 @@ export default function DashboardPage() {
                       className={`px-2 py-1 text-xs rounded-full ${
                         agent.isActive
                           ? 'bg-green-100 text-green-700'
-                          : 'bg-gray-100 text-gray-600'
+                          : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {agent.isActive ? 'Active' : 'Inactive'}
@@ -163,7 +163,7 @@ export default function DashboardPage() {
               <CardDescription>Latest call activity</CardDescription>
             </div>
             <Link href="/dashboard/calls">
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
                 View all <ArrowRight className="h-4 w-4 ml-1" />
               </Button>
             </Link>
@@ -183,20 +183,8 @@ export default function DashboardPage() {
                     className="flex items-center justify-between p-3 rounded-lg border hover:bg-slate-50 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          call.direction === 'inbound'
-                            ? 'bg-blue-100'
-                            : 'bg-green-100'
-                        }`}
-                      >
-                        <Phone
-                          className={`h-5 w-5 ${
-                            call.direction === 'inbound'
-                              ? 'text-blue-600'
-                              : 'text-green-600'
-                          }`}
-                        />
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center bg-teal-100">
+                        <Phone className="h-5 w-5 text-teal-600" />
                       </div>
                       <div>
                         <p className="font-medium">{call.to}</p>
@@ -230,14 +218,14 @@ function StatCard({
 }) {
   return (
     <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground">{title}</p>
-            <p className="text-2xl font-bold">{value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{description}</p>
+      <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6 pb-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">{title}</p>
+            <p className="text-lg sm:text-2xl font-bold truncate">{value}</p>
+            <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 truncate">{description}</p>
           </div>
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 flex-shrink-0">
             {icon}
           </div>
         </div>
@@ -255,7 +243,7 @@ function CallStatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <span className={`px-2 py-1 text-xs rounded-full ${styles[status] || 'bg-gray-100 text-gray-600'}`}>
+    <span className={`px-2 py-1 text-xs rounded-full ${styles[status] || 'bg-slate-100 text-slate-600'}`}>
       {status}
     </span>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -34,11 +34,12 @@ interface Agent {
 export default function AgentDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(searchParams.get('edit') === 'true');
 
   // Form state
   const [name, setName] = useState('');
@@ -201,7 +202,9 @@ export default function AgentDetailPage() {
           <CardHeader className="pb-2">
             <CardDescription>Status</CardDescription>
             <CardTitle className="text-3xl">
-              <span className={agent.isActive ? 'text-green-600' : 'text-gray-400'}>
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-base font-medium ${
+                agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+              }`}>
                 {agent.isActive ? 'Active' : 'Inactive'}
               </span>
             </CardTitle>
@@ -220,6 +223,13 @@ export default function AgentDetailPage() {
         <CardContent className="space-y-6">
           {editing ? (
             <>
+              <div className="space-y-2">
+                <Label htmlFor="voice">Voice</Label>
+                <VoiceSelector
+                  value={voiceId}
+                  onChange={setVoiceId}
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input
@@ -247,13 +257,6 @@ export default function AgentDetailPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="voice">Voice</Label>
-                <VoiceSelector
-                  value={voiceId}
-                  onChange={setVoiceId}
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="systemPrompt">System Prompt</Label>
                 <textarea
                   id="systemPrompt"
@@ -267,7 +270,7 @@ export default function AgentDetailPage() {
             <div className="space-y-6">
               {/* Voice Avatar Section */}
               <div className="flex items-center gap-6 pb-6 border-b">
-                <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
                     <Image
                       src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
@@ -277,7 +280,7 @@ export default function AgentDetailPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <User className="w-12 h-12 text-gray-400" />
+                    <User className="w-12 h-12 text-slate-400" />
                   )}
                 </div>
                 <div className="flex-1">

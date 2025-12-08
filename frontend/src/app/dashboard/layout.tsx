@@ -66,15 +66,32 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
+      {/* Mobile header with menu button and logo */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-3 flex items-center gap-3">
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="-ml-2"
         >
           {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
+        <Image
+          src="/gleam-logo -icon.png"
+          alt="Gleam"
+          width={28}
+          height={28}
+          priority
+          className="h-7 w-7"
+        />
+        <Image
+          src="/gleam-logo-text.png"
+          alt="Gleam"
+          width={80}
+          height={24}
+          priority
+          className="h-6 w-auto"
+        />
       </div>
 
       {/* Sidebar */}
@@ -84,10 +101,10 @@ export default function DashboardLayout({
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="flex items-center gap-3 px-6 py-4 border-b">
+          {/* Logo - Teal background with inverted icon and text */}
+          <div className="flex items-center gap-3 px-6 py-5" style={{ backgroundColor: '#14b8a6' }}>
             <Image
-              src="/gleam-logo -icon.png"
+              src="/logo-icon-transparent-inverted.png"
               alt="Gleam Icon"
               width={32}
               height={32}
@@ -95,7 +112,7 @@ export default function DashboardLayout({
               className="h-8 w-8"
             />
             <Image
-              src="/gleam-logo-text.png"
+              src="/gleam-logo-text-inverted.png"
               alt="Gleam"
               width={100}
               height={32}
@@ -118,7 +135,7 @@ export default function DashboardLayout({
                   href={item.href}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-teal-600 text-white'
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
@@ -133,8 +150,8 @@ export default function DashboardLayout({
           {/* User info */}
           <div className="p-4 border-t">
             <div className="flex items-center gap-3 px-3 py-2">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">
+              <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center">
+                <span className="text-sm font-medium text-teal-700">
                   {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                 </span>
               </div>
@@ -157,7 +174,7 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <main className="lg:pl-64">
-        <div className="min-h-screen p-6 pt-16 lg:pt-6">
+        <div className="min-h-screen p-4 sm:p-6 pt-20 lg:pt-6">
           {children}
         </div>
       </main>

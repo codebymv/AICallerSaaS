@@ -11,6 +11,9 @@ const workSans = Work_Sans({
 export const metadata: Metadata = {
   title: 'Gleam - AI Voice Agents for Modern Business',
   description: 'Build, test, and deploy AI voice agents that handle inbound and outbound calls with natural conversation',
+  icons: {
+    icon: '/favicon.png',
+  },
 };
 
 export default function RootLayout({

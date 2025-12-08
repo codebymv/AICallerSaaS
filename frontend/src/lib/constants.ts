@@ -2,17 +2,17 @@
 
 export const ELEVENLABS_VOICES = [
   { id: 'rachel', name: 'Rachel', description: 'Calm, professional female voice', avatar: '/rachel.png' },
-  { id: 'drew', name: 'Drew', description: 'Confident, articulate male voice', avatar: undefined },
-  { id: 'clyde', name: 'Clyde', description: 'Warm, friendly male voice', avatar: undefined },
-  { id: 'paul', name: 'Paul', description: 'Clear, authoritative male voice', avatar: undefined },
-  { id: 'domi', name: 'Domi', description: 'Energetic, youthful female voice', avatar: undefined },
-  { id: 'dave', name: 'Dave', description: 'Conversational male voice', avatar: undefined },
+  { id: 'drew', name: 'Drew', description: 'Confident, articulate male voice', avatar: '/drew.png' },
+  { id: 'clyde', name: 'Clyde', description: 'Warm, friendly male voice', avatar: '/clyde.png' },
+  { id: 'paul', name: 'Paul', description: 'Clear, authoritative male voice', avatar: '/paul.png' },
+  { id: 'domi', name: 'Domi', description: 'Energetic, youthful female voice', avatar: '/domi.png' },
+  { id: 'dave', name: 'Dave', description: 'Conversational male voice', avatar: '/dave.png' },
   { id: 'fin', name: 'Fin', description: 'Sophisticated Irish male voice', avatar: '/fin.png' },
-  { id: 'sarah', name: 'Sarah', description: 'Soft, friendly female voice', avatar: undefined },
-  { id: 'antoni', name: 'Antoni', description: 'Warm, expressive male voice', avatar: undefined },
-  { id: 'thomas', name: 'Thomas', description: 'Calm, reassuring male voice', avatar: undefined },
+  { id: 'sarah', name: 'Sarah', description: 'Soft, friendly female voice', avatar: '/sarah.png' },
+  { id: 'antoni', name: 'Antoni', description: 'Warm, expressive male voice', avatar: '/antoni.png' },
+  { id: 'thomas', name: 'Thomas', description: 'Calm, reassuring male voice', avatar: '/thomas.png' },
   { id: 'charlie', name: 'Charlie', description: 'Natural Australian male voice', avatar: '/charlie.png' },
-] as const;
+];
 
 export const DEFAULT_VOICES = {
   elevenlabs: ELEVENLABS_VOICES,
@@ -77,4 +77,27 @@ export const CALL_STATUS = {
   BUSY: 'busy',
   NO_ANSWER: 'no-answer',
   CANCELED: 'canceled',
+} as const;
+
+// UI Color Constants - Centralized for consistency
+export const STATUS_COLORS: Record<string, string> = {
+  completed: 'bg-green-100 text-green-700',
+  'in-progress': 'bg-blue-100 text-blue-700',
+  failed: 'bg-red-100 text-red-700',
+  ringing: 'bg-yellow-100 text-yellow-700',
+  busy: 'bg-orange-100 text-orange-700',
+  'no-answer': 'bg-slate-100 text-slate-600',
+  queued: 'bg-slate-100 text-slate-600',
+  canceled: 'bg-slate-100 text-slate-600',
+  default: 'bg-slate-100 text-slate-600',
+};
+
+export const AGENT_STATUS_COLORS = {
+  active: 'bg-green-100 text-green-700',
+  inactive: 'bg-slate-100 text-slate-600',
+} as const;
+
+export const DIRECTION_COLORS = {
+  inbound: { bg: 'bg-blue-100', icon: 'text-blue-600' },
+  outbound: { bg: 'bg-green-100', icon: 'text-green-600' },
 } as const;

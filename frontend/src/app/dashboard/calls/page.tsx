@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Phone, ArrowUpRight, ArrowDownLeft, Search, Filter } from 'lucide-react';
+import { Phone, ArrowUpRight, ArrowDownLeft, Search, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,11 +57,15 @@ export default function CallsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Calls</h1>
-          <p className="text-muted-foreground">View and manage your call history</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Calls</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">View and manage your call history</p>
         </div>
+        <Button onClick={() => fetchCalls(1)} disabled={loading} className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Filters */}
@@ -104,81 +108,113 @@ export default function CallsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b">
-                  <tr className="text-sm text-muted-foreground">
-                    <th className="text-left p-4 font-medium">Direction</th>
-                    <th className="text-left p-4 font-medium">Phone</th>
-                    <th className="text-left p-4 font-medium">Agent</th>
-                    <th className="text-left p-4 font-medium">Duration</th>
-                    <th className="text-left p-4 font-medium">Status</th>
-                    <th className="text-left p-4 font-medium">Date</th>
-                    <th className="text-left p-4 font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {calls.map((call) => (
-                    <tr key={call.id} className="border-b hover:bg-slate-50">
-                      <td className="p-4">
-                        <div
-                          className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            call.direction === 'inbound'
-                              ? 'bg-blue-100'
-                              : 'bg-green-100'
-                          }`}
-                        >
+        <>
+          {/* Mobile Card View */}
+          <div className="space-y-3 md:hidden">
+            {calls.map((call) => (
+              <Link key={call.id} href={`/dashboard/calls/${call.id}`}>
+                <Card className="hover:bg-slate-50 transition-colors">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100">
                           {call.direction === 'inbound' ? (
-                            <ArrowDownLeft className="h-4 w-4 text-blue-600" />
+                            <ArrowDownLeft className="h-4 w-4 text-teal-600" />
                           ) : (
-                            <ArrowUpRight className="h-4 w-4 text-green-600" />
+                            <ArrowUpRight className="h-4 w-4 text-teal-600" />
                           )}
                         </div>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-mono text-sm">
-                          {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="text-sm">{call.agent?.name || 'Unknown'}</span>
-                      </td>
-                      <td className="p-4">
-                        <span className="text-sm">
-                          {call.duration ? formatDuration(call.duration) : '-'}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <CallStatusBadge status={call.status} />
-                      </td>
-                      <td className="p-4">
-                        <span className="text-sm text-muted-foreground">
-                          {formatDate(call.createdAt)}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <Link href={`/dashboard/calls/${call.id}`}>
-                          <Button variant="ghost" size="sm">
-                            View
-                          </Button>
-                        </Link>
-                      </td>
+                        <div>
+                          <p className="font-mono text-sm font-medium">
+                            {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{call.agent?.name || 'Unknown'}</p>
+                        </div>
+                      </div>
+                      <CallStatusBadge status={call.status} />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{call.duration ? formatDuration(call.duration) : '-'}</span>
+                      <span>{formatDate(call.createdAt)}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          {/* Desktop Table View */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b">
+                    <tr className="text-sm text-muted-foreground">
+                      <th className="text-left p-4 font-medium">Direction</th>
+                      <th className="text-left p-4 font-medium">Phone</th>
+                      <th className="text-left p-4 font-medium">Agent</th>
+                      <th className="text-left p-4 font-medium">Duration</th>
+                      <th className="text-left p-4 font-medium">Status</th>
+                      <th className="text-left p-4 font-medium">Date</th>
+                      <th className="text-left p-4 font-medium"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {hasMore && (
-              <div className="p-4 text-center border-t">
-                <Button variant="outline" onClick={loadMore}>
-                  Load More
-                </Button>
+                  </thead>
+                  <tbody>
+                    {calls.map((call) => (
+                      <tr key={call.id} className="border-b hover:bg-slate-50">
+                        <td className="p-4">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100">
+                            {call.direction === 'inbound' ? (
+                              <ArrowDownLeft className="h-4 w-4 text-teal-600" />
+                            ) : (
+                              <ArrowUpRight className="h-4 w-4 text-teal-600" />
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-4">
+                          <span className="font-mono text-sm">
+                            {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <span className="text-sm">{call.agent?.name || 'Unknown'}</span>
+                        </td>
+                        <td className="p-4">
+                          <span className="text-sm">
+                            {call.duration ? formatDuration(call.duration) : '-'}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <CallStatusBadge status={call.status} />
+                        </td>
+                        <td className="p-4">
+                          <span className="text-sm text-muted-foreground">
+                            {formatDate(call.createdAt)}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <Link href={`/dashboard/calls/${call.id}`}>
+                            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                              View
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          {hasMore && (
+            <div className="text-center">
+              <Button variant="outline" onClick={loadMore}>
+                Load More
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -190,12 +226,12 @@ function CallStatusBadge({ status }: { status: string }) {
     'in-progress': 'bg-blue-100 text-blue-700',
     failed: 'bg-red-100 text-red-700',
     ringing: 'bg-yellow-100 text-yellow-700',
-    'no-answer': 'bg-gray-100 text-gray-600',
+    'no-answer': 'bg-slate-100 text-slate-600',
     busy: 'bg-orange-100 text-orange-700',
   };
 
   return (
-    <span className={`px-2 py-1 text-xs rounded-full ${styles[status] || 'bg-gray-100 text-gray-600'}`}>
+    <span className={`px-2 py-1 text-xs rounded-full ${styles[status] || 'bg-slate-100 text-slate-600'}`}>
       {status}
     </span>
   );

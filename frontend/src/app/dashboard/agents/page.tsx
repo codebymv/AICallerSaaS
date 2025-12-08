@@ -56,13 +56,13 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Agents</h1>
-          <p className="text-muted-foreground">Manage your AI voice agents</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">Agents</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">Manage your AI voice agents</p>
         </div>
-        <Link href="/dashboard/agents/new">
-          <Button>
+        <Link href="/dashboard/agents/new" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
             <Plus className="h-4 w-4 mr-2" />
             New Agent
           </Button>
@@ -78,7 +78,7 @@ export default function AgentsPage() {
               Create your first AI voice agent to start handling calls automatically.
             </p>
             <Link href="/dashboard/agents/new">
-              <Button>
+              <Button className="bg-teal-600 hover:bg-teal-700">
                 <Plus className="h-4 w-4 mr-2" />
                 Create Your First Agent
               </Button>
@@ -91,7 +91,7 @@ export default function AgentsPage() {
             <Card key={agent.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-start justify-between space-y-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                     {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
                       <Image
                         src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
@@ -101,7 +101,7 @@ export default function AgentsPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <User className="h-6 w-6 text-gray-400" />
+                      <User className="h-6 w-6 text-slate-400" />
                     )}
                   </div>
                   <div>
@@ -112,8 +112,8 @@ export default function AgentsPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Link href={`/dashboard/agents/${agent.id}`}>
-                    <Button variant="ghost" size="icon">
+                  <Link href={`/dashboard/agents/${agent.id}?edit=true`}>
+                    <Button variant="ghost" size="icon" title="Edit agent" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
                       <Edit className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -135,16 +135,17 @@ export default function AgentsPage() {
                     className={`px-2 py-1 rounded-full text-xs ${
                       agent.isActive
                         ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-100 text-gray-600'
+                        : 'bg-slate-100 text-slate-600'
                     }`}
                   >
                     {agent.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
                 <div className="mt-4 pt-4 border-t">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
                     <span>Voice: {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || agent.voiceProvider}</span>
-                    <span>LLM: {agent.llmProvider || 'openai'}</span>
+                    <span className="hidden sm:inline">•</span>
+                    <span>Created: {new Date(agent.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               </CardContent>

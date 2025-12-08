@@ -200,6 +200,13 @@ export default function NewAgentPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="voice">Voice</Label>
+              <VoiceSelector
+                value={formData.voiceId}
+                onChange={(voiceId) => setFormData({ ...formData, voiceId })}
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="prompt">System Prompt *</Label>
               <textarea
                 id="prompt"
@@ -216,13 +223,6 @@ export default function NewAgentPage() {
                 placeholder="e.g., Hello! Thanks for calling. How can I help you today?"
                 value={formData.greeting}
                 onChange={(e) => setFormData({ ...formData, greeting: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="voice">Voice</Label>
-              <VoiceSelector
-                value={formData.voiceId}
-                onChange={(voiceId) => setFormData({ ...formData, voiceId })}
               />
             </div>
             <div className="flex justify-between pt-4">

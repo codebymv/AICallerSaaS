@@ -55,7 +55,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
         take: pagination.limit,
         include: {
           agent: {
-            select: { id: true, name: true },
+            select: { id: true, name: true, voice: true },
           },
         },
       }),
@@ -87,7 +87,7 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
       },
       include: {
         agent: {
-          select: { id: true, name: true },
+          select: { id: true, name: true, voice: true },
         },
       },
     });
