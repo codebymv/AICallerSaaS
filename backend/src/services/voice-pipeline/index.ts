@@ -310,12 +310,15 @@ export class VoicePipeline extends EventEmitter {
     
     // For second attempt, ask LLM to rephrase more helpfully
     try {
-      const rephrasePrompt = [
-        { role: 'system' as const, content: 'You are helping rephrase a message because the caller may not have heard or understood. Keep it brief and conversational.' },
-        { role: 'user' as const, content: `The caller hasn't responded. Your last message was: "${this.lastAiResponse}"\n\nGenerate a brief, slightly rephrased follow-up (1 sentence max) that either:\n1. Asks if they need clarification\n2. Rephrases the key question/information\n3. Offers to help differently\n\nKeep it natural and conversational.` }
-      ];
+      const systemPrompt = 'You are helping rephrase a message because the caller may not have heard or understood. Keep it brief and conversational.';
+      const userMessage = `The caller hasn't responded. Your last message was: "${this.lastAiResponse}"\n\nGenerate a brief, slightly rephrased follow-up (1 sentence max) that either:\n1. Asks if they need clarification\n2. Rephrases the key question/information\n3. Offers to help differently\n\nKeep it natural and conversational.`;
       
-      const response = await this.llm.chat(rephrasePrompt, false);
+      const response = await this.llm.generateResponse(
+        [{ role: 'user', content: userMessage }],
+        systemPrompt,
+        0.7,
+        100
+      );
       return response.trim();
     } catch (error) {
       logger.error('[Pipeline] Error generating reprompt:', error);

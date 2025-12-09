@@ -96,7 +96,7 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-[60px] lg:top-0 bottom-0 left-0 z-40 w-64 bg-white border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-[60px] lg:top-0 bottom-0 left-0 z-40 w-64 bg-white/80 backdrop-blur-xl border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -189,8 +189,15 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <main className="lg:pl-64">
-        <div className="p-4 sm:p-6 pt-20 lg:pt-6">
+      <main className="lg:pl-64 relative min-h-screen">
+        {/* Subtle background gradients to reduce eye strain */}
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-teal-50/20 to-slate-100/50" />
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-gradient-to-bl from-teal-100/30 to-transparent rounded-full blur-3xl" />
+          <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-slate-200/30 to-transparent rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/3 w-[300px] h-[300px] bg-gradient-to-r from-teal-50/40 to-transparent rounded-full blur-3xl" />
+        </div>
+        <div className="relative p-4 sm:p-6 pt-20 lg:pt-6">
           {children}
         </div>
       </main>
