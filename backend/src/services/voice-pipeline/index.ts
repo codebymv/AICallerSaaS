@@ -265,6 +265,7 @@ IMPORTANT CALENDAR INSTRUCTIONS:
 - You have access to a REAL calendar booking system.
 - When a caller asks about scheduling, availability, or appointments, you MUST use the check_calendar_availability tool to look up actual available time slots.
 - Do NOT make up or guess available times - always check the calendar first.
+- CRITICAL: When booking, the datetime MUST include the timezone offset. For example: "2025-12-10T17:40:00-07:00" (for Phoenix time). Do NOT use just "10:40" - you must use the full ISO 8601 format with timezone.
 - Use book_appointment to confirm bookings after collecting: name, email (REQUIRED), and preferred time.
 - If the caller asks "what times are available" or similar, call check_calendar_availability with today's date or the date they mention.
 - You MUST collect the caller's email address before booking - it is required for confirmation.
@@ -426,8 +427,20 @@ IMPORTANT CALENDAR INSTRUCTIONS:
                 minute: '2-digit',
                 hour12: true,
               })}. A confirmation email has been sent to ${cleanedEmail}. Booking reference: ${booking.uid.substring(0, 8)}.`;
-            } catch (error) {
+            } catch (error: any) {
               logger.error('[Pipeline] Cal.com booking error:', error);
+              
+              // Parse the error for more helpful responses
+              const errorMessage = error?.message || '';
+              
+              if (errorMessage.includes('already has booking') || errorMessage.includes('not available')) {
+                return `I'm sorry, but that time slot is no longer available. Would you like me to check for other available times?`;
+              }
+              
+              if (errorMessage.includes('email')) {
+                return `There was an issue with the email address. Could you please confirm your email address?`;
+              }
+              
               return `I encountered an issue booking the appointment. I've noted the details for ${name} at ${datetime}. Someone from our team will confirm the appointment shortly.`;
             }
           }

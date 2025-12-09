@@ -266,26 +266,69 @@ export class CalComService {
   /**
    * Parse a datetime string from natural language context
    * Returns ISO 8601 format required by Cal.com API (UTC)
+   * 
+   * The datetime from the LLM is in LOCAL time (e.g., Phoenix time).
+   * We need to convert it to UTC for the Cal.com API.
    */
   formatDateTimeForApi(datetime: string): string {
-    // If already in ISO format with T and time
+    logger.info('[CalCom] formatDateTimeForApi input:', datetime);
+    
+    // If already in ISO format with timezone, return as-is
+    if (datetime.endsWith('Z') || datetime.match(/[+-]\d{2}:\d{2}$/)) {
+      logger.info('[CalCom] Already has timezone, returning as-is');
+      return datetime;
+    }
+    
+    // If in ISO format without timezone (e.g., 2025-12-10T10:40:00)
+    // This is LOCAL time - we need to convert to UTC
     if (datetime.includes('T') && datetime.includes(':')) {
-      // Already has timezone indicator, return as-is
-      if (datetime.endsWith('Z') || datetime.includes('+') || datetime.match(/-\d{2}:\d{2}$/)) {
-        return datetime;
+      // Parse as local time in the business timezone
+      // The LLM gives us "2025-12-10T10:40:00" meaning 10:40 AM in Phoenix
+      // We need to convert this to UTC
+      
+      // Add seconds if missing
+      let normalizedDatetime = datetime;
+      if (datetime.match(/T\d{2}:\d{2}$/)) {
+        normalizedDatetime = datetime + ':00';
       }
-      // Add Z for UTC - but only if it doesn't already have seconds
-      // Input: 2025-12-09T10:40:00 -> Output: 2025-12-09T10:40:00Z
-      // Input: 2025-12-09T10:40 -> Output: 2025-12-09T10:40:00Z
-      if (datetime.match(/T\d{2}:\d{2}:\d{2}$/)) {
-        // Has seconds (HH:MM:SS), just add Z
-        return datetime + 'Z';
-      } else if (datetime.match(/T\d{2}:\d{2}$/)) {
-        // No seconds (HH:MM), add :00Z
-        return datetime + ':00Z';
+      
+      // Create date object - this interprets it as local time
+      // Then use the timezone offset to convert properly
+      const timezoneOffsets: Record<string, number> = {
+        'America/Phoenix': -7,      // MST (no DST)
+        'America/New_York': -5,     // EST (or -4 EDT)
+        'America/Chicago': -6,      // CST (or -5 CDT)
+        'America/Denver': -7,       // MST (or -6 MDT)
+        'America/Los_Angeles': -8,  // PST (or -7 PDT)
+        'UTC': 0,
+      };
+      
+      const offset = timezoneOffsets[this.timezone] ?? -7; // Default to Phoenix
+      
+      // Parse the datetime parts
+      const match = normalizedDatetime.match(/(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
+      if (match) {
+        const [, year, month, day, hour, minute, second] = match;
+        
+        // Create UTC date by subtracting the offset
+        // If it's 10:40 Phoenix (UTC-7), that's 17:40 UTC
+        const utcHour = parseInt(hour) - offset;
+        
+        // Handle day rollover
+        let utcDay = parseInt(day);
+        let adjustedHour = utcHour;
+        if (utcHour >= 24) {
+          adjustedHour = utcHour - 24;
+          utcDay += 1;
+        } else if (utcHour < 0) {
+          adjustedHour = utcHour + 24;
+          utcDay -= 1;
+        }
+        
+        const result = `${year}-${month}-${String(utcDay).padStart(2, '0')}T${String(adjustedHour).padStart(2, '0')}:${minute}:${second}Z`;
+        logger.info('[CalCom] Converted to UTC:', { from: datetime, to: result, timezone: this.timezone, offset });
+        return result;
       }
-      // Fallback: just add Z
-      return datetime + 'Z';
     }
 
     // Try to parse various formats
