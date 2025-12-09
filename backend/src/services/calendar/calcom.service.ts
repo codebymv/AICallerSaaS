@@ -265,16 +265,27 @@ export class CalComService {
 
   /**
    * Parse a datetime string from natural language context
-   * Returns ISO 8601 format required by Cal.com API
+   * Returns ISO 8601 format required by Cal.com API (UTC)
    */
   formatDateTimeForApi(datetime: string): string {
-    // If already in ISO format, return as-is
+    // If already in ISO format with T and time
     if (datetime.includes('T') && datetime.includes(':')) {
-      // Ensure it ends with Z for UTC or has timezone
-      if (!datetime.endsWith('Z') && !datetime.includes('+') && !datetime.includes('-', 10)) {
+      // Already has timezone indicator, return as-is
+      if (datetime.endsWith('Z') || datetime.includes('+') || datetime.match(/-\d{2}:\d{2}$/)) {
+        return datetime;
+      }
+      // Add Z for UTC - but only if it doesn't already have seconds
+      // Input: 2025-12-09T10:40:00 -> Output: 2025-12-09T10:40:00Z
+      // Input: 2025-12-09T10:40 -> Output: 2025-12-09T10:40:00Z
+      if (datetime.match(/T\d{2}:\d{2}:\d{2}$/)) {
+        // Has seconds (HH:MM:SS), just add Z
+        return datetime + 'Z';
+      } else if (datetime.match(/T\d{2}:\d{2}$/)) {
+        // No seconds (HH:MM), add :00Z
         return datetime + ':00Z';
       }
-      return datetime;
+      // Fallback: just add Z
+      return datetime + 'Z';
     }
 
     // Try to parse various formats
