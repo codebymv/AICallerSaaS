@@ -164,7 +164,7 @@ export default function CallDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
       </div>
     );
   }
@@ -321,7 +321,7 @@ export default function CallDetailPage() {
                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
                   <Bot className="h-6 w-6" />
                 </div>
-                <p>No agent assigned</p>
+                <p>Agent information unavailable</p>
               </div>
             )}
           </CardContent>

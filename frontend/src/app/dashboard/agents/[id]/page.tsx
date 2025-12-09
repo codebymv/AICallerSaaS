@@ -208,18 +208,19 @@ export default function AgentDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
           <Link href="/dashboard/agents">
             <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Agents
+              Back
             </Button>
           </Link>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Bot className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
-            <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">{agent.name}</h1>
-            <span className="hidden sm:inline text-slate-400">•</span>
-            <p className="text-muted-foreground text-sm w-full sm:w-auto">
+          <div>
+            <div className="flex items-center gap-3">
+              <Bot className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">{agent.name}</h1>
+            </div>
+            <p className="text-muted-foreground text-sm">
               {AGENT_MODES[agent.mode]?.label || agent.mode} agent
             </p>
           </div>
@@ -424,7 +425,7 @@ export default function AgentDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-5 w-5 text-teal-600" />
-                    <Label className="text-base font-medium">Calendar Integration</Label>
+                    <Label className="text-base font-medium">Calendar</Label>
                   </div>
                   {calendarStatus?.connected ? (
                     <span className="flex items-center gap-1 text-xs text-green-600">
@@ -581,7 +582,7 @@ export default function AgentDetailPage() {
                 <div className="md:col-span-2 pt-4 border-t">
                   <div className="flex items-center gap-2 mb-2">
                     <Calendar className="h-4 w-4 text-teal-600" />
-                    <Label className="text-muted-foreground">Calendar Integration</Label>
+                    <Label className="text-muted-foreground">Calendar</Label>
                   </div>
                   {agent.calendarEnabled && calendarStatus?.connected ? (
                     <div className="flex flex-wrap items-center gap-2">

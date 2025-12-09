@@ -411,7 +411,7 @@ router.get('/calcom/event-types', async (req: AuthRequest, res, next) => {
         id: et.id,
         title: et.title,
         slug: et.slug,
-        duration: et.length,
+        duration: et.lengthInMinutes || et.length || 0,  // Handle both v1 and v2 API field names
         description: et.description,
       })),
       timezone: user.timeZone,

@@ -13,7 +13,7 @@ import {
   LogOut,
   Menu,
   X,
-  Contact
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -21,7 +21,6 @@ import { api } from '@/lib/api';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
-  { href: '/dashboard/phone-numbers', label: 'Phone Numbers', icon: Contact },
   { href: '/dashboard/calls', label: 'Calls', icon: PhoneCall },
 ];
 
@@ -58,7 +57,7 @@ export default function DashboardLayout({
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
       </div>
     );
   }

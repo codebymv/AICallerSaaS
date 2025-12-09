@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BarChart3 } from 'lucide-react';
+import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BarChart3, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -52,7 +52,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
       </div>
     );
   }
@@ -121,7 +121,7 @@ export default function DashboardPage() {
                 <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">No agents yet</p>
                 <Link href="/dashboard/agents/new">
-                  <Button size="sm">Create your first agent</Button>
+                  <Button size="sm" className="bg-teal-600 hover:bg-teal-700">Create your first agent</Button>
                 </Link>
               </div>
             ) : (
@@ -227,7 +227,7 @@ export default function DashboardPage() {
                             <p className="font-mono text-sm font-medium text-slate-600">
                               {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
                             </p>
-                            <p className="text-xs text-muted-foreground">{call.agent?.name || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
                           </div>
                         </div>
                         <CallStatusBadge status={call.status} />

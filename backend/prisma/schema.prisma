@@ -217,8 +217,8 @@ model Call {
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  agentId         String
-  agent           Agent     @relation(fields: [agentId], references: [id])
+  agentId         String?
+  agent           Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
   
   phoneNumberId   String?
   phoneNumber     PhoneNumber? @relation(fields: [phoneNumberId], references: [id])

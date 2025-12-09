@@ -212,12 +212,21 @@ router.delete('/:id', async (req: AuthRequest, res, next) => {
       throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
     }
 
-    // Delete associated calls first (or you could set agentId to null if you want to keep call history)
-    await prisma.call.deleteMany({
-      where: { agentId: req.params.id },
+    // Ensure all calls have snapshot fields populated before deleting the agent
+    // This preserves the agent info for historical call records
+    await prisma.call.updateMany({
+      where: { 
+        agentId: req.params.id,
+        agentName: null,  // Only update calls that don't have snapshot data
+      },
+      data: {
+        agentName: existing.name,
+        agentVoice: existing.voice,
+        agentVoiceProvider: existing.voiceProvider,
+      },
     });
 
-    // Now delete the agent
+    // Delete the agent - Prisma will set agentId to null on related calls (onDelete: SetNull)
     await prisma.agent.delete({
       where: { id: req.params.id },
     });

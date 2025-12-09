@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, PhoneCall, ArrowUpRight, ArrowDownLeft, Search, RefreshCw, ChevronDown, Bot, User } from 'lucide-react';
+import { Phone, PhoneCall, ArrowUpRight, ArrowDownLeft, Search, RefreshCw, ChevronDown, Bot, User, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -260,7 +260,7 @@ export default function CallsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
       </div>
     );
   }
@@ -334,23 +334,36 @@ export default function CallsPage() {
               />
             </div>
 
-            {/* Date Range */}
-            <div className="w-full sm:w-auto sm:min-w-[150px]">
-              <Input
-                type="date"
-                placeholder="From date"
-                value={filter.startDate}
-                onChange={(e) => setFilter({ ...filter, startDate: e.target.value })}
-              />
-            </div>
-
-            <div className="w-full sm:w-auto sm:min-w-[150px]">
-              <Input
-                type="date"
-                placeholder="To date"
-                value={filter.endDate}
-                onChange={(e) => setFilter({ ...filter, endDate: e.target.value })}
-              />
+            {/* Date Range - side by side on mobile */}
+            <div className="w-full sm:w-auto flex gap-2">
+              <div className="flex-1 sm:min-w-[140px] relative">
+                <Input
+                  type="date"
+                  placeholder="Start date"
+                  value={filter.startDate}
+                  onChange={(e) => setFilter({ ...filter, startDate: e.target.value })}
+                  className="w-full"
+                />
+                {!filter.startDate && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none sm:hidden">
+                    Start
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 sm:min-w-[140px] relative">
+                <Input
+                  type="date"
+                  placeholder="End date"
+                  value={filter.endDate}
+                  onChange={(e) => setFilter({ ...filter, endDate: e.target.value })}
+                  className="w-full"
+                />
+                {!filter.endDate && (
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none sm:hidden">
+                    End
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -388,7 +401,7 @@ export default function CallsPage() {
                           <p className="font-mono text-sm font-medium text-slate-600">
                             {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
                           </p>
-                          <p className="text-xs text-muted-foreground">{call.agent?.name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
                         </div>
                       </div>
                       <CallStatusBadge status={call.status} />
@@ -437,7 +450,7 @@ export default function CallsPage() {
                           </span>
                         </td>
                         <td className="p-4">
-                          <span className="text-sm text-slate-600">{call.agent?.name || 'Unknown'}</span>
+                          <span className="text-sm text-slate-600">{call.agent?.name || call.agentName || 'Deleted Agent'}</span>
                         </td>
                         <td className="p-4">
                           <span className="text-sm text-slate-600">
@@ -490,9 +503,18 @@ function CallStatusBadge({ status }: { status: string }) {
     busy: 'bg-orange-100 text-orange-700',
   };
 
+  const labels: Record<string, string> = {
+    completed: 'Completed',
+    'in-progress': 'In Progress',
+    failed: 'Failed',
+    ringing: 'Ringing',
+    'no-answer': 'No Answer',
+    busy: 'Busy',
+  };
+
   return (
     <span className={`px-2 py-1 text-xs rounded-full ${styles[status] || 'bg-slate-100 text-slate-600'}`}>
-      {status}
+      {labels[status] || status}
     </span>
   );
 }

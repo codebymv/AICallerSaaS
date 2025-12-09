@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, RefreshCw } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import Image from 'next/image';
+import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, RefreshCw, Bot, ChevronDown, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { ELEVENLABS_VOICES } from '@/lib/constants';
 
 interface TwilioSettings {
   configured: boolean;
@@ -52,6 +54,148 @@ interface CalComEventType {
   description: string | null;
 }
 
+// Phone number interfaces
+interface PhoneNumber {
+  id: string;
+  phoneNumber: string;
+  twilioSid?: string;
+  friendlyName?: string;
+  isActive: boolean;
+  agent?: { id: string; name: string; voice?: string } | null;
+  createdAt: string;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  voice?: string;
+}
+
+// Helper to get avatar for a voice
+const getVoiceAvatar = (voiceId?: string): string | null => {
+  if (!voiceId) return null;
+  const voice = ELEVENLABS_VOICES.find(v => v.id === voiceId.toLowerCase());
+  return voice?.avatar || null;
+};
+
+// Custom Agent Selector with avatars
+function AgentSelector({
+  agents,
+  selectedAgentId,
+  onSelect,
+  disabled,
+}: {
+  agents: Agent[];
+  selectedAgentId: string | null;
+  onSelect: (agentId: string) => void;
+  disabled: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  const selectedAgent = agents.find(a => a.id === selectedAgentId);
+  const selectedAvatar = selectedAgent ? getVoiceAvatar(selectedAgent.voice) : null;
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md bg-white disabled:opacity-50 min-w-[180px] justify-between hover:bg-slate-50 transition-colors"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          {selectedAgent ? (
+            <>
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {selectedAvatar ? (
+                  <Image
+                    src={selectedAvatar}
+                    alt={selectedAgent.name}
+                    width={40}
+                    height={40}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Bot className="h-5 w-5 text-muted-foreground" />
+                )}
+              </div>
+              <span className="truncate font-medium">{selectedAgent.name}</span>
+            </>
+          ) : (
+            <>
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <Bot className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <span className="text-muted-foreground">No agent</span>
+            </>
+          )}
+        </div>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && (
+        <div className="absolute z-50 mt-1 w-full min-w-[240px] bg-white border rounded-md shadow-lg py-1 max-h-60 overflow-auto right-0 sm:right-auto">
+          <button
+            type="button"
+            onClick={() => {
+              onSelect('');
+              setIsOpen(false);
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left"
+          >
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+              <Bot className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <span className="text-muted-foreground">No agent</span>
+          </button>
+          {agents.map((agent) => {
+            const avatar = getVoiceAvatar(agent.voice);
+            return (
+              <button
+                key={agent.id}
+                type="button"
+                onClick={() => {
+                  onSelect(agent.id);
+                  setIsOpen(false);
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left ${
+                  agent.id === selectedAgentId ? 'bg-blue-50' : ''
+                }`}
+              >
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {avatar ? (
+                    <Image
+                      src={avatar}
+                      alt={agent.name}
+                      width={40}
+                      height={40}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Bot className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <span className="truncate font-medium">{agent.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -84,9 +228,18 @@ export default function SettingsPage() {
   const [calcomEventTypes, setCalcomEventTypes] = useState<CalComEventType[]>([]);
   const [calendarTab, setCalendarTab] = useState<'calcom' | 'calendly'>('calcom');
 
+  // Settings page tab state
+  const [settingsTab, setSettingsTab] = useState<'integrations' | 'preferences'>('integrations');
+
+  // Phone numbers state
+  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [loadingPhoneNumbers, setLoadingPhoneNumbers] = useState(false);
+  const [updatingNumber, setUpdatingNumber] = useState<string | null>(null);
+
   useEffect(() => {
     fetchSettings();
-    fetchPhoneNumbers();
+    fetchPhoneNumbersAndAgents();
     fetchCalendarStatus();
   }, []);
 
@@ -104,13 +257,80 @@ export default function SettingsPage() {
     }
   };
 
-  const fetchPhoneNumbers = async () => {
+  const fetchPhoneNumbersAndAgents = async () => {
+    setLoadingPhoneNumbers(true);
     try {
-      const response = await api.getPhoneNumbers();
-      setHasPhoneNumbers((response.data || []).length > 0);
+      const [numbersRes, agentsRes] = await Promise.all([
+        api.getPhoneNumbers(),
+        api.getAgents(),
+      ]);
+      setPhoneNumbers(numbersRes.data || []);
+      setAgents(agentsRes.data || []);
+      setHasPhoneNumbers((numbersRes.data || []).length > 0);
     } catch (error) {
       console.error('Failed to fetch phone numbers:', error);
+    } finally {
+      setLoadingPhoneNumbers(false);
     }
+  };
+
+  const handleAssignAgent = async (numberId: string, agentId: string) => {
+    setUpdatingNumber(numberId);
+    
+    // Optimistic update
+    const selectedAgentObj = agents.find(a => a.id === agentId);
+    setPhoneNumbers(prev => prev.map(num => 
+      num.id === numberId 
+        ? { ...num, agent: agentId ? selectedAgentObj : null }
+        : num
+    ));
+    
+    try {
+      await api.updatePhoneNumber(numberId, { agentId: agentId || null });
+      toast({
+        title: 'Agent assigned',
+        description: 'Phone number updated successfully.',
+      });
+      await fetchPhoneNumbersAndAgents();
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Failed to assign agent';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+      await fetchPhoneNumbersAndAgents();
+    } finally {
+      setUpdatingNumber(null);
+    }
+  };
+
+  const handleDeletePhoneNumber = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this phone number?')) return;
+
+    try {
+      await api.deletePhoneNumber(id);
+      toast({
+        title: 'Phone number removed',
+        description: 'The phone number has been removed.',
+      });
+      fetchPhoneNumbersAndAgents();
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Failed to remove phone number';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const formatPhoneNumber = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 11 && cleaned.startsWith('1')) {
+      return `(${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+    }
+    return phone;
   };
 
   const fetchCalendarStatus = async () => {
@@ -263,7 +483,7 @@ export default function SettingsPage() {
   };
 
   const handleDisconnectCalendar = async () => {
-    if (!confirm('Are you sure you want to disconnect your calendar?')) return;
+    if (!confirm('Are you sure you want to remove your calendar integration?')) return;
 
     try {
       await api.disconnectCalendar();
@@ -271,11 +491,11 @@ export default function SettingsPage() {
       setEventTypes([]);
       setSelectedEventType('');
       toast({
-        title: 'Calendar disconnected',
-        description: 'Your Calendly account has been disconnected.',
+        title: 'Calendar removed',
+        description: 'Your calendar integration has been removed.',
       });
     } catch (error) {
-      const message = error instanceof ApiError ? error.message : 'Failed to disconnect calendar';
+      const message = error instanceof ApiError ? error.message : 'Failed to remove calendar';
       toast({
         title: 'Error',
         description: message,
@@ -361,7 +581,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
       </div>
     );
   }
@@ -375,12 +595,39 @@ export default function SettingsPage() {
         <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">Configure your integrations and preferences</p>
       </div>
 
-      {/* Twilio Integration */}
-      <Card>
+      {/* Tab Navigation */}
+      <div className="flex border-b">
+        <button
+          onClick={() => setSettingsTab('integrations')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            settingsTab === 'integrations'
+              ? 'border-teal-600 text-teal-600'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Integrations
+        </button>
+        <button
+          onClick={() => setSettingsTab('preferences')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            settingsTab === 'preferences'
+              ? 'border-teal-600 text-teal-600'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Preferences
+        </button>
+      </div>
+
+      {/* Integrations Tab */}
+      {settingsTab === 'integrations' && (
+        <div className="space-y-6">
+          {/* Twilio Integration */}
+          <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-base sm:text-lg text-slate-600">Twilio Integration</CardTitle>
+              <CardTitle className="text-base sm:text-lg text-slate-600">Twilio</CardTitle>
               {/* Help Tooltip */}
               <div className="relative">
                     <button
@@ -438,7 +685,7 @@ export default function SettingsPage() {
           {/* Credentials Form */}
           {settings?.configured && !editing ? (
             <div className="space-y-4">
-              <div className="grid gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label className="text-muted-foreground text-xs sm:text-sm">Account SID</Label>
                   <p className="font-mono text-xs sm:text-sm bg-slate-100 p-2 rounded mt-1 break-all">
@@ -469,6 +716,96 @@ export default function SettingsPage() {
                 <Button variant="destructive" onClick={handleRemove} size="sm" className="flex-1 sm:flex-none">
                   Remove
                 </Button>
+              </div>
+
+              {/* Phone Numbers Section */}
+              <div className="border-t pt-6 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-600">Phone Numbers</h3>
+                    <p className="text-xs text-muted-foreground">Assign agents to your Twilio phone numbers</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={fetchPhoneNumbersAndAgents} 
+                    disabled={loadingPhoneNumbers}
+                    className="text-teal-600 border-teal-600"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${loadingPhoneNumbers ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                </div>
+
+                {loadingPhoneNumbers ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+                  </div>
+                ) : phoneNumbers.length === 0 ? (
+                  <div className="text-center py-8 border rounded-lg bg-slate-50">
+                    <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                    <p className="font-medium text-slate-600 mb-1">No phone numbers added</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Purchase a number in Twilio Console, then refresh
+                    </p>
+                    <a
+                      href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-sm text-teal-600 hover:underline"
+                    >
+                      Open Twilio Console →
+                    </a>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {phoneNumbers.map((number) => (
+                      <div
+                        key={number.id}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border gap-4"
+                      >
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                            <Phone className="h-5 w-5 text-teal-600" />
+                          </div>
+                          <p className="font-mono font-medium text-sm text-slate-600">
+                            {formatPhoneNumber(number.phoneNumber)}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 sm:gap-3 ml-13 sm:ml-0">
+                          <AgentSelector
+                            agents={agents}
+                            selectedAgentId={number.agent?.id || null}
+                            onSelect={(agentId) => handleAssignAgent(number.id, agentId)}
+                            disabled={updatingNumber === number.id || agents.length === 0}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeletePhoneNumber(number.id)}
+                            className="flex-shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <p className="text-xs text-muted-foreground text-center pt-2">
+                      Need more numbers?{' '}
+                      <a
+                        href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-teal-600 hover:underline"
+                      >
+                        Purchase in Twilio Console
+                      </a>
+                      {' '}then refresh.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -530,12 +867,12 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Calendar Integration */}
+      {/* Calendar */}
       <Card>
         <CardHeader className="pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-2">
-              <CardTitle className="text-base sm:text-lg text-slate-600">Calendar Integration</CardTitle>
+              <CardTitle className="text-base sm:text-lg text-slate-600">Calendar</CardTitle>
               {/* Help Tooltip */}
               <div className="relative">
                 <button
@@ -573,7 +910,7 @@ export default function SettingsPage() {
               {calendarStatus?.connected ? (
                 <span className="flex items-center gap-1 text-sm text-green-600">
                   <CheckCircle className="h-4 w-4" />
-                  {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'} Connected
+                  Connected
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-sm text-slate-500">
@@ -593,8 +930,8 @@ export default function SettingsPage() {
                   <Label className="text-muted-foreground text-xs sm:text-sm">Connected Account</Label>
                   <p className="text-sm bg-slate-100 p-2 rounded mt-1">
                     {calendarStatus.provider === 'calcom' 
-                      ? (calendarStatus.username || calendarStatus.email || 'Cal.com User')
-                      : (calendarStatus.email || 'Calendly User')}
+                      ? `${calendarStatus.username || calendarStatus.email || 'User'} (Cal.com)`
+                      : `${calendarStatus.email || 'User'} (Calendly)`}
                   </p>
                 </div>
                 <div>
@@ -605,121 +942,132 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Provider badge */}
-              {calendarStatus.provider === 'calcom' && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-sm text-green-800">
-                    ✨ <strong>Direct Booking Enabled</strong> - AI agents can book appointments automatically without any follow-up needed.
-                  </p>
-                </div>
-              )}
-
-              {/* Event Type Selection for Cal.com */}
-              {calendarStatus.provider === 'calcom' && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Event Type for AI Booking</Label>
-                  {calcomEventTypes.length > 0 ? (
-                    <div className="space-y-2">
-                      {calcomEventTypes.map((et) => (
-                        <button
-                          key={et.id}
-                          onClick={() => handleSelectCalcomEventType(et.id)}
-                          disabled={savingEventType}
-                          className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                            calendarStatus.eventTypeName === et.title
-                              ? 'border-teal-500 bg-teal-50'
-                              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{et.title}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {et.duration} minutes
-                                {et.description && ` • ${et.description}`}
-                              </p>
-                            </div>
-                            {calendarStatus.eventTypeName === et.title && (
-                              <CheckCircle className="h-5 w-5 text-teal-600" />
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading event types...
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Event Type Selection for Calendly */}
-              {calendarStatus.provider === 'calendly' && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Event Type for AI Booking</Label>
-                  {eventTypes.length > 0 ? (
-                    <div className="space-y-2">
-                      {eventTypes.map((et) => (
-                        <button
-                          key={et.uri}
-                          onClick={() => handleSelectEventType(et.uri!)}
-                          disabled={savingEventType}
-                          className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                            calendarStatus.eventTypeName === et.name
-                              ? 'border-teal-500 bg-teal-50'
-                              : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{et.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {et.duration} minutes
-                                {et.description && ` • ${et.description}`}
-                              </p>
-                            </div>
-                            {calendarStatus.eventTypeName === et.name && (
-                              <CheckCircle className="h-5 w-5 text-teal-600" />
-                            )}
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading event types...
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2 pt-2">
-                <Button
-                  size="sm"
-                  onClick={() => setCalendarEditing(true)}
-                  className="bg-teal-600 hover:bg-teal-700 text-white"
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  onClick={() => setCalendarEditing(true)} 
+                  size="sm" 
+                  className="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white"
                 >
                   Update Credentials
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchEventTypes(calendarStatus?.provider)}
-                  className="text-teal-600 border-teal-600"
+                <Button 
+                  variant="outline" 
+                  onClick={() => fetchEventTypes(calendarStatus?.provider)} 
+                  size="sm" 
+                  className="flex-1 sm:flex-none text-teal-600 border-teal-600"
                 >
-                  Refresh Event Types
+                  Test Connection
                 </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDisconnectCalendar}
+                <Button 
+                  variant="destructive" 
+                  onClick={handleDisconnectCalendar} 
+                  size="sm" 
+                  className="flex-1 sm:flex-none"
                 >
-                  Disconnect
+                  Remove
                 </Button>
+              </div>
+
+              {/* Event Types Section */}
+              <div className="border-t pt-6 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-sm font-medium text-slate-600">Event Types</h3>
+                    <p className="text-xs text-muted-foreground">Select an event type for AI agents to book</p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => fetchEventTypes(calendarStatus?.provider)}
+                    className="text-teal-600 border-teal-600"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                </div>
+
+                {/* Cal.com Event Types */}
+                {calendarStatus.provider === 'calcom' && (
+                  <>
+                    {calcomEventTypes.length > 0 ? (
+                      <div className="space-y-3">
+                        {calcomEventTypes.map((et) => (
+                          <div
+                            key={et.id}
+                            onClick={() => handleSelectCalcomEventType(et.id)}
+                            className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${
+                              calendarStatus.eventTypeName === et.title
+                                ? 'border-teal-500 bg-teal-50'
+                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                            } ${savingEventType ? 'opacity-50 pointer-events-none' : ''}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                                <Calendar className="h-5 w-5 text-teal-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm text-slate-600">{et.title}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {et.duration ? `${et.duration} minutes` : ''}
+                                  {et.duration && et.description && ' • '}
+                                  {et.description}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center py-8 border rounded-lg bg-slate-50">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading event types...
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Calendly Event Types */}
+                {calendarStatus.provider === 'calendly' && (
+                  <>
+                    {eventTypes.length > 0 ? (
+                      <div className="space-y-3">
+                        {eventTypes.map((et) => (
+                          <div
+                            key={et.uri}
+                            onClick={() => handleSelectEventType(et.uri!)}
+                            className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${
+                              calendarStatus.eventTypeName === et.name
+                                ? 'border-teal-500 bg-teal-50'
+                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                            } ${savingEventType ? 'opacity-50 pointer-events-none' : ''}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                                <Calendar className="h-5 w-5 text-teal-600" />
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm text-slate-600">{et.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {et.duration} minutes
+                                  {et.description && ` • ${et.description}`}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center py-8 border rounded-lg bg-slate-50">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading event types...
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           ) : (
@@ -930,6 +1278,24 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+      )}
+        </div>
+      )}
+
+      {/* Preferences Tab */}
+      {settingsTab === 'preferences' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base sm:text-lg text-slate-600">Preferences</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm">
+                Preference settings coming soon. This is where you'll be able to customize your experience.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

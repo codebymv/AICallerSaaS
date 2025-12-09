@@ -31,9 +31,10 @@ export interface CalComEventType {
   id: number;
   title: string;
   slug: string;
-  length: number;
+  length?: number;           // v1 API field
+  lengthInMinutes?: number;  // v2 API field
   description: string | null;
-  ownerId: number;
+  ownerId?: number;
 }
 
 export interface CalComAvailableSlot {
@@ -159,6 +160,11 @@ export class CalComService {
       endpoint,
       API_VERSIONS.eventTypes
     );
+    
+    // Log the first event type to debug field names
+    if (data.data && data.data.length > 0) {
+      console.log('[CalCom] Event type sample:', JSON.stringify(data.data[0], null, 2));
+    }
     
     return data.data;
   }

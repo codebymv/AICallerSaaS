@@ -109,6 +109,13 @@ export class VoicePipeline extends EventEmitter {
   private utteranceTimeout: NodeJS.Timeout | null = null;
   private readonly UTTERANCE_DELAY_MS = 600; // Wait 600ms after utterance_end before processing
 
+  // Dead air detection - reprompt if user doesn't respond
+  private deadAirTimeout: NodeJS.Timeout | null = null;
+  private lastAiResponse: string = '';
+  private deadAirCount: number = 0;
+  private readonly DEAD_AIR_TIMEOUT_MS = 7000; // 7 seconds of silence triggers reprompt
+  private readonly MAX_DEAD_AIR_REPROMPTS = 2; // Max times to reprompt before giving up
+
   private setupSTTHandlers(): void {
     this.stt.on('transcript', async (event: TranscriptEvent) => {
       this.metrics.mark('transcript_ready');
@@ -130,6 +137,13 @@ export class VoicePipeline extends EventEmitter {
         this.utteranceTimeout = null;
       }
 
+      // Cancel dead air timeout when user speaks
+      if (this.deadAirTimeout) {
+        clearTimeout(this.deadAirTimeout);
+        this.deadAirTimeout = null;
+        this.deadAirCount = 0; // Reset count when user responds
+      }
+
       if (event.isFinal) {
         this.pendingTranscript += ' ' + event.text;
       }
@@ -141,6 +155,13 @@ export class VoicePipeline extends EventEmitter {
         logger.info('[Pipeline] User started speaking again, cancelling pending processing');
         clearTimeout(this.utteranceTimeout);
         this.utteranceTimeout = null;
+      }
+      
+      // Also cancel dead air timeout
+      if (this.deadAirTimeout) {
+        clearTimeout(this.deadAirTimeout);
+        this.deadAirTimeout = null;
+        this.deadAirCount = 0;
       }
     });
 
@@ -215,6 +236,93 @@ export class VoicePipeline extends EventEmitter {
     return false;
   }
 
+  /**
+   * Start the dead air detection timer
+   */
+  private startDeadAirTimer(): void {
+    // Clear any existing timer
+    if (this.deadAirTimeout) {
+      clearTimeout(this.deadAirTimeout);
+    }
+    
+    // Don't start if we've already reprompted too many times
+    if (this.deadAirCount >= this.MAX_DEAD_AIR_REPROMPTS) {
+      logger.info('[Pipeline] Max dead air reprompts reached, not starting timer');
+      return;
+    }
+    
+    this.deadAirTimeout = setTimeout(async () => {
+      await this.handleDeadAir();
+    }, this.DEAD_AIR_TIMEOUT_MS);
+  }
+
+  /**
+   * Handle dead air by rephrasing the last response
+   */
+  private async handleDeadAir(): Promise<void> {
+    if (this.isProcessing || !this.lastAiResponse) {
+      return;
+    }
+    
+    this.deadAirCount++;
+    logger.info(`[Pipeline] Dead air detected (count: ${this.deadAirCount}), reprompting...`);
+    
+    try {
+      // Generate a rephrased/follow-up message
+      const repromptMessage = await this.generateReprompt();
+      
+      if (repromptMessage && !this.isProcessing) {
+        // Send the reprompt audio
+        await this.generateAndSendAudio(repromptMessage);
+        
+        // Track it in conversation
+        this.messages.push({
+          role: 'assistant',
+          content: repromptMessage,
+          timestamp: Date.now(),
+        });
+        this.config.onTranscript(repromptMessage, true, 'agent');
+        
+        // Update last response
+        this.lastAiResponse = repromptMessage;
+        
+        // Start timer again for another potential reprompt
+        this.startDeadAirTimer();
+      }
+    } catch (error) {
+      logger.error('[Pipeline] Error handling dead air:', error);
+    }
+  }
+
+  /**
+   * Generate a rephrased follow-up message
+   */
+  private async generateReprompt(): Promise<string> {
+    // Simple reprompt phrases for first attempt
+    if (this.deadAirCount === 1) {
+      const simpleReprompts = [
+        "Are you still there?",
+        "Hello? Can you hear me?",
+        "I'm still here if you have any questions.",
+      ];
+      return simpleReprompts[Math.floor(Math.random() * simpleReprompts.length)];
+    }
+    
+    // For second attempt, ask LLM to rephrase more helpfully
+    try {
+      const rephrasePrompt = [
+        { role: 'system' as const, content: 'You are helping rephrase a message because the caller may not have heard or understood. Keep it brief and conversational.' },
+        { role: 'user' as const, content: `The caller hasn't responded. Your last message was: "${this.lastAiResponse}"\n\nGenerate a brief, slightly rephrased follow-up (1 sentence max) that either:\n1. Asks if they need clarification\n2. Rephrases the key question/information\n3. Offers to help differently\n\nKeep it natural and conversational.` }
+      ];
+      
+      const response = await this.llm.chat(rephrasePrompt, false);
+      return response.trim();
+    } catch (error) {
+      logger.error('[Pipeline] Error generating reprompt:', error);
+      return "Is there anything else I can help you with?";
+    }
+  }
+
   async start(): Promise<void> {
     console.log('[Pipeline] start() called');
     console.log('[Pipeline] Call direction:', this.config.callDirection);
@@ -239,6 +347,15 @@ export class VoicePipeline extends EventEmitter {
       console.log('[Pipeline] Generating greeting audio...');
       await this.generateAndSendAudio(greeting);
       console.log('[Pipeline] ✅ Greeting sent');
+      
+      // Track greeting as last AI response and start dead air timer
+      this.lastAiResponse = greeting;
+      this.messages.push({
+        role: 'assistant',
+        content: greeting,
+        timestamp: Date.now(),
+      });
+      this.startDeadAirTimer();
     } else {
       console.log('[Pipeline] ⚠️ No greeting configured');
     }
@@ -307,6 +424,12 @@ export class VoicePipeline extends EventEmitter {
           timestamp: Date.now(),
         });
         this.config.onTranscript(fullResponse.trim(), true, 'agent');
+        
+        // Track last response for dead air reprompting
+        this.lastAiResponse = fullResponse.trim();
+        
+        // Start dead air detection timer
+        this.startDeadAirTimer();
       }
 
       // Report latency metrics
@@ -658,6 +781,20 @@ BOOKING CONFIRMATION:
   }
 
   async stop(): Promise<void> {
+    // Clear all timers
+    if (this.utteranceTimeout) {
+      clearTimeout(this.utteranceTimeout);
+      this.utteranceTimeout = null;
+    }
+    if (this.deadAirTimeout) {
+      clearTimeout(this.deadAirTimeout);
+      this.deadAirTimeout = null;
+    }
+    if (this.thinkingTimeout) {
+      clearTimeout(this.thinkingTimeout);
+      this.thinkingTimeout = null;
+    }
+    
     await this.stt.close();
     this.removeAllListeners();
   }
