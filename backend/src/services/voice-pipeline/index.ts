@@ -254,12 +254,13 @@ You have access to a real calendar system. Use the check_calendar_availability t
       for (const toolCall of response.toolCalls) {
         const toolResult = await this.executeToolCall(toolCall);
         
+        logger.info('[Pipeline] Tool result:', toolResult.substring(0, 100));
+        
         // Get natural language response incorporating tool results
         const naturalResponse = await this.llm.continueAfterToolCall(
           this.messages.map((m) => ({ role: m.role, content: m.content })),
           enhancedPrompt,
-          toolCall.id,
-          toolCall.name,
+          toolCall, // Pass full toolCall object
           toolResult,
           0.7,
           200

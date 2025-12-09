@@ -246,35 +246,49 @@ export class OpenAIService {
    * Provides tool results back to the model to generate a natural response
    */
   async continueAfterToolCall(
-    messages: Array<{ role: string; content: string; tool_call_id?: string; name?: string }>,
+    messages: Array<{ role: string; content: string }>,
     systemPrompt: string,
-    toolCallId: string,
-    toolName: string,
+    toolCall: { id: string; name: string; arguments: Record<string, unknown> },
     toolResult: string,
     temperature: number = 0.7,
     maxTokens: number = 200
   ): Promise<string> {
     try {
-      // Build messages including the tool response
+      // Map conversation history to proper types
+      const conversationMessages: OpenAI.Chat.ChatCompletionMessageParam[] = messages.map((m) => {
+        if (m.role === 'user') {
+          return { role: 'user' as const, content: m.content };
+        } else {
+          return { role: 'assistant' as const, content: m.content };
+        }
+      });
+
+      // Build the full message sequence:
+      // 1. System prompt
+      // 2. Conversation history  
+      // 3. Assistant message with tool_calls (the model's request to use a tool)
+      // 4. Tool response message
       const fullMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
-        ...messages.map((m) => {
-          if (m.role === 'tool') {
-            return {
-              role: 'tool' as const,
-              content: m.content,
-              tool_call_id: m.tool_call_id!,
-            };
-          }
-          return {
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-          };
-        }),
+        ...conversationMessages,
+        // The assistant's message that requested the tool call
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [{
+            id: toolCall.id,
+            type: 'function',
+            function: {
+              name: toolCall.name,
+              arguments: JSON.stringify(toolCall.arguments),
+            },
+          }],
+        },
+        // The tool's response
         {
           role: 'tool',
           content: toolResult,
-          tool_call_id: toolCallId,
+          tool_call_id: toolCall.id,
         },
       ];
 
