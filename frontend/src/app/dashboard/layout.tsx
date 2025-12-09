@@ -64,7 +64,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="bg-slate-50">
       {/* Mobile header with menu button and logo */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-3 flex items-center justify-between">
         <Button
@@ -191,7 +191,7 @@ export default function DashboardLayout({
 
       {/* Main content */}
       <main className="lg:pl-64">
-        <div className="min-h-screen p-4 sm:p-6 pt-20 lg:pt-6">
+        <div className="p-4 sm:p-6 pt-20 lg:pt-6">
           {children}
         </div>
       </main>

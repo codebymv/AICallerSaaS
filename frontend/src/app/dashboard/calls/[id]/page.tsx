@@ -113,6 +113,23 @@ export default function CallDetailPage() {
 
   const callId = params.id as string;
 
+  // Prevent body scroll on this page (desktop only)
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   useEffect(() => {
     if (callId) {
       fetchCall();
@@ -308,7 +325,7 @@ export default function CallDetailPage() {
             <CardTitle className="text-lg text-slate-600">Transcript</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="bg-slate-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+            <div className="bg-slate-50 rounded-lg p-4 max-h-[400px] overflow-y-auto">
               {Array.isArray(call.transcript) ? (
                 <div className="space-y-3">
                   {call.transcript.map((entry: any, index: number) => (

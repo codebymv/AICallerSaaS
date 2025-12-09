@@ -186,10 +186,11 @@ async function handleStreamStart(
       accessToken: string;
       calendlyUserUri: string | null;
       calendlyEventTypeUri: string | null;
+      calendlyEventTypeName: string | null;
       timezone: string;
       isActive: boolean;
     }>>`
-      SELECT "accessToken", "calendlyUserUri", "calendlyEventTypeUri", timezone, "isActive"
+      SELECT "accessToken", "calendlyUserUri", "calendlyEventTypeUri", "calendlyEventTypeName", timezone, "isActive"
       FROM "CalendarIntegration"
       WHERE "userId" = ${agent.userId} AND "isActive" = true
       LIMIT 1;
@@ -200,6 +201,7 @@ async function handleStreamStart(
         accessToken: calIntegration[0].accessToken,
         calendlyUserUri: calIntegration[0].calendlyUserUri,
         calendlyEventTypeUri: calIntegration[0].calendlyEventTypeUri,
+        eventTypeName: calIntegration[0].calendlyEventTypeName,
         timezone: calIntegration[0].timezone,
       };
       console.log('[MediaStream] Calendar integration found for user');

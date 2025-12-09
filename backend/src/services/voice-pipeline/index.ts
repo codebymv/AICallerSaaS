@@ -218,6 +218,13 @@ export class VoicePipeline extends EventEmitter {
     
     // Enhance system prompt with current date context
     const today = new Date();
+    const timezone = this.config.calendarIntegration?.timezone || 'America/New_York';
+    
+    // Get event type name if available for context
+    const eventTypeContext = this.config.calendarIntegration?.eventTypeName 
+      ? `\n\nAvailable appointment type: ${this.config.calendarIntegration.eventTypeName}`
+      : '';
+    
     const enhancedPrompt = `${this.config.agent.systemPrompt}
 
 Current date and time: ${today.toLocaleDateString('en-US', { 
@@ -229,10 +236,16 @@ Current date and time: ${today.toLocaleDateString('en-US', {
   hour: 'numeric', 
   minute: '2-digit', 
   hour12: true,
-  timeZone: this.config.calendarIntegration?.timezone || 'America/New_York'
-})} (${this.config.calendarIntegration?.timezone || 'America/New_York'} timezone)
+  timeZone: timezone
+})} (${timezone} timezone)
+${eventTypeContext}
 
-You have access to a real calendar system. Use the check_calendar_availability tool to look up available time slots, and book_appointment to schedule appointments.`;
+IMPORTANT CALENDAR INSTRUCTIONS:
+- You have access to a REAL calendar booking system.
+- When a caller asks about scheduling, availability, or appointments, you MUST use the check_calendar_availability tool to look up actual available time slots.
+- Do NOT make up or guess available times - always check the calendar first.
+- Use book_appointment to confirm bookings after collecting: name, email (optional), and preferred time.
+- If the caller asks "what times are available" or similar, call check_calendar_availability with today's date or the date they mention.`;
 
     logger.info('[Pipeline] Calling LLM with tools...');
     
