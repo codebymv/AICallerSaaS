@@ -10,10 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode } from '@/lib/constants';
+import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -44,6 +44,7 @@ interface CalendarStatus {
   configured: boolean;
   provider?: string;
   email?: string;
+  username?: string;
   eventTypeName?: string;
   timezone?: string;
 }
@@ -398,6 +399,24 @@ export default function AgentDetailPage() {
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   className="w-full min-h-[200px] px-3 py-2 border rounded-md bg-background"
                 />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const hasCalendar = calendarStatus?.connected && calendarEnabled;
+                    const newPrompt = getSystemPromptForMode(mode, hasCalendar);
+                    setSystemPrompt(newPrompt);
+                    toast({
+                      title: 'Prompt generated',
+                      description: `Mode-optimized prompt for ${AGENT_MODES[mode].label} mode${hasCalendar ? ' with calendar' : ''}`,
+                    });
+                  }}
+                  className="text-teal-600 border-teal-600"
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generate Mode-Optimized Prompt
+                </Button>
               </div>
 
               {/* Calendar Integration */}
@@ -410,7 +429,7 @@ export default function AgentDetailPage() {
                   {calendarStatus?.connected ? (
                     <span className="flex items-center gap-1 text-xs text-green-600">
                       <CheckCircle className="h-3 w-3" />
-                      Connected
+                      {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'} Connected
                     </span>
                   ) : (
                     <span className="flex items-center gap-1 text-xs text-slate-500">
@@ -439,19 +458,31 @@ export default function AgentDetailPage() {
                     
                     {calendarEnabled && (
                       <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
-                        <p className="text-sm text-teal-800">
-                          <strong>Event type:</strong> {calendarStatus.eventTypeName || 'Not selected'}
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm text-teal-800">
+                            <strong>Event type:</strong> {calendarStatus.eventTypeName || 'Not selected'}
+                          </p>
+                          {calendarStatus.provider === 'calcom' && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                              ✓ Direct Booking
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-teal-700">
+                          Connected via {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'} as {calendarStatus.email || calendarStatus.username} ({calendarStatus.timezone})
                         </p>
-                        <p className="text-xs text-teal-700 mt-1">
-                          Connected as {calendarStatus.email} ({calendarStatus.timezone})
-                        </p>
+                        {calendarStatus.provider === 'calendly' && (
+                          <p className="text-xs text-amber-600 mt-1">
+                            Note: Calendly can only check availability. Switch to Cal.com for direct booking.
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
                 ) : (
                   <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                     <p className="text-sm text-amber-800">
-                      Connect your Calendly account in Settings to enable calendar features.
+                      Connect your calendar in Settings to enable scheduling features.
                     </p>
                     <a 
                       href="/dashboard/settings" 
@@ -553,11 +584,16 @@ export default function AgentDetailPage() {
                     <Label className="text-muted-foreground">Calendar Integration</Label>
                   </div>
                   {agent.calendarEnabled && calendarStatus?.connected ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-700">
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        Enabled
+                        {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
                       </span>
+                      {calendarStatus.provider === 'calcom' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                          ✓ Direct Booking
+                        </span>
+                      )}
                       <span className="text-sm text-muted-foreground">
                         Using "{calendarStatus.eventTypeName}" for appointments
                       </span>
@@ -570,7 +606,7 @@ export default function AgentDetailPage() {
                       </span>
                       <span className="text-sm text-muted-foreground">
                         {!calendarStatus?.connected 
-                          ? 'Calendly not connected' 
+                          ? 'Calendar not connected' 
                           : 'Calendar access not enabled for this agent'}
                       </span>
                     </div>

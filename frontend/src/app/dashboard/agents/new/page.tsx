@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode } from '@/lib/constants';
+import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Sparkles } from 'lucide-react';
 
 const getModeIcon = (mode: string) => {
   switch (mode) {
@@ -25,27 +25,20 @@ const getModeIcon = (mode: string) => {
   }
 };
 
+// Templates are now separate from mode-specific prompts
 const templates = [
+  {
+    id: 'mode-default',
+    name: 'Mode-Optimized',
+    description: 'Auto-generated prompt optimized for your selected mode',
+    prompt: '', // Will be generated based on mode
+    isDefault: true,
+  },
   {
     id: 'custom',
     name: 'Custom Agent',
     description: 'Start from scratch with your own prompt',
     prompt: '',
-  },
-  {
-    id: 'appointment',
-    name: 'Appointment Booking',
-    description: 'Schedule appointments and manage calendars',
-    prompt: `You are a friendly appointment scheduling assistant. Your goal is to help callers book appointments.
-
-Key behaviors:
-- Greet the caller warmly
-- Ask what service they need
-- Offer available time slots
-- Collect their name and contact info
-- Confirm the appointment details
-
-Keep responses brief and conversational. If you don't have calendar access, collect their preferred times and say someone will confirm.`,
   },
   {
     id: 'support',
@@ -83,6 +76,7 @@ export default function NewAgentPage() {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [calendarConnected, setCalendarConnected] = useState(false);
   
   const [formData, setFormData] = useState<{
     name: string;
@@ -100,8 +94,8 @@ export default function NewAgentPage() {
   }>({
     name: '',
     description: '',
-    template: 'custom',
-    systemPrompt: '',
+    template: 'mode-default',
+    systemPrompt: getSystemPromptForMode('INBOUND', false), // Default to inbound mode prompt
     voiceId: ELEVENLABS_VOICES[0].id,
     greeting: '',
     mode: 'INBOUND',
@@ -111,6 +105,56 @@ export default function NewAgentPage() {
     callWindowStart: '',
     callWindowEnd: '',
   });
+
+  // Check calendar status on load
+  useEffect(() => {
+    const checkCalendar = async () => {
+      try {
+        const response = await api.getCalendarStatus();
+        setCalendarConnected(response.data?.connected || false);
+        // Update system prompt with calendar awareness if connected
+        if (response.data?.connected && formData.template === 'mode-default') {
+          setFormData(prev => ({
+            ...prev,
+            systemPrompt: getSystemPromptForMode(prev.mode, true)
+          }));
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+    checkCalendar();
+  }, []);
+
+  // Update system prompt when mode changes (for mode-default template)
+  const handleModeChange = (newMode: AgentMode) => {
+    setFormData(prev => {
+      const updates: Partial<typeof prev> = { mode: newMode };
+      
+      // If using mode-default template, update the system prompt
+      if (prev.template === 'mode-default') {
+        updates.systemPrompt = getSystemPromptForMode(newMode, calendarConnected);
+      }
+      
+      return { ...prev, ...updates };
+    });
+  };
+
+  // Update system prompt when template changes
+  const handleTemplateChange = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    setFormData(prev => {
+      const updates: Partial<typeof prev> = { template: templateId };
+      
+      if (templateId === 'mode-default') {
+        updates.systemPrompt = getSystemPromptForMode(prev.mode, calendarConnected);
+      } else if (template) {
+        updates.systemPrompt = template.prompt;
+      }
+      
+      return { ...prev, ...updates };
+    });
+  };
 
   const selectedTemplate = templates.find((t) => t.id === formData.template);
 
@@ -177,9 +221,17 @@ export default function NewAgentPage() {
                   className={`p-4 border rounded-lg text-left hover:border-primary transition-colors ${
                     formData.template === template.id ? 'border-primary bg-primary/5' : ''
                   }`}
-                  onClick={() => setFormData({ ...formData, template: template.id })}
+                  onClick={() => handleTemplateChange(template.id)}
                 >
-                  <h3 className="font-semibold">{template.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold">{template.name}</h3>
+                    {'isDefault' in template && template.isDefault && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-teal-100 text-teal-700">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        Recommended
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">{template.description}</p>
                 </button>
               ))}
@@ -219,6 +271,9 @@ export default function NewAgentPage() {
             </div>
             <div className="space-y-2">
               <Label>Agent Mode *</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                {formData.template === 'mode-default' && 'System prompt will update automatically based on mode'}
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {Object.entries(AGENT_MODES).map(([key, mode]) => (
                   <button
@@ -227,7 +282,7 @@ export default function NewAgentPage() {
                     className={`p-4 border rounded-lg text-left hover:border-primary transition-colors ${
                       formData.mode === key ? 'border-primary bg-primary/5' : ''
                     }`}
-                    onClick={() => setFormData({ ...formData, mode: key as AgentMode })}
+                    onClick={() => handleModeChange(key as AgentMode)}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">

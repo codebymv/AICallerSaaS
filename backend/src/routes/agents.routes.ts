@@ -212,6 +212,12 @@ router.delete('/:id', async (req: AuthRequest, res, next) => {
       throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
     }
 
+    // Delete associated calls first (or you could set agentId to null if you want to keep call history)
+    await prisma.call.deleteMany({
+      where: { agentId: req.params.id },
+    });
+
+    // Now delete the agent
     await prisma.agent.delete({
       where: { id: req.params.id },
     });
