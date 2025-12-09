@@ -198,14 +198,20 @@ export class OpenAIService {
     maxTokens: number = 300
   ): Promise<ResponseWithTools> {
     try {
+      // Map messages to proper OpenAI types (only user and assistant for conversation history)
+      const formattedMessages: OpenAI.Chat.ChatCompletionMessageParam[] = messages.map((m) => {
+        if (m.role === 'user') {
+          return { role: 'user' as const, content: m.content };
+        } else {
+          return { role: 'assistant' as const, content: m.content };
+        }
+      });
+
       const response = await this.client.chat.completions.create({
         model: 'gpt-4o',
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages.map((m) => ({
-            role: m.role as 'user' | 'assistant' | 'tool',
-            content: m.content,
-          })),
+          ...formattedMessages,
         ],
         tools,
         tool_choice: 'auto',

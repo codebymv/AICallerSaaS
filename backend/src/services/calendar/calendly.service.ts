@@ -101,8 +101,8 @@ export class CalendlyService {
       throw new Error(`Failed to validate token: ${response.status}`);
     }
 
-    const data = await response.json();
-    return data.resource as CalendlyUser;
+    const data = await response.json() as { resource: CalendlyUser };
+    return data.resource;
   }
 
   /**
@@ -126,7 +126,8 @@ export class CalendlyService {
       throw new Error(`Calendly API error: ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json() as T;
+    return data;
   }
 
   /**

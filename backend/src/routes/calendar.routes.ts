@@ -284,10 +284,10 @@ router.delete('/disconnect', async (req: AuthRequest, res, next) => {
   }
 });
 
-// Helper function to get active integration with token refresh
+// Helper function to get active integration
+// Note: Personal Access Tokens don't expire, so no refresh needed
 async function getActiveIntegration(userId: string): Promise<{
   accessToken: string;
-  refreshToken: string | null;
   calendlyUserUri: string | null;
   calendlyEventTypeUri: string | null;
   timezone: string;
@@ -295,14 +295,12 @@ async function getActiveIntegration(userId: string): Promise<{
   const integration = await prisma.$queryRaw<Array<{
     id: string;
     accessToken: string;
-    refreshToken: string | null;
-    expiresAt: Date | null;
     calendlyUserUri: string | null;
     calendlyEventTypeUri: string | null;
     timezone: string;
     isActive: boolean;
   }>>`
-    SELECT id, "accessToken", "refreshToken", "expiresAt", "calendlyUserUri", "calendlyEventTypeUri", timezone, "isActive"
+    SELECT id, "accessToken", "calendlyUserUri", "calendlyEventTypeUri", timezone, "isActive"
     FROM "CalendarIntegration"
     WHERE "userId" = ${userId} AND "isActive" = true
     LIMIT 1;
@@ -314,56 +312,13 @@ async function getActiveIntegration(userId: string): Promise<{
 
   const record = integration[0];
 
-  // Check if token needs refresh (refresh 5 minutes before expiry)
-  if (record.expiresAt && record.refreshToken) {
-    const expiresAt = new Date(record.expiresAt);
-    const refreshBuffer = 5 * 60 * 1000; // 5 minutes
-    
-    if (expiresAt.getTime() - Date.now() < refreshBuffer) {
-      try {
-        logger.info('[Calendar] Refreshing Calendly token for user:', userId);
-        
-        const decryptedRefreshToken = decrypt(record.refreshToken);
-        const newTokens = await CalendlyService.refreshAccessToken(decryptedRefreshToken);
-        
-        const encryptedAccessToken = encrypt(newTokens.access_token);
-        const encryptedRefreshToken = newTokens.refresh_token ? encrypt(newTokens.refresh_token) : record.refreshToken;
-        const newExpiresAt = new Date(Date.now() + newTokens.expires_in * 1000);
-
-        await prisma.$executeRaw`
-          UPDATE "CalendarIntegration"
-          SET 
-            "accessToken" = ${encryptedAccessToken},
-            "refreshToken" = ${encryptedRefreshToken},
-            "expiresAt" = ${newExpiresAt},
-            "updatedAt" = CURRENT_TIMESTAMP
-          WHERE id = ${record.id};
-        `;
-
-        return {
-          accessToken: encryptedAccessToken,
-          refreshToken: encryptedRefreshToken,
-          calendlyUserUri: record.calendlyUserUri,
-          calendlyEventTypeUri: record.calendlyEventTypeUri,
-          timezone: record.timezone,
-        };
-      } catch (error) {
-        logger.error('[Calendar] Token refresh failed:', error);
-        // Continue with existing token, it might still work
-      }
-    }
-  }
-
   return {
     accessToken: record.accessToken,
-    refreshToken: record.refreshToken,
     calendlyUserUri: record.calendlyUserUri,
     calendlyEventTypeUri: record.calendlyEventTypeUri,
     timezone: record.timezone,
   };
-}
-
-// Export helper for use in voice pipeline
+}// Export helper for use in voice pipeline
 export { getActiveIntegration };
 
 export default router;
