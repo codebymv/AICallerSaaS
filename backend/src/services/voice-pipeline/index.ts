@@ -17,6 +17,7 @@ export interface CalendarIntegration {
   accessToken: string;
   calendlyUserUri: string | null;
   calendlyEventTypeUri: string | null;
+  eventTypeName?: string | null;
   timezone: string;
 }
 
