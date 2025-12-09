@@ -404,7 +404,7 @@ export default function AgentDetailPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    const hasCalendar = calendarStatus?.connected && calendarEnabled;
+                    const hasCalendar = !!(calendarStatus?.connected && calendarEnabled);
                     const newPrompt = getSystemPromptForMode(mode, hasCalendar);
                     setSystemPrompt(newPrompt);
                     toast({
