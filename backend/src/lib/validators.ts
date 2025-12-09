@@ -35,6 +35,8 @@ export const createAgentSchema = z.object({
   retryAttempts: z.number().min(0).max(5).default(0),
   callWindowStart: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format').optional(),
   callWindowEnd: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format').optional(),
+  // Calendar integration
+  calendarEnabled: z.boolean().default(false),
 });
 
 export const updateAgentSchema = createAgentSchema.partial();

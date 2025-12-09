@@ -21,6 +21,7 @@ import callRoutes from './routes/calls.routes';
 import webhookRoutes from './routes/webhooks.routes';
 import phoneNumberRoutes from './routes/phone-numbers.routes';
 import settingsRoutes from './routes/settings.routes';
+import calendarRoutes from './routes/calendar.routes';
 
 // WebSocket
 import { initializeWebSocket, setupTwilioMediaStream } from './websocket';
@@ -150,6 +151,7 @@ export async function createServer() {
   app.use('/api/calls', callRoutes);
   app.use('/api/phone-numbers', phoneNumberRoutes);
   app.use('/api/settings', settingsRoutes);
+  app.use('/api/calendar', calendarRoutes);
   
   // Twilio webhooks (no auth required) - both paths for compatibility
   app.use('/webhooks', webhookRoutes);

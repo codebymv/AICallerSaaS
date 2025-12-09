@@ -31,20 +31,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/agents/page.js"
     ],
-    "/dashboard/calls/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/calls/page.js"
-    ],
     "/dashboard/phone-numbers/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/phone-numbers/page.js"
     ],
-    "/register/page": [
+    "/dashboard/calls/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/register/page.js"
+      "static/chunks/app/dashboard/calls/page.js"
+    ],
+    "/dashboard/agents/[id]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/agents/[id]/page.js"
     ]
   }
 }

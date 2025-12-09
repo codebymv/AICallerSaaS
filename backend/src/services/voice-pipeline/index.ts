@@ -4,16 +4,26 @@
 
 import { EventEmitter } from 'events';
 import { DeepgramSTTService, TranscriptEvent } from '../stt/deepgram.service';
-import { OpenAIService } from '../llm/openai.service';
+import { OpenAIService, CALENDAR_TOOLS, ToolCall } from '../llm/openai.service';
 import { ElevenLabsService } from '../tts/elevenlabs.service';
+import { CalendlyService } from '../calendar/calendly.service';
 import { MetricsTracker } from '../../utils/metrics';
 import { logger } from '../../utils/logger';
 import { Agent } from '@prisma/client';
 import { getElevenLabsVoiceId } from '../../lib/constants';
+import { decrypt } from '../../utils/crypto';
+
+export interface CalendarIntegration {
+  accessToken: string;
+  calendlyUserUri: string | null;
+  calendlyEventTypeUri: string | null;
+  timezone: string;
+}
 
 export interface PipelineConfig {
   agent: Agent;
   callDirection?: string;
+  calendarIntegration?: CalendarIntegration | null;
   onTranscript: (text: string, isFinal: boolean, speaker: 'user' | 'agent') => void;
   onAudio: (audio: Buffer) => void;
   onError: (error: Error) => void;
@@ -32,6 +42,7 @@ export class VoicePipeline extends EventEmitter {
   private tts: ElevenLabsService;
   private metrics: MetricsTracker;
   private config: PipelineConfig;
+  private calendlyService: CalendlyService | null = null;
 
   private messages: ConversationMessage[] = [];
   private isProcessing = false;
@@ -39,6 +50,7 @@ export class VoicePipeline extends EventEmitter {
   private state: 'listening' | 'processing' | 'speaking' = 'listening';
   private interruptionEnabled: boolean;
   private interrupted = false;
+  private hasCalendarAccess = false;
 
   constructor(config: PipelineConfig, callSid: string) {
     super();
@@ -48,6 +60,27 @@ export class VoicePipeline extends EventEmitter {
     this.tts = new ElevenLabsService();
     this.metrics = new MetricsTracker(callSid);
     this.interruptionEnabled = config.agent.interruptible;
+
+    // Initialize calendar service if integration is available AND agent has calendar enabled
+    if (
+      config.agent.calendarEnabled && 
+      config.calendarIntegration?.accessToken && 
+      config.calendarIntegration?.calendlyEventTypeUri
+    ) {
+      try {
+        const decryptedToken = decrypt(config.calendarIntegration.accessToken);
+        this.calendlyService = new CalendlyService(
+          decryptedToken,
+          config.calendarIntegration.timezone
+        );
+        this.hasCalendarAccess = true;
+        logger.info('[Pipeline] Calendar integration enabled for agent:', config.agent.name);
+      } catch (error) {
+        logger.error('[Pipeline] Failed to initialize calendar service:', error);
+      }
+    } else if (config.calendarIntegration?.accessToken && !config.agent.calendarEnabled) {
+      logger.info('[Pipeline] Calendar integration available but disabled for agent:', config.agent.name);
+    }
 
     this.setupSTTHandlers();
   }
@@ -132,27 +165,14 @@ export class VoicePipeline extends EventEmitter {
         timestamp: Date.now(),
       });
 
-      // Generate LLM response with streaming
-      const llmStart = Date.now();
       let fullResponse = '';
 
-      // Use sentence-based streaming for lower latency
-      for await (const { sentence, isComplete } of this.llm.streamSentences(
-        this.messages.map((m) => ({ role: m.role, content: m.content })),
-        this.config.agent.systemPrompt,
-        0.7, // temperature
-        150  // maxTokens
-      )) {
-        if (this.interrupted) {
-          logger.debug('[Pipeline] Processing interrupted');
-          break;
-        }
-
-        fullResponse += sentence + ' ';
-        this.metrics.mark('llm_complete');
-
-        // Start TTS for this sentence immediately
-        await this.generateAndSendAudio(sentence);
+      // If calendar access is enabled, use tool-calling approach
+      if (this.hasCalendarAccess && this.calendlyService) {
+        fullResponse = await this.processWithTools();
+      } else {
+        // Standard streaming response without tools
+        fullResponse = await this.processWithStreaming();
       }
 
       // Add assistant message
@@ -177,6 +197,163 @@ export class VoicePipeline extends EventEmitter {
       this.isProcessing = false;
       this.state = 'listening';
     }
+  }
+
+  /**
+   * Process user input with function calling for calendar access
+   */
+  private async processWithTools(): Promise<string> {
+    const llmStart = Date.now();
+    
+    // Enhance system prompt with current date context
+    const today = new Date();
+    const enhancedPrompt = `${this.config.agent.systemPrompt}
+
+Current date and time: ${today.toLocaleDateString('en-US', { 
+  weekday: 'long', 
+  year: 'numeric', 
+  month: 'long', 
+  day: 'numeric' 
+})} at ${today.toLocaleTimeString('en-US', { 
+  hour: 'numeric', 
+  minute: '2-digit', 
+  hour12: true,
+  timeZone: this.config.calendarIntegration?.timezone || 'America/New_York'
+})} (${this.config.calendarIntegration?.timezone || 'America/New_York'} timezone)
+
+You have access to a real calendar system. Use the check_calendar_availability tool to look up available time slots, and book_appointment to schedule appointments.`;
+
+    // First, try to get a response with potential tool calls
+    const response = await this.llm.generateResponseWithTools(
+      this.messages.map((m) => ({ role: m.role, content: m.content })),
+      enhancedPrompt,
+      CALENDAR_TOOLS,
+      0.7,
+      300
+    );
+
+    // If there are tool calls, execute them
+    if (response.toolCalls && response.toolCalls.length > 0) {
+      logger.info('[Pipeline] Tool calls detected:', response.toolCalls.map(tc => tc.name));
+      
+      for (const toolCall of response.toolCalls) {
+        const toolResult = await this.executeToolCall(toolCall);
+        
+        // Get natural language response incorporating tool results
+        const naturalResponse = await this.llm.continueAfterToolCall(
+          this.messages.map((m) => ({ role: m.role, content: m.content })),
+          enhancedPrompt,
+          toolCall.id,
+          toolCall.name,
+          toolResult,
+          0.7,
+          200
+        );
+
+        if (naturalResponse && !this.interrupted) {
+          await this.generateAndSendAudio(naturalResponse);
+          this.metrics.mark('llm_complete');
+          return naturalResponse;
+        }
+      }
+    }
+
+    // If no tool calls, just use the content response
+    if (response.content && !this.interrupted) {
+      await this.generateAndSendAudio(response.content);
+      this.metrics.mark('llm_complete');
+      return response.content;
+    }
+
+    return '';
+  }
+
+  /**
+   * Execute a tool call and return the result
+   */
+  private async executeToolCall(toolCall: ToolCall): Promise<string> {
+    logger.info(`[Pipeline] Executing tool: ${toolCall.name}`, toolCall.arguments);
+
+    try {
+      switch (toolCall.name) {
+        case 'check_calendar_availability': {
+          const { date } = toolCall.arguments;
+          
+          if (!this.calendlyService || !this.config.calendarIntegration?.calendlyEventTypeUri) {
+            return 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
+          }
+
+          const slots = await this.calendlyService.getAvailableSlots(
+            this.config.calendarIntegration.calendlyEventTypeUri,
+            date
+          );
+
+          if (slots.length === 0) {
+            return `No available time slots found for ${date}. You may want to suggest checking another date.`;
+          }
+
+          // Format slots for the AI to speak naturally
+          const formattedSlots = this.calendlyService.formatSlotsForVoice(slots, 5);
+          return formattedSlots;
+        }
+
+        case 'book_appointment': {
+          const { datetime, name, email, phone, notes } = toolCall.arguments;
+          
+          if (!this.calendlyService || !this.config.calendarIntegration?.calendlyEventTypeUri) {
+            return 'Calendar is not properly configured. Appointment details collected but booking could not be completed automatically.';
+          }
+
+          // For now, Calendly doesn't have a direct booking API
+          // We'll create a single-use scheduling link instead
+          try {
+            const bookingUrl = await this.calendlyService.createSingleUseLink(
+              this.config.calendarIntegration.calendlyEventTypeUri
+            );
+            
+            // In a real implementation, you might send this link via SMS
+            return `Appointment request received for ${name} at the requested time. A confirmation link will be sent to complete the booking. The booking details: Name: ${name}, Time: ${datetime}${email ? `, Email: ${email}` : ''}${phone ? `, Phone: ${phone}` : ''}.`;
+          } catch (error) {
+            logger.error('[Pipeline] Booking error:', error);
+            return `I've collected the appointment details for ${name} at ${datetime}. Someone from our team will confirm the appointment shortly.`;
+          }
+        }
+
+        default:
+          return `Unknown tool: ${toolCall.name}`;
+      }
+    } catch (error) {
+      logger.error(`[Pipeline] Tool execution error (${toolCall.name}):`, error);
+      return `I encountered an issue checking availability. Let me collect your preferred times and someone will confirm.`;
+    }
+  }
+
+  /**
+   * Standard streaming response without tools
+   */
+  private async processWithStreaming(): Promise<string> {
+    let fullResponse = '';
+
+    // Use sentence-based streaming for lower latency
+    for await (const { sentence, isComplete } of this.llm.streamSentences(
+      this.messages.map((m) => ({ role: m.role, content: m.content })),
+      this.config.agent.systemPrompt,
+      0.7, // temperature
+      150  // maxTokens
+    )) {
+      if (this.interrupted) {
+        logger.debug('[Pipeline] Processing interrupted');
+        break;
+      }
+
+      fullResponse += sentence + ' ';
+      this.metrics.mark('llm_complete');
+
+      // Start TTS for this sentence immediately
+      await this.generateAndSendAudio(sentence);
+    }
+
+    return fullResponse;
   }
 
   private async generateAndSendAudio(text: string): Promise<void> {

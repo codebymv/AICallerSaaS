@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle } from 'lucide-react';
+import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,26 @@ interface TwilioSettings {
   accountSid: string | null;
   authTokenSet: boolean;
   authTokenMasked: string | null;
+}
+
+interface CalendarStatus {
+  connected: boolean;
+  configured: boolean;
+  provider?: string;
+  email?: string;
+  eventTypeName?: string;
+  timezone?: string;
+  isActive?: boolean;
+  tokenExpired?: boolean;
+}
+
+interface CalendarEventType {
+  uri: string;
+  name: string;
+  duration: number;
+  description: string | null;
+  schedulingUrl: string;
+  active: boolean;
 }
 
 export default function SettingsPage() {
@@ -31,9 +51,21 @@ export default function SettingsPage() {
   const [showToken, setShowToken] = useState(false);
   const [editing, setEditing] = useState(false);
 
+  // Calendar state
+  const [calendarStatus, setCalendarStatus] = useState<CalendarStatus | null>(null);
+  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [eventTypes, setEventTypes] = useState<CalendarEventType[]>([]);
+  const [selectedEventType, setSelectedEventType] = useState<string>('');
+  const [savingEventType, setSavingEventType] = useState(false);
+  const [calendlyToken, setCalendlyToken] = useState('');
+  const [showCalendlyToken, setShowCalendlyToken] = useState(false);
+  const [calendarEditing, setCalendarEditing] = useState(false);
+  const [showCalendarHelp, setShowCalendarHelp] = useState(false);
+
   useEffect(() => {
     fetchSettings();
     fetchPhoneNumbers();
+    fetchCalendarStatus();
   }, []);
 
   const fetchSettings = async () => {
@@ -56,6 +88,118 @@ export default function SettingsPage() {
       setHasPhoneNumbers((response.data || []).length > 0);
     } catch (error) {
       console.error('Failed to fetch phone numbers:', error);
+    }
+  };
+
+  const fetchCalendarStatus = async () => {
+    try {
+      const response = await api.getCalendarStatus();
+      setCalendarStatus(response.data || null);
+      
+      // If connected, fetch event types
+      if (response.data?.connected) {
+        fetchEventTypes();
+      }
+    } catch (error) {
+      console.error('Failed to fetch calendar status:', error);
+    }
+  };
+
+  const fetchEventTypes = async () => {
+    try {
+      const response = await api.getCalendarEventTypes();
+      setEventTypes(response.data || []);
+      
+      // If timezone was returned (synced from Calendly), update local state
+      if (response.timezone && calendarStatus) {
+        setCalendarStatus({
+          ...calendarStatus,
+          timezone: response.timezone,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch event types:', error);
+    }
+  };
+
+  const handleConnectCalendly = async () => {
+    if (!calendlyToken) {
+      toast({
+        title: 'Missing token',
+        description: 'Please enter your Calendly Personal Access Token',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setCalendarLoading(true);
+    try {
+      const response = await api.connectCalendly(calendlyToken);
+      if (response.data?.connected) {
+        toast({
+          title: 'Calendly connected!',
+          description: `Connected as ${response.data.email}. Select an event type below.`,
+        });
+        setCalendlyToken('');
+        setCalendarEditing(false);
+        fetchCalendarStatus();
+      }
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Failed to connect Calendly';
+      toast({
+        title: 'Connection failed',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setCalendarLoading(false);
+    }
+  };
+
+  const handleSelectEventType = async (eventTypeUri: string) => {
+    const eventType = eventTypes.find(et => et.uri === eventTypeUri);
+    if (!eventType) return;
+
+    setSavingEventType(true);
+    try {
+      await api.updateCalendarEventType(eventTypeUri, eventType.name);
+      setSelectedEventType(eventTypeUri);
+      toast({
+        title: 'Event type saved',
+        description: `AI agents will now use "${eventType.name}" for appointments.`,
+      });
+      fetchCalendarStatus();
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Failed to save event type';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingEventType(false);
+    }
+  };
+
+  const handleDisconnectCalendar = async () => {
+    if (!confirm('Are you sure you want to disconnect your calendar?')) return;
+
+    try {
+      await api.disconnectCalendar();
+      setCalendarStatus(null);
+      setEventTypes([]);
+      setSelectedEventType('');
+      toast({
+        title: 'Calendar disconnected',
+        description: 'Your Calendly account has been disconnected.',
+      });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Failed to disconnect calendar';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -295,6 +439,233 @@ export default function SettingsPage() {
                   <Button variant="outline" onClick={() => {
                     setEditing(false);
                     setAuthToken('');
+                  }}>
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Calendar Integration */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <CardTitle className="text-base sm:text-lg text-slate-600">Calendly Integration</CardTitle>
+              {/* Help Tooltip */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowCalendarHelp(!showCalendarHelp)}
+                  className="text-teal-500 hover:text-teal-700 transition-colors"
+                  aria-label="How to get Calendly token"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+                {showCalendarHelp && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowCalendarHelp(false)}
+                    />
+                    <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-72 bg-white border rounded-lg shadow-lg p-4">
+                      <h4 className="font-medium text-sm mb-2">How to get your Calendly token:</h4>
+                      <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                        <li>Go to Calendly Integrations</li>
+                        <li>Click <strong className="text-foreground">API & Webhooks</strong></li>
+                        <li>Click <strong className="text-foreground">Generate New Token</strong></li>
+                        <li>Copy the Personal Access Token</li>
+                      </ol>
+                      <a 
+                        href="https://calendly.com/integrations/api_webhooks" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-3 text-sm text-teal-600 hover:underline"
+                      >
+                        Open Calendly API Settings <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-13 sm:ml-0">
+              {calendarStatus?.connected ? (
+                <span className="flex items-center gap-1 text-sm text-green-600">
+                  <CheckCircle className="h-4 w-4" />
+                  Connected
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-sm text-slate-500">
+                  <XCircle className="h-4 w-4" />
+                  Not connected
+                </span>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {calendarStatus?.connected && !calendarEditing ? (
+            <div className="space-y-4">
+              {/* Connection Info */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="text-muted-foreground text-xs sm:text-sm">Connected Account</Label>
+                  <p className="text-sm bg-slate-100 p-2 rounded mt-1">
+                    {calendarStatus.email || 'Calendly User'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs sm:text-sm">Timezone</Label>
+                  <p className="text-sm bg-slate-100 p-2 rounded mt-1">
+                    {calendarStatus.timezone || 'Not set'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Event Type Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Event Type for AI Booking</Label>
+                {eventTypes.length > 0 ? (
+                  <div className="space-y-2">
+                    {eventTypes.map((et) => (
+                      <button
+                        key={et.uri}
+                        onClick={() => handleSelectEventType(et.uri)}
+                        disabled={savingEventType}
+                        className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                          calendarStatus.eventTypeName === et.name
+                            ? 'border-teal-500 bg-teal-50'
+                            : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{et.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {et.duration} minutes
+                              {et.description && ` • ${et.description}`}
+                            </p>
+                          </div>
+                          {calendarStatus.eventTypeName === et.name && (
+                            <CheckCircle className="h-5 w-5 text-teal-600" />
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading event types...
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button
+                  size="sm"
+                  onClick={() => setCalendarEditing(true)}
+                  className="bg-teal-600 hover:bg-teal-700 text-white"
+                >
+                  Update Token
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchEventTypes}
+                  className="text-teal-600 border-teal-600"
+                >
+                  Refresh Event Types
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDisconnectCalendar}
+                >
+                  Disconnect
+                </Button>
+              </div>
+
+              {/* Status Warning */}
+              {calendarStatus.tokenExpired && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-sm text-amber-800">
+                    Your Calendly access has expired. Please reconnect your account.
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-slate-50 border rounded-lg p-4">
+                <h4 className="font-medium text-sm mb-2">Why connect Calendly?</h4>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>AI agents can check your real-time availability</li>
+                  <li>Automatically book appointments during calls</li>
+                  <li>No more double-bookings or manual scheduling</li>
+                </ul>
+              </div>
+              
+              {/* Personal Access Token Input */}
+              <div className="space-y-2">
+                <Label htmlFor="calendlyToken">Personal Access Token</Label>
+                <div className="relative">
+                  <Input
+                    id="calendlyToken"
+                    type={showCalendlyToken ? 'text' : 'password'}
+                    value={calendlyToken}
+                    onChange={(e) => setCalendlyToken(e.target.value)}
+                    placeholder="Your Calendly Personal Access Token"
+                    className="font-mono text-sm pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCalendlyToken(!showCalendlyToken)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showCalendlyToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Get your token from{' '}
+                  <a 
+                    href="https://calendly.com/integrations/api_webhooks" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-teal-600 hover:underline"
+                  >
+                    Calendly API Settings
+                  </a>
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleConnectCalendly}
+                  disabled={calendarLoading || !calendlyToken}
+                  className="bg-teal-600 hover:bg-teal-700"
+                >
+                  {calendarLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Connect Calendly
+                    </>
+                  )}
+                </Button>
+                {calendarEditing && (
+                  <Button variant="outline" onClick={() => {
+                    setCalendarEditing(false);
+                    setCalendlyToken('');
                   }}>
                     Cancel
                   </Button>

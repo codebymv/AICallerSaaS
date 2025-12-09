@@ -130,47 +130,55 @@ export default function DashboardPage() {
                   <Link
                     key={agent.id}
                     href={`/dashboard/agents/${agent.id}`}
-                    className="flex items-center justify-between p-3 rounded-lg border hover:bg-slate-50 transition-colors"
+                    className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
-                          <Image
-                            src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
-                            alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <User className="h-5 w-5 text-slate-400" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-slate-600">{agent.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {agent.totalCalls || 0} calls
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {agent.mode && AGENT_MODES[agent.mode as keyof typeof AGENT_MODES] && (
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
-                            {getModeIcon(agent.mode)}
+                    <div className="flex flex-col gap-3 w-full">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
+                              <Image
+                                src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
+                                alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
+                                width={40}
+                                height={40}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <User className="h-5 w-5 text-slate-400" />
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-slate-600">{agent.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {agent.totalCalls || 0} calls
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <span
+                            className={`px-2 py-1 text-xs rounded-full ${
+                              agent.isActive
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {agent.isActive ? 'Active' : 'Inactive'}
                           </span>
-                          {AGENT_MODES[agent.mode as keyof typeof AGENT_MODES].label}
-                        </span>
-                      )}
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${
-                          agent.isActive
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {agent.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                          {agent.mode && AGENT_MODES[agent.mode as keyof typeof AGENT_MODES] && (
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                                {getModeIcon(agent.mode)}
+                              </span>
+                              {AGENT_MODES[agent.mode as keyof typeof AGENT_MODES].label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span></span>
+                        <span></span>
+                      </div>
                     </div>
                   </Link>
                 ))}
@@ -277,9 +285,12 @@ function CallStatusBadge({ status }: { status: string }) {
     ringing: 'bg-yellow-100 text-yellow-700',
   };
 
+  // Capitalize first letter
+  const displayStatus = status.charAt(0).toUpperCase() + status.slice(1);
+
   return (
     <span className={`px-2 py-1 text-xs rounded-full ${styles[status] || 'bg-slate-100 text-slate-600'}`}>
-      {status}
+      {displayStatus}
     </span>
   );
 }

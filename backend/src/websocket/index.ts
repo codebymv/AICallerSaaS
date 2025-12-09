@@ -179,6 +179,35 @@ async function handleStreamStart(
     voice: agent.voice,
   });
 
+  // Fetch calendar integration for this user
+  let calendarIntegration = null;
+  try {
+    const calIntegration = await prisma.$queryRaw<Array<{
+      accessToken: string;
+      calendlyUserUri: string | null;
+      calendlyEventTypeUri: string | null;
+      timezone: string;
+      isActive: boolean;
+    }>>`
+      SELECT "accessToken", "calendlyUserUri", "calendlyEventTypeUri", timezone, "isActive"
+      FROM "CalendarIntegration"
+      WHERE "userId" = ${agent.userId} AND "isActive" = true
+      LIMIT 1;
+    `;
+    
+    if (calIntegration.length > 0 && calIntegration[0].calendlyEventTypeUri) {
+      calendarIntegration = {
+        accessToken: calIntegration[0].accessToken,
+        calendlyUserUri: calIntegration[0].calendlyUserUri,
+        calendlyEventTypeUri: calIntegration[0].calendlyEventTypeUri,
+        timezone: calIntegration[0].timezone,
+      };
+      console.log('[MediaStream] Calendar integration found for user');
+    }
+  } catch (error) {
+    logger.warn('[MediaStream] Could not fetch calendar integration:', error);
+  }
+
   // Create session
   const session: CallSession = {
     callSid,
@@ -201,6 +230,7 @@ async function handleStreamStart(
     {
       agent,
       callDirection: call?.direction || 'inbound',
+      calendarIntegration,
       onTranscript: (text, isFinal, speaker) => {
         console.log('[Pipeline] Transcript:', { text, isFinal, speaker });
         // Broadcast to dashboard

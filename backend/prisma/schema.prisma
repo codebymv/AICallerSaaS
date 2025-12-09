@@ -52,6 +52,7 @@ model User {
   phoneNumbers  PhoneNumber[]
   apiKeys       ApiKey[]
   usageMetrics  UsageMetric[]
+  calendarIntegration CalendarIntegration?
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -116,6 +117,7 @@ model Agent {
   // Integrations
   webhookUrl      String?
   webhookEvents   String[]  @default([])
+  calendarEnabled Boolean   @default(false) // Enable calendar access for this agent
   
   // Status
   isActive        Boolean   @default(true)
@@ -282,4 +284,35 @@ model StripeEvent {
   
   @@index([type])
   @@index([processed])
+}
+
+// ============ CALENDAR INTEGRATIONS ============
+
+model CalendarIntegration {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  provider              String    @default("calendly") // calendly, google, etc.
+  
+  // OAuth Tokens (encrypted)
+  accessToken           String
+  refreshToken          String?
+  expiresAt             DateTime?
+  
+  // Calendly-specific
+  calendlyUserUri       String?
+  calendlyUserEmail     String?
+  calendlyEventTypeUri  String?
+  calendlyEventTypeName String?
+  
+  // Settings
+  timezone              String    @default("America/New_York")
+  isActive              Boolean   @default(true)
+  
+  // Relations
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  
+  @@index([userId])
 }

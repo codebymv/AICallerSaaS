@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot } from 'lucide-react';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -34,8 +34,18 @@ interface Agent {
   retryAttempts: number;
   callWindowStart?: string;
   callWindowEnd?: string;
+  calendarEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+interface CalendarStatus {
+  connected: boolean;
+  configured: boolean;
+  provider?: string;
+  email?: string;
+  eventTypeName?: string;
+  timezone?: string;
 }
 
 const getModeIcon = (mode: string) => {
@@ -72,10 +82,22 @@ export default function AgentDetailPage() {
   const [outboundGreeting, setOutboundGreeting] = useState('');
   const [callWindowStart, setCallWindowStart] = useState('');
   const [callWindowEnd, setCallWindowEnd] = useState('');
+  const [calendarEnabled, setCalendarEnabled] = useState(false);
+  const [calendarStatus, setCalendarStatus] = useState<CalendarStatus | null>(null);
 
   useEffect(() => {
     fetchAgent();
+    fetchCalendarStatus();
   }, [params.id]);
+
+  const fetchCalendarStatus = async () => {
+    try {
+      const response = await api.getCalendarStatus();
+      setCalendarStatus(response.data || null);
+    } catch (error) {
+      console.error('Failed to fetch calendar status:', error);
+    }
+  };
 
   const fetchAgent = async () => {
     try {
@@ -91,6 +113,7 @@ export default function AgentDetailPage() {
         setOutboundGreeting(response.data.outboundGreeting || '');
         setCallWindowStart(response.data.callWindowStart || '');
         setCallWindowEnd(response.data.callWindowEnd || '');
+        setCalendarEnabled(response.data.calendarEnabled || false);
       }
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Failed to load agent';
@@ -118,6 +141,7 @@ export default function AgentDetailPage() {
         outboundGreeting: outboundGreeting || undefined,
         callWindowStart: callWindowStart || undefined,
         callWindowEnd: callWindowEnd || undefined,
+        calendarEnabled,
       });
       toast({
         title: 'Agent updated',
@@ -375,6 +399,69 @@ export default function AgentDetailPage() {
                   className="w-full min-h-[200px] px-3 py-2 border rounded-md bg-background"
                 />
               </div>
+
+              {/* Calendar Integration */}
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-teal-600" />
+                    <Label className="text-base font-medium">Calendar Integration</Label>
+                  </div>
+                  {calendarStatus?.connected ? (
+                    <span className="flex items-center gap-1 text-xs text-green-600">
+                      <CheckCircle className="h-3 w-3" />
+                      Connected
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                      <XCircle className="h-3 w-3" />
+                      Not connected
+                    </span>
+                  )}
+                </div>
+                
+                {calendarStatus?.connected ? (
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={calendarEnabled}
+                        onChange={(e) => setCalendarEnabled(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-sm">Enable calendar access for this agent</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          When enabled, this agent can check your availability and book appointments
+                        </p>
+                      </div>
+                    </label>
+                    
+                    {calendarEnabled && (
+                      <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
+                        <p className="text-sm text-teal-800">
+                          <strong>Event type:</strong> {calendarStatus.eventTypeName || 'Not selected'}
+                        </p>
+                        <p className="text-xs text-teal-700 mt-1">
+                          Connected as {calendarStatus.email} ({calendarStatus.timezone})
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-sm text-amber-800">
+                      Connect your Calendly account in Settings to enable calendar features.
+                    </p>
+                    <a 
+                      href="/dashboard/settings" 
+                      className="inline-flex items-center gap-1 mt-2 text-sm text-teal-600 hover:underline"
+                    >
+                      Go to Settings <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <div className="space-y-6">
@@ -457,6 +544,37 @@ export default function AgentDetailPage() {
                   <p className="font-medium text-slate-600 whitespace-pre-wrap bg-muted p-3 rounded-md text-sm mt-1">
                     {agent.systemPrompt}
                   </p>
+                </div>
+
+                {/* Calendar Integration Status */}
+                <div className="md:col-span-2 pt-4 border-t">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="h-4 w-4 text-teal-600" />
+                    <Label className="text-muted-foreground">Calendar Integration</Label>
+                  </div>
+                  {agent.calendarEnabled && calendarStatus?.connected ? (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-700">
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        Enabled
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        Using "{calendarStatus.eventTypeName}" for appointments
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                        <XCircle className="h-3 w-3 mr-1" />
+                        Disabled
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {!calendarStatus?.connected 
+                          ? 'Calendly not connected' 
+                          : 'Calendar access not enabled for this agent'}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

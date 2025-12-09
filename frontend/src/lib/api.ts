@@ -291,6 +291,80 @@ class ApiClient {
       method: 'POST',
     });
   }
+
+  // Calendar Integration endpoints
+  async getCalendarStatus() {
+    return this.request<{
+      connected: boolean;
+      configured: boolean;
+      provider?: string;
+      email?: string;
+      eventTypeName?: string;
+      timezone?: string;
+      isActive?: boolean;
+      tokenExpired?: boolean;
+    }>('/api/calendar/status');
+  }
+
+  async connectCalendly(personalAccessToken: string) {
+    return this.request<{
+      connected: boolean;
+      email: string;
+      timezone: string;
+    }>('/api/calendar/calendly/connect', {
+      method: 'POST',
+      body: JSON.stringify({ personalAccessToken }),
+    });
+  }
+
+  async getCalendarEventTypes(): Promise<ApiResponse<Array<{
+    uri: string;
+    name: string;
+    duration: number;
+    description: string | null;
+    schedulingUrl: string;
+    active: boolean;
+  }>> & { timezone?: string }> {
+    return this.request('/api/calendar/event-types') as any;
+  }
+
+  async updateCalendarEventType(eventTypeUri: string, eventTypeName: string) {
+    return this.request<{
+      eventTypeUri: string;
+      eventTypeName: string;
+    }>('/api/calendar/event-type', {
+      method: 'PUT',
+      body: JSON.stringify({ eventTypeUri, eventTypeName }),
+    });
+  }
+
+  async testCalendarConnection() {
+    return this.request<{
+      valid: boolean;
+      email: string;
+      timezone: string;
+    }>('/api/calendar/test', {
+      method: 'POST',
+    });
+  }
+
+  async getCalendarAvailability(date: string) {
+    return this.request<{
+      date: string;
+      timezone: string;
+      slots: Array<{
+        startTime: string;
+        formatted: string;
+      }>;
+      voiceFormat: string;
+    }>(`/api/calendar/availability?date=${date}`);
+  }
+
+  async disconnectCalendar() {
+    return this.request<{ disconnected: boolean }>('/api/calendar/disconnect', {
+      method: 'DELETE',
+    });
+  }
 }
 
 export class ApiError extends Error {
