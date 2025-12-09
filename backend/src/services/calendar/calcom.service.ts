@@ -177,22 +177,24 @@ export class CalComService {
       eventTypeId: eventTypeId.toString(),
       start: startDate,
       end: end,
+      timeZone: this.timezone,
     });
 
-    // Add timezone for accurate slot times
-    params.append('timeZone', this.timezone);
+    logger.info('[CalCom] Fetching slots:', { eventTypeId, start: startDate, end, timeZone: this.timezone });
 
     const data = await this.request<{ 
       status: string; 
-      data: { slots: Record<string, CalComAvailableSlot[]> } 
+      data: Record<string, CalComAvailableSlot[]>  // Response is { "2025-12-09": [...], "2025-12-10": [...] }
     }>(
-      `/slots/available?${params.toString()}`,
+      `/slots?${params.toString()}`,
       API_VERSIONS.slots
     );
 
+    logger.info('[CalCom] Slots response:', { dates: Object.keys(data.data || {}) });
+
     // Flatten the slots from all dates
     const allSlots: CalComAvailableSlot[] = [];
-    for (const dateSlots of Object.values(data.data.slots)) {
+    for (const dateSlots of Object.values(data.data || {})) {
       allSlots.push(...dateSlots);
     }
 
