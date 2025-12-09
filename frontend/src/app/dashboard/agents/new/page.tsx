@@ -52,17 +52,18 @@ export default function NewAgentPage() {
   const [formData, setFormData] = useState<{
     name: string;
     description: string;
-    template: string;
-    systemPrompt: string;
-    voiceId: string;
-    greeting: string;
-    mode: AgentMode;
-    outboundGreeting: string;
-    callTimeout: number;
-    retryAttempts: number;
-    callWindowStart: string;
-    callWindowEnd: string;
-  }>({
+   template: string;
+   systemPrompt: string;
+   voiceId: string;
+   greeting: string;
+   mode: AgentMode;
+   outboundGreeting: string;
+   callTimeout: number;
+   retryAttempts: number;
+   callWindowStart: string;
+   callWindowEnd: string;
+   calendarEnabled: boolean;
+ }>({
     name: '',
     description: '',
     template: 'mode-default',
