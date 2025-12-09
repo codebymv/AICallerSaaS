@@ -383,6 +383,24 @@ IMPORTANT CALENDAR INSTRUCTIONS:
               return 'I need an email address to complete the booking. Could you please provide your email?';
             }
 
+            // Clean up email from common transcription errors
+            // "code by mv at gmail dot com" -> "codebymv@gmail.com"
+            let cleanedEmail = email
+              .toLowerCase()
+              .replace(/\s+at\s+/gi, '@')      // " at " -> "@"
+              .replace(/\s+dot\s+/gi, '.')     // " dot " -> "."
+              .replace(/\s/g, '')               // Remove all remaining spaces
+              .trim();
+            
+            // Basic email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(cleanedEmail)) {
+              logger.warn('[Pipeline] Invalid email after cleaning:', { original: email, cleaned: cleanedEmail });
+              return `The email address "${email}" doesn't appear to be valid. Could you please spell out your email address clearly?`;
+            }
+
+            logger.info('[Pipeline] Email cleaned:', { original: email, cleaned: cleanedEmail });
+
             try {
               // Format datetime for Cal.com API
               const formattedDatetime = this.calcomService.formatDateTimeForApi(datetime);
@@ -391,7 +409,7 @@ IMPORTANT CALENDAR INSTRUCTIONS:
                 eventTypeId,
                 start: formattedDatetime,
                 name,
-                email,
+                email: cleanedEmail,
                 timeZone: this.config.calendarIntegration?.timezone,
                 notes: notes || (phone ? `Phone: ${phone}` : undefined),
               });
@@ -407,7 +425,7 @@ IMPORTANT CALENDAR INSTRUCTIONS:
                 hour: 'numeric',
                 minute: '2-digit',
                 hour12: true,
-              })}. A confirmation email has been sent to ${email}. Booking reference: ${booking.uid.substring(0, 8)}.`;
+              })}. A confirmation email has been sent to ${cleanedEmail}. Booking reference: ${booking.uid.substring(0, 8)}.`;
             } catch (error) {
               logger.error('[Pipeline] Cal.com booking error:', error);
               return `I encountered an issue booking the appointment. I've noted the details for ${name} at ${datetime}. Someone from our team will confirm the appointment shortly.`;
