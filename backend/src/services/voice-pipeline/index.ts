@@ -195,8 +195,8 @@ export class VoicePipeline extends EventEmitter {
       let fullResponse = '';
 
       // If calendar access is enabled, use tool-calling approach
-      if (this.hasCalendarAccess && this.calendlyService) {
-        logger.info('[Pipeline] Using tool-calling approach');
+      if (this.hasCalendarAccess && (this.calendlyService || this.calcomService)) {
+        logger.info('[Pipeline] Using tool-calling approach with', this.calendarProvider);
         fullResponse = await this.processWithTools();
       } else {
         // Standard streaming response without tools
