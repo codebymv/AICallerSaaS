@@ -1,4 +1,4 @@
-// File: C:\Users\roxas\OneDrive\Desktop\PROJECTS\AICallerSaaS\frontend\src\app\dashboard\phone-numbers\page.tsx
+// File: /workspaces/AICallerSaaS/frontend/src/app/dashboard/phone-numbers/page.tsx
 import * as entry from '../../../../../src/app/dashboard/phone-numbers/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

@@ -147,7 +147,7 @@ export default function LandingPage() {
 
           {/* Mobile menu */}
           {mobileMenuOpen && (
-            <div className="md:hidden py-4 border-t border-gray-100">
+            <div className="md:hidden py-4 border-t border-gray-100 bg-white">
               <div className="flex flex-col gap-4">
                 <Link 
                   href="#features" 
