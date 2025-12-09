@@ -119,7 +119,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
     if (twilioSid) {
       try {
         const twilioService = await getUserTwilioService(req.user!.id);
-        await twilioService.configurePhoneNumber(twilioSid, config.apiUrl);
+        await twilioService.configurePhoneNumber(twilioSid, config.apiUrl, agentId);
       } catch (error) {
         logger.warn('[PhoneNumbers] Could not configure webhooks:', error);
         // Continue anyway - user can configure manually
@@ -172,6 +172,22 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       });
       if (!agent) {
         throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
+      }
+    }
+
+    // Update Twilio webhook URL if agent changed and we have the Twilio SID
+    if (existing.twilioSid && agentId !== existing.agentId) {
+      try {
+        const twilioService = await getUserTwilioService(req.user!.id);
+        await twilioService.configurePhoneNumber(existing.twilioSid, config.apiUrl, agentId || undefined);
+        logger.info('[PhoneNumbers] Updated Twilio webhook for agent change', { 
+          phoneNumber: existing.phoneNumber,
+          oldAgentId: existing.agentId,
+          newAgentId: agentId 
+        });
+      } catch (error) {
+        logger.warn('[PhoneNumbers] Could not update Twilio webhook:', error);
+        // Continue anyway - update the database record
       }
     }
 

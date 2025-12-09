@@ -69,15 +69,20 @@ export class TwilioService {
   /**
    * Configure webhook URLs for an existing phone number
    */
-  async configurePhoneNumber(sid: string, webhookBaseUrl: string): Promise<void> {
+  async configurePhoneNumber(sid: string, webhookBaseUrl: string, agentId?: string): Promise<void> {
     try {
+      // Include agentId in webhook URL if provided
+      const voiceUrl = agentId 
+        ? `${webhookBaseUrl}/api/webhooks/twilio/voice?agentId=${agentId}`
+        : `${webhookBaseUrl}/api/webhooks/twilio/voice`;
+      
       await this.client.incomingPhoneNumbers(sid).update({
-        voiceUrl: `${webhookBaseUrl}/api/webhooks/twilio/voice`,
+        voiceUrl,
         voiceMethod: 'POST',
         statusCallback: `${webhookBaseUrl}/api/webhooks/twilio/status`,
         statusCallbackMethod: 'POST',
       });
-      logger.info('[Twilio] Phone number configured', { sid });
+      logger.info('[Twilio] Phone number configured', { sid, agentId });
     } catch (error) {
       logger.error('[Twilio] Configure phone number error:', error);
       throw error;
