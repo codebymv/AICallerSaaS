@@ -8,6 +8,7 @@ import { createError } from '../middleware/error-handler';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createAgentSchema, updateAgentSchema, makeOutboundCallSchema } from '../lib/validators';
 import { ERROR_CODES, DEFAULT_VOICES, DEFAULT_LLM_MODELS } from '../lib/constants';
+import { decrypt } from '../utils/crypto';
 
 const router = Router();
 
@@ -376,7 +377,7 @@ router.post('/:id/call', async (req: AuthRequest, res, next) => {
     const { TwilioService } = await import('../services/twilio.service');
     const twilioService = new TwilioService({
       accountSid: user.twilioAccountSid,
-      authToken: user.twilioAuthToken,
+      authToken: decrypt(user.twilioAuthToken),
     });
 
     // Make the outbound call

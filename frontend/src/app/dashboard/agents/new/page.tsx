@@ -10,7 +10,7 @@ import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Sparkles } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Sparkles, Calendar, Wrench } from 'lucide-react';
 
 const getModeIcon = (mode: string) => {
   switch (mode) {
@@ -39,35 +39,6 @@ const templates = [
     name: 'Custom Agent',
     description: 'Start from scratch with your own prompt',
     prompt: '',
-  },
-  {
-    id: 'support',
-    name: 'Customer Support',
-    description: 'Handle customer inquiries and issues',
-    prompt: `You are a helpful customer support agent. Your goal is to assist callers with their questions and issues.
-
-Key behaviors:
-- Listen carefully to the customer's issue
-- Ask clarifying questions if needed
-- Provide clear, helpful solutions
-- If you can't resolve the issue, offer to transfer or create a ticket
-- Always be empathetic and professional
-
-Keep responses concise and focused on solving the customer's problem.`,
-  },
-  {
-    id: 'survey',
-    name: 'Survey Agent',
-    description: 'Conduct phone surveys and collect feedback',
-    prompt: `You are a professional survey agent. Your goal is to collect feedback from callers.
-
-Key behaviors:
-- Introduce yourself and explain the survey purpose
-- Ask questions one at a time
-- Accept and acknowledge all responses without judgment
-- Thank them for their time
-
-Keep the survey conversational and don't rush. If they want to skip a question, that's okay.`,
   },
 ];
 
@@ -104,6 +75,7 @@ export default function NewAgentPage() {
     retryAttempts: 0,
     callWindowStart: '',
     callWindowEnd: '',
+    calendarEnabled: false,
   });
 
   // Check calendar status on load
@@ -185,6 +157,7 @@ export default function NewAgentPage() {
         retryAttempts: formData.retryAttempts,
         callWindowStart: formData.callWindowStart || undefined,
         callWindowEnd: formData.callWindowEnd || undefined,
+        calendarEnabled: formData.calendarEnabled,
       });
 
       toast({ title: 'Agent created!', description: `${formData.name} is ready to use.` });
@@ -248,7 +221,7 @@ export default function NewAgentPage() {
         <Card>
           <CardHeader>
             <CardTitle>Basic Information</CardTitle>
-            <CardDescription>Give your agent a name and description</CardDescription>
+            <CardDescription>Give your agent a name, description, and more</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
@@ -271,9 +244,9 @@ export default function NewAgentPage() {
             </div>
             <div className="space-y-2">
               <Label>Agent Mode *</Label>
-              <p className="text-xs text-muted-foreground mb-2">
+              {/* <p className="text-xs text-muted-foreground mb-2">
                 {formData.template === 'mode-default' && 'System prompt will update automatically based on mode'}
-              </p>
+              </p> */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {Object.entries(AGENT_MODES).map(([key, mode]) => (
                   <button
@@ -354,16 +327,16 @@ export default function NewAgentPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="greeting">Greeting (optional)</Label>
+              <Label htmlFor="greeting">Inbound Greeting (optional)</Label>
               <Input
                 id="greeting"
                 placeholder="e.g., Hello! Thanks for calling. How can I help you today?"
                 value={formData.greeting}
                 onChange={(e) => setFormData({ ...formData, greeting: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">
+              {/* <p className="text-xs text-muted-foreground">
                 {formData.mode === 'INBOUND' ? 'Greeting for inbound calls' : 'Default greeting for inbound calls'}
-              </p>
+              </p> */}
             </div>
             {(formData.mode === 'OUTBOUND' || formData.mode === 'HYBRID') && (
               <div className="space-y-2">
@@ -374,9 +347,49 @@ export default function NewAgentPage() {
                   value={formData.outboundGreeting}
                   onChange={(e) => setFormData({ ...formData, outboundGreeting: e.target.value })}
                 />
-                <p className="text-xs text-muted-foreground">Different greeting when making outbound calls</p>
+                {/* <p className="text-xs text-muted-foreground">Different greeting when making outbound calls</p> */}
               </div>
             )}
+
+            {/* Tool Access */}
+            {calendarConnected && (
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-teal-600" />
+                  <Label>Tool Access</Label>
+                </div>
+                
+                {/* Calendar Tool */}
+                <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={formData.calendarEnabled}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setFormData(prev => ({
+                        ...prev,
+                        calendarEnabled: enabled,
+                        // Update system prompt if using mode-default template
+                        systemPrompt: prev.template === 'mode-default' 
+                          ? getSystemPromptForMode(prev.mode, enabled) 
+                          : prev.systemPrompt
+                      }));
+                    }}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                  />
+                  <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <span className="font-medium text-sm">Calendar</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      When enabled, this agent can check your availability and book appointments
+                    </p>
+                  </div>
+                </label>
+
+                {/* Future tools can be added here */}
+              </div>
+            )}
+
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={() => setStep(2)} className="text-teal-600 border-teal-600 hover:bg-teal-50">Back</Button>
               <Button onClick={handleSubmit} disabled={loading} className="bg-teal-600 hover:bg-teal-700">

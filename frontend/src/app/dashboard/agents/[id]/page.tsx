@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles } from 'lucide-react';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -206,92 +206,122 @@ export default function AgentDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/agents">
-            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <Bot className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">{agent.name}</h1>
-            </div>
-            <p className="text-muted-foreground text-sm">
-              {AGENT_MODES[agent.mode]?.label || agent.mode} agent
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {editing ? (
-            <>
-              <Button variant="outline" onClick={() => setEditing(false)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
-                Cancel
+      {/* Header - Compact layout on desktop */}
+      <div className="flex flex-col gap-4">
+        {/* Top row: Back, Name, Stats (desktop), Actions */}
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          {/* Left: Back + Name */}
+          <div className="flex items-center gap-4 min-w-0">
+            <Link href="/dashboard/agents" className="flex-shrink-0">
+              <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
               </Button>
-              <Button onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </>
-          ) : (
-            <>
-              {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && (
-                <Button onClick={() => setShowCallDialog(true)} className="bg-green-600 hover:bg-green-700">
-                  <Phone className="h-4 w-4 mr-2" />
-                  Make Call
-                </Button>
-              )}
-              <Button variant="outline" onClick={() => setEditing(true)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
-                Edit
-              </Button>
-              <Button variant="destructive" onClick={handleDelete}>
-                Delete
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Total Calls</CardDescription>
-            <CardTitle className="text-3xl text-slate-600">{agent.totalCalls}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Avg Duration</CardDescription>
-            <CardTitle className="text-3xl text-slate-600">
-              {agent.avgDuration ? `${Math.round(agent.avgDuration)}s` : '—'}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Status</CardDescription>
-            <CardTitle className="text-3xl">
+            </Link>
+            <div className="min-w-0">
               <div className="flex items-center gap-3">
-                <span className={`inline-flex items-center px-3 py-1 rounded-full text-base font-medium ${
+                <Bot className="h-6 w-6 text-slate-600 flex-shrink-0" />
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-600 truncate max-w-[200px] sm:max-w-[250px]" title={agent.name}>
+                  {agent.name}
+                </h1>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {AGENT_MODES[agent.mode]?.label || agent.mode} agent
+              </p>
+            </div>
+          </div>
+
+          {/* Center: Stats (desktop only - fills available space) */}
+          <div className="hidden lg:flex items-stretch gap-3 flex-1 mx-6">
+            <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
+              <span className="text-xs text-muted-foreground">Total Calls</span>
+              <span className="text-lg font-semibold text-slate-600">{agent.totalCalls}</span>
+            </div>
+            <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
+              <span className="text-xs text-muted-foreground">Avg Duration</span>
+              <span className="text-lg font-semibold text-slate-600">
+                {agent.avgDuration ? `${Math.round(agent.avgDuration)}s` : '—'}
+              </span>
+            </div>
+            <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
+              <span className="text-xs text-muted-foreground">Status</span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                   agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
                 }`}>
                   {agent.isActive ? 'Active' : 'Inactive'}
                 </span>
                 {agent.mode && AGENT_MODES[agent.mode] && (
-                  <span className="flex items-center gap-1.5 text-base font-medium text-muted-foreground">
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center bg-teal-100">
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className="w-4 h-4 rounded-full flex items-center justify-center bg-teal-100">
                       {getModeIcon(agent.mode)}
                     </span>
                     {AGENT_MODES[agent.mode].label}
                   </span>
                 )}
               </div>
-            </CardTitle>
-          </CardHeader>
-        </Card>
+            </div>
+          </div>
+
+          {/* Right: Action buttons */}
+          <div className="flex gap-2 flex-shrink-0">
+            {editing ? (
+              <>
+                <Button variant="outline" onClick={() => setEditing(false)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
+                  Cancel
+                </Button>
+                <Button onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </>
+            ) : (
+              <>
+                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && (
+                  <Button onClick={() => setShowCallDialog(true)} className="bg-teal-600 hover:bg-teal-700">
+                    <Phone className="h-4 w-4 mr-2" />
+                    Make Call
+                  </Button>
+                )}
+                <Button variant="outline" onClick={() => setEditing(true)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
+                  Edit
+                </Button>
+                <Button variant="destructive" onClick={handleDelete}>
+                  Delete
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Stats - Mobile/Tablet only (stacked cards) */}
+        <div className="grid gap-4 grid-cols-3 lg:hidden">
+          <Card>
+            <CardHeader className="p-3">
+              <CardDescription className="text-xs">Total Calls</CardDescription>
+              <CardTitle className="text-xl text-slate-600">{agent.totalCalls}</CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="p-3">
+              <CardDescription className="text-xs">Avg Duration</CardDescription>
+              <CardTitle className="text-xl text-slate-600">
+                {agent.avgDuration ? `${Math.round(agent.avgDuration)}s` : '—'}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="p-3">
+              <CardDescription className="text-xs">Status</CardDescription>
+              <div className="flex items-center gap-2 mt-1">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {agent.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
 
       {/* Details */}
@@ -420,28 +450,16 @@ export default function AgentDetailPage() {
                 </Button>
               </div>
 
-              {/* Calendar Integration */}
+              {/* Tool Access */}
               <div className="space-y-3 pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-teal-600" />
-                    <Label className="text-base font-medium">Calendar</Label>
-                  </div>
-                  {calendarStatus?.connected ? (
-                    <span className="flex items-center gap-1 text-xs text-green-600">
-                      <CheckCircle className="h-3 w-3" />
-                      {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'} Connected
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-xs text-slate-500">
-                      <XCircle className="h-3 w-3" />
-                      Not connected
-                    </span>
-                  )}
+                <div className="flex items-center gap-2">
+                  <Wrench className="h-5 w-5 text-teal-600" />
+                  <Label className="text-base font-medium">Tool Access</Label>
                 </div>
                 
                 {calendarStatus?.connected ? (
                   <div className="space-y-3">
+                    {/* Calendar Tool */}
                     <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
                       <input
                         type="checkbox"
@@ -449,41 +467,36 @@ export default function AgentDetailPage() {
                         onChange={(e) => setCalendarEnabled(e.target.checked)}
                         className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
                       />
+                      <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
                       <div className="flex-1">
-                        <span className="font-medium text-sm">Enable calendar access for this agent</span>
+                        <span className="font-medium text-sm">Calendar</span>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           When enabled, this agent can check your availability and book appointments
                         </p>
-                      </div>
-                    </label>
-                    
-                    {calendarEnabled && (
-                      <div className="bg-teal-50 border border-teal-200 rounded-lg p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-sm text-teal-800">
-                            <strong>Event type:</strong> {calendarStatus.eventTypeName || 'Not selected'}
-                          </p>
-                          {calendarStatus.provider === 'calcom' && (
-                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                              ✓ Direct Booking
+                        {calendarEnabled && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                              {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
                             </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-teal-700">
-                          Connected via {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'} as {calendarStatus.email || calendarStatus.username} ({calendarStatus.timezone})
-                        </p>
-                        {calendarStatus.provider === 'calendly' && (
-                          <p className="text-xs text-amber-600 mt-1">
-                            Note: Calendly can only check availability. Switch to Cal.com for direct booking.
-                          </p>
+                            {calendarStatus.provider === 'calcom' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                ✓ Direct Booking
+                              </span>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {calendarStatus.eventTypeName || 'No event type selected'}
+                            </span>
+                          </div>
                         )}
                       </div>
-                    )}
+                    </label>
+
+                    {/* Future tools can be added here */}
                   </div>
                 ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                    <p className="text-sm text-amber-800">
-                      Connect your calendar in Settings to enable scheduling features.
+                  <div className="bg-slate-50 border rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground">
+                      No tools available. Connect your calendar in Settings to enable scheduling.
                     </p>
                     <a 
                       href="/dashboard/settings" 
@@ -513,7 +526,7 @@ export default function AgentDetailPage() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <div className="mb-4">
+                  <div>
                     <Label className="text-muted-foreground">Voice</Label>
                     <p className="font-medium text-lg text-slate-600">
                       {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || agent.voice}
@@ -521,10 +534,9 @@ export default function AgentDetailPage() {
                     <p className="text-sm text-muted-foreground">
                       {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.description}
                     </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Voice Provider</Label>
-                    <p className="font-medium text-slate-600">{agent.voiceProvider}</p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Powered by ElevenLabs and GPT-4o
+                    </p>
                   </div>
                 </div>
               </div>
@@ -545,10 +557,6 @@ export default function AgentDetailPage() {
                     </div>
                   </div>
                 )}
-                <div>
-                  <Label className="text-muted-foreground">LLM Model</Label>
-                  <p className="font-medium text-slate-600">{agent.llmModel}</p>
-                </div>
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="font-medium text-slate-600">
@@ -579,39 +587,45 @@ export default function AgentDetailPage() {
                 </div>
 
                 {/* Calendar Integration Status */}
+                {/* Tool Access */}
                 <div className="md:col-span-2 pt-4 border-t">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="h-4 w-4 text-teal-600" />
-                    <Label className="text-muted-foreground">Calendar</Label>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Wrench className="h-4 w-4 text-teal-600" />
+                    <Label className="text-muted-foreground">Tool Access</Label>
                   </div>
-                  {agent.calendarEnabled && calendarStatus?.connected ? (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-700">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
-                      </span>
-                      {calendarStatus.provider === 'calcom' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                          ✓ Direct Booking
-                        </span>
-                      )}
-                      <span className="text-sm text-muted-foreground">
-                        Using "{calendarStatus.eventTypeName}" for appointments
-                      </span>
+                  
+                  {/* Calendar Tool */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg border bg-slate-50/50">
+                    <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">Calendar</span>
+                        {agent.calendarEnabled && calendarStatus?.connected ? (
+                          <>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                              {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
+                            </span>
+                            {calendarStatus.provider === 'calcom' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
+                                ✓ Direct Booking
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
+                            Disabled
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {agent.calendarEnabled && calendarStatus?.connected
+                          ? `Using "${calendarStatus.eventTypeName}" for appointments`
+                          : !calendarStatus?.connected 
+                            ? 'Calendar not connected' 
+                            : 'Calendar access not enabled for this agent'}
+                      </p>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Disabled
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {!calendarStatus?.connected 
-                          ? 'Calendar not connected' 
-                          : 'Calendar access not enabled for this agent'}
-                      </span>
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </div>
