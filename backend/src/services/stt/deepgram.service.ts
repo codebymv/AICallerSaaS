@@ -33,9 +33,9 @@ export class DeepgramSTTService extends EventEmitter {
         channels: 1,
         smart_format: true,
         interim_results: true,
-        utterance_end_ms: 1000,
+        utterance_end_ms: 1500,     // Increased from 1000 - more time for natural pauses
         vad_events: true,
-        endpointing: 300,
+        endpointing: 500,           // Increased from 300 - less aggressive cutoff
         punctuate: true,
       });
 

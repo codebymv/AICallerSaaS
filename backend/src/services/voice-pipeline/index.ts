@@ -106,6 +106,9 @@ export class VoicePipeline extends EventEmitter {
     this.setupSTTHandlers();
   }
 
+  private utteranceTimeout: NodeJS.Timeout | null = null;
+  private readonly UTTERANCE_DELAY_MS = 600; // Wait 600ms after utterance_end before processing
+
   private setupSTTHandlers(): void {
     this.stt.on('transcript', async (event: TranscriptEvent) => {
       this.metrics.mark('transcript_ready');
@@ -121,24 +124,95 @@ export class VoicePipeline extends EventEmitter {
         this.emit('interrupt');
       }
 
+      // Cancel pending utterance processing if user continues speaking
+      if (this.utteranceTimeout) {
+        clearTimeout(this.utteranceTimeout);
+        this.utteranceTimeout = null;
+      }
+
       if (event.isFinal) {
         this.pendingTranscript += ' ' + event.text;
       }
     });
 
-    this.stt.on('utterance_end', async () => {
-      logger.info('[Pipeline] Utterance end detected, pending: ' + this.pendingTranscript.trim());
-      if (this.pendingTranscript.trim() && !this.isProcessing) {
-        await this.processUserInput(this.pendingTranscript.trim());
-        this.pendingTranscript = '';
-      } else {
-        logger.info(`[Pipeline] Skipping processing - isProcessing: ${this.isProcessing}, pending empty: ${!this.pendingTranscript.trim()}`);
+    // When user starts speaking again, cancel any pending processing
+    this.stt.on('speech_started', () => {
+      if (this.utteranceTimeout) {
+        logger.info('[Pipeline] User started speaking again, cancelling pending processing');
+        clearTimeout(this.utteranceTimeout);
+        this.utteranceTimeout = null;
       }
+    });
+
+    this.stt.on('utterance_end', async () => {
+      const transcript = this.pendingTranscript.trim();
+      logger.info('[Pipeline] Utterance end detected, pending: ' + transcript);
+      
+      if (!transcript || this.isProcessing) {
+        logger.info(`[Pipeline] Skipping - isProcessing: ${this.isProcessing}, empty: ${!transcript}`);
+        return;
+      }
+
+      // Check if transcript seems incomplete (user might continue)
+      if (this.isIncompletePhrase(transcript)) {
+        logger.info('[Pipeline] Phrase seems incomplete, waiting for more...');
+        // Wait longer for incomplete phrases
+        this.utteranceTimeout = setTimeout(async () => {
+          const finalTranscript = this.pendingTranscript.trim();
+          if (finalTranscript && !this.isProcessing) {
+            await this.processUserInput(finalTranscript);
+            this.pendingTranscript = '';
+          }
+          this.utteranceTimeout = null;
+        }, this.UTTERANCE_DELAY_MS * 2); // Double delay for incomplete phrases
+        return;
+      }
+
+      // Normal delay before processing - gives user time to continue
+      this.utteranceTimeout = setTimeout(async () => {
+        const finalTranscript = this.pendingTranscript.trim();
+        if (finalTranscript && !this.isProcessing) {
+          await this.processUserInput(finalTranscript);
+          this.pendingTranscript = '';
+        }
+        this.utteranceTimeout = null;
+      }, this.UTTERANCE_DELAY_MS);
     });
 
     this.stt.on('error', (error) => {
       this.config.onError(error);
     });
+  }
+
+  /**
+   * Check if a phrase seems incomplete and the user might continue speaking
+   */
+  private isIncompletePhrase(text: string): boolean {
+    const lowerText = text.toLowerCase().trim();
+    
+    // Phrases that often indicate more is coming
+    const incompleteEndings = [
+      ' and', ' or', ' but', ' so', ' my', ' the', ' is', ' are',
+      ' at', ' to', ' for', ' with', ' about', ' because',
+      ' email', ' name', ' number', ' address',
+      ' it\'s', ' its', ' that\'s', ' i\'m', ' i am',
+    ];
+    
+    for (const ending of incompleteEndings) {
+      if (lowerText.endsWith(ending)) {
+        return true;
+      }
+    }
+    
+    // Also check if it's a very short response that might be incomplete
+    const wordCount = lowerText.split(/\s+/).length;
+    if (wordCount <= 2 && !lowerText.includes('@')) {
+      // Short responses like "my name" or "the email" - might be incomplete
+      // But not if it contains @ (email address)
+      return true;
+    }
+    
+    return false;
   }
 
   async start(): Promise<void> {
@@ -175,6 +249,14 @@ export class VoicePipeline extends EventEmitter {
     this.stt.sendAudio(audioData);
   }
 
+  private thinkingTimeout: NodeJS.Timeout | null = null;
+  private readonly THINKING_DELAY_MS = 2500; // Say "one moment" if processing takes longer than 2.5s
+  private readonly THINKING_PHRASES = [
+    "One moment please.",
+    "Let me check that for you.",
+    "Just a moment.",
+  ];
+
   private async processUserInput(text: string): Promise<void> {
     if (this.isProcessing) return;
     this.isProcessing = true;
@@ -183,6 +265,17 @@ export class VoicePipeline extends EventEmitter {
 
     logger.info('[Pipeline] Processing user input:', text);
     logger.info('[Pipeline] Calendar access:', this.hasCalendarAccess);
+
+    // Start a "thinking" timer - if processing takes too long, say something
+    let thinkingMessageSent = false;
+    this.thinkingTimeout = setTimeout(async () => {
+      if (this.isProcessing && !this.interrupted && !thinkingMessageSent) {
+        thinkingMessageSent = true;
+        const phrase = this.THINKING_PHRASES[Math.floor(Math.random() * this.THINKING_PHRASES.length)];
+        logger.info('[Pipeline] Sending thinking message:', phrase);
+        await this.generateAndSendAudio(phrase);
+      }
+    }, this.THINKING_DELAY_MS);
 
     try {
       // Add user message
@@ -225,6 +318,11 @@ export class VoicePipeline extends EventEmitter {
       logger.error('[Pipeline] Process error:', error);
       this.config.onError(error as Error);
     } finally {
+      // Clear thinking timeout
+      if (this.thinkingTimeout) {
+        clearTimeout(this.thinkingTimeout);
+        this.thinkingTimeout = null;
+      }
       this.isProcessing = false;
       this.state = 'listening';
     }
@@ -265,11 +363,20 @@ IMPORTANT CALENDAR INSTRUCTIONS:
 - You have access to a REAL calendar booking system.
 - When a caller asks about scheduling, availability, or appointments, you MUST use the check_calendar_availability tool to look up actual available time slots.
 - Do NOT make up or guess available times - always check the calendar first.
-- CRITICAL: When booking, the datetime MUST include the timezone offset. For example: "2025-12-10T17:40:00-07:00" (for Phoenix time). Do NOT use just "10:40" - you must use the full ISO 8601 format with timezone.
 - Use book_appointment to confirm bookings after collecting: name, email (REQUIRED), and preferred time.
 - If the caller asks "what times are available" or similar, call check_calendar_availability with today's date or the date they mention.
 - You MUST collect the caller's email address before booking - it is required for confirmation.
-- After booking, confirm the appointment details with the caller.`;
+
+EMAIL CONFIRMATION (IMPORTANT):
+- When you receive an email address, ALWAYS read it back using the phonetic alphabet for clarity.
+- Example: For "codebymv@gmail.com", say: "Just to confirm, that's C as in Charlie, O as in Oscar, D as in Delta, E as in Echo, B as in Bravo, Y as in Yankee, M as in Mike, V as in Victor, at gmail dot com. Is that correct?"
+- Common phonetic letters: A-Alpha, B-Bravo, C-Charlie, D-Delta, E-Echo, F-Foxtrot, G-Golf, H-Hotel, I-India, J-Juliet, K-Kilo, L-Lima, M-Mike, N-November, O-Oscar, P-Papa, Q-Quebec, R-Romeo, S-Sierra, T-Tango, U-Uniform, V-Victor, W-Whiskey, X-X-ray, Y-Yankee, Z-Zulu.
+- Wait for the caller to confirm the email is correct before proceeding.
+
+BOOKING CONFIRMATION:
+- Before calling book_appointment, read back ALL details: "So that's [Name], email [spell phonetically], for [day] at [time]. Should I go ahead and book that?"
+- Only call book_appointment AFTER the caller confirms.
+- After successful booking, confirm: "Your appointment is confirmed for [details]. You'll receive a confirmation email shortly."`;
 
     logger.info('[Pipeline] Calling LLM with tools...');
     
