@@ -106,9 +106,12 @@ export class VoicePipeline extends EventEmitter {
     });
 
     this.stt.on('utterance_end', async () => {
+      logger.info('[Pipeline] Utterance end detected, pending:', this.pendingTranscript.trim());
       if (this.pendingTranscript.trim() && !this.isProcessing) {
         await this.processUserInput(this.pendingTranscript.trim());
         this.pendingTranscript = '';
+      } else {
+        logger.info('[Pipeline] Skipping processing - isProcessing:', this.isProcessing, 'pending empty:', !this.pendingTranscript.trim());
       }
     });
 
@@ -157,6 +160,9 @@ export class VoicePipeline extends EventEmitter {
     this.state = 'processing';
     this.interrupted = false;
 
+    logger.info('[Pipeline] Processing user input:', text);
+    logger.info('[Pipeline] Calendar access:', this.hasCalendarAccess);
+
     try {
       // Add user message
       this.messages.push({
@@ -169,11 +175,15 @@ export class VoicePipeline extends EventEmitter {
 
       // If calendar access is enabled, use tool-calling approach
       if (this.hasCalendarAccess && this.calendlyService) {
+        logger.info('[Pipeline] Using tool-calling approach');
         fullResponse = await this.processWithTools();
       } else {
         // Standard streaming response without tools
+        logger.info('[Pipeline] Using standard streaming approach');
         fullResponse = await this.processWithStreaming();
       }
+
+      logger.info('[Pipeline] Response generated:', fullResponse?.substring(0, 100) || 'EMPTY');
 
       // Add assistant message
       if (fullResponse.trim()) {
@@ -204,6 +214,7 @@ export class VoicePipeline extends EventEmitter {
    */
   private async processWithTools(): Promise<string> {
     const llmStart = Date.now();
+    logger.info('[Pipeline] processWithTools started');
     
     // Enhance system prompt with current date context
     const today = new Date();
@@ -223,6 +234,8 @@ Current date and time: ${today.toLocaleDateString('en-US', {
 
 You have access to a real calendar system. Use the check_calendar_availability tool to look up available time slots, and book_appointment to schedule appointments.`;
 
+    logger.info('[Pipeline] Calling LLM with tools...');
+    
     // First, try to get a response with potential tool calls
     const response = await this.llm.generateResponseWithTools(
       this.messages.map((m) => ({ role: m.role, content: m.content })),
@@ -231,6 +244,8 @@ You have access to a real calendar system. Use the check_calendar_availability t
       0.7,
       300
     );
+
+    logger.info('[Pipeline] LLM response:', { hasContent: !!response.content, hasToolCalls: !!response.toolCalls?.length });
 
     // If there are tool calls, execute them
     if (response.toolCalls && response.toolCalls.length > 0) {
@@ -332,6 +347,7 @@ You have access to a real calendar system. Use the check_calendar_availability t
    * Standard streaming response without tools
    */
   private async processWithStreaming(): Promise<string> {
+    logger.info('[Pipeline] processWithStreaming started');
     let fullResponse = '';
 
     // Use sentence-based streaming for lower latency
