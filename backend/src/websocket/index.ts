@@ -179,32 +179,54 @@ async function handleStreamStart(
     voice: agent.voice,
   });
 
-  // Fetch calendar integration for this user
+  // Fetch calendar integration for this user (supports both Calendly and Cal.com)
   let calendarIntegration = null;
   try {
     const calIntegration = await prisma.$queryRaw<Array<{
+      provider: string;
       accessToken: string;
       calendlyUserUri: string | null;
       calendlyEventTypeUri: string | null;
       calendlyEventTypeName: string | null;
+      calcomApiKey: string | null;
+      calcomEventTypeId: number | null;
+      calcomEventTypeName: string | null;
       timezone: string;
       isActive: boolean;
     }>>`
-      SELECT "accessToken", "calendlyUserUri", "calendlyEventTypeUri", "calendlyEventTypeName", timezone, "isActive"
+      SELECT provider, "accessToken", "calendlyUserUri", "calendlyEventTypeUri", "calendlyEventTypeName",
+             "calcomApiKey", "calcomEventTypeId", "calcomEventTypeName", timezone, "isActive"
       FROM "CalendarIntegration"
       WHERE "userId" = ${agent.userId} AND "isActive" = true
       LIMIT 1;
     `;
     
-    if (calIntegration.length > 0 && calIntegration[0].calendlyEventTypeUri) {
-      calendarIntegration = {
-        accessToken: calIntegration[0].accessToken,
-        calendlyUserUri: calIntegration[0].calendlyUserUri,
-        calendlyEventTypeUri: calIntegration[0].calendlyEventTypeUri,
-        eventTypeName: calIntegration[0].calendlyEventTypeName,
-        timezone: calIntegration[0].timezone,
-      };
-      console.log('[MediaStream] Calendar integration found for user');
+    if (calIntegration.length > 0) {
+      const integration = calIntegration[0];
+      
+      if (integration.provider === 'calcom' && integration.calcomApiKey && integration.calcomEventTypeId) {
+        // Cal.com integration
+        calendarIntegration = {
+          provider: 'calcom' as const,
+          calcomApiKey: integration.calcomApiKey,
+          calcomEventTypeId: integration.calcomEventTypeId,
+          calcomEventTypeName: integration.calcomEventTypeName,
+          eventTypeName: integration.calcomEventTypeName,
+          timezone: integration.timezone,
+        };
+        console.log('[MediaStream] Cal.com integration found for user');
+      } else if (integration.calendlyEventTypeUri) {
+        // Calendly integration
+        calendarIntegration = {
+          provider: 'calendly' as const,
+          accessToken: integration.accessToken,
+          calendlyUserUri: integration.calendlyUserUri,
+          calendlyEventTypeUri: integration.calendlyEventTypeUri,
+          eventTypeName: integration.calendlyEventTypeName,
+          timezone: integration.timezone,
+        };
+        console.log('[MediaStream] Calendly integration found for user');
+      }
     }
   } catch (error) {
     logger.warn('[MediaStream] Could not fetch calendar integration:', error);

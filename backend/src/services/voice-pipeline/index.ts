@@ -7,6 +7,7 @@ import { DeepgramSTTService, TranscriptEvent } from '../stt/deepgram.service';
 import { OpenAIService, CALENDAR_TOOLS, ToolCall } from '../llm/openai.service';
 import { ElevenLabsService } from '../tts/elevenlabs.service';
 import { CalendlyService } from '../calendar/calendly.service';
+import { CalComService } from '../calendar/calcom.service';
 import { MetricsTracker } from '../../utils/metrics';
 import { logger } from '../../utils/logger';
 import { Agent } from '@prisma/client';
@@ -14,9 +15,16 @@ import { getElevenLabsVoiceId } from '../../lib/constants';
 import { decrypt } from '../../utils/crypto';
 
 export interface CalendarIntegration {
-  accessToken: string;
-  calendlyUserUri: string | null;
-  calendlyEventTypeUri: string | null;
+  provider: 'calendly' | 'calcom';
+  // Calendly fields
+  accessToken?: string;
+  calendlyUserUri?: string | null;
+  calendlyEventTypeUri?: string | null;
+  // Cal.com fields
+  calcomApiKey?: string;
+  calcomEventTypeId?: number | null;
+  calcomEventTypeName?: string | null;
+  // Common fields
   eventTypeName?: string | null;
   timezone: string;
 }
@@ -44,6 +52,7 @@ export class VoicePipeline extends EventEmitter {
   private metrics: MetricsTracker;
   private config: PipelineConfig;
   private calendlyService: CalendlyService | null = null;
+  private calcomService: CalComService | null = null;
 
   private messages: ConversationMessage[] = [];
   private isProcessing = false;
@@ -52,6 +61,7 @@ export class VoicePipeline extends EventEmitter {
   private interruptionEnabled: boolean;
   private interrupted = false;
   private hasCalendarAccess = false;
+  private calendarProvider: 'calendly' | 'calcom' | null = null;
 
   constructor(config: PipelineConfig, callSid: string) {
     super();
@@ -62,24 +72,34 @@ export class VoicePipeline extends EventEmitter {
     this.metrics = new MetricsTracker(callSid);
     this.interruptionEnabled = config.agent.interruptible;
 
-    // Initialize calendar service if integration is available AND agent has calendar enabled
-    if (
-      config.agent.calendarEnabled && 
-      config.calendarIntegration?.accessToken && 
-      config.calendarIntegration?.calendlyEventTypeUri
-    ) {
-      try {
-        const decryptedToken = decrypt(config.calendarIntegration.accessToken);
-        this.calendlyService = new CalendlyService(
-          decryptedToken,
-          config.calendarIntegration.timezone
-        );
-        this.hasCalendarAccess = true;
-        logger.info('[Pipeline] Calendar integration enabled for agent:', config.agent.name);
-      } catch (error) {
-        logger.error('[Pipeline] Failed to initialize calendar service:', error);
+    // Initialize calendar service based on provider
+    if (config.agent.calendarEnabled && config.calendarIntegration) {
+      const integration = config.calendarIntegration;
+      
+      if (integration.provider === 'calcom' && integration.calcomApiKey && integration.calcomEventTypeId) {
+        // Cal.com integration (supports direct booking!)
+        try {
+          const decryptedApiKey = decrypt(integration.calcomApiKey);
+          this.calcomService = new CalComService(decryptedApiKey, integration.timezone);
+          this.hasCalendarAccess = true;
+          this.calendarProvider = 'calcom';
+          logger.info('[Pipeline] Cal.com integration enabled for agent:', config.agent.name);
+        } catch (error) {
+          logger.error('[Pipeline] Failed to initialize Cal.com service:', error);
+        }
+      } else if (integration.provider === 'calendly' && integration.accessToken && integration.calendlyEventTypeUri) {
+        // Calendly integration (availability check only)
+        try {
+          const decryptedToken = decrypt(integration.accessToken);
+          this.calendlyService = new CalendlyService(decryptedToken, integration.timezone);
+          this.hasCalendarAccess = true;
+          this.calendarProvider = 'calendly';
+          logger.info('[Pipeline] Calendly integration enabled for agent:', config.agent.name);
+        } catch (error) {
+          logger.error('[Pipeline] Failed to initialize Calendly service:', error);
+        }
       }
-    } else if (config.calendarIntegration?.accessToken && !config.agent.calendarEnabled) {
+    } else if (config.calendarIntegration && !config.agent.calendarEnabled) {
       logger.info('[Pipeline] Calendar integration available but disabled for agent:', config.agent.name);
     }
 
@@ -245,8 +265,10 @@ IMPORTANT CALENDAR INSTRUCTIONS:
 - You have access to a REAL calendar booking system.
 - When a caller asks about scheduling, availability, or appointments, you MUST use the check_calendar_availability tool to look up actual available time slots.
 - Do NOT make up or guess available times - always check the calendar first.
-- Use book_appointment to confirm bookings after collecting: name, email (optional), and preferred time.
-- If the caller asks "what times are available" or similar, call check_calendar_availability with today's date or the date they mention.`;
+- Use book_appointment to confirm bookings after collecting: name, email (REQUIRED), and preferred time.
+- If the caller asks "what times are available" or similar, call check_calendar_availability with today's date or the date they mention.
+- You MUST collect the caller's email address before booking - it is required for confirmation.
+- After booking, confirm the appointment details with the caller.`;
 
     logger.info('[Pipeline] Calling LLM with tools...');
     
@@ -309,44 +331,106 @@ IMPORTANT CALENDAR INSTRUCTIONS:
         case 'check_calendar_availability': {
           const { date } = toolCall.arguments;
           
-          if (!this.calendlyService || !this.config.calendarIntegration?.calendlyEventTypeUri) {
-            return 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
+          // Cal.com provider
+          if (this.calendarProvider === 'calcom' && this.calcomService) {
+            const eventTypeId = this.config.calendarIntegration?.calcomEventTypeId;
+            if (!eventTypeId) {
+              return 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
+            }
+
+            const slots = await this.calcomService.getAvailableSlots(eventTypeId, date);
+
+            if (slots.length === 0) {
+              return `No available time slots found for ${date}. You may want to suggest checking another date.`;
+            }
+
+            const formattedSlots = this.calcomService.formatSlotsForVoice(slots, 5);
+            return formattedSlots;
+          }
+          
+          // Calendly provider (fallback)
+          if (this.calendarProvider === 'calendly' && this.calendlyService) {
+            const eventTypeUri = this.config.calendarIntegration?.calendlyEventTypeUri;
+            if (!eventTypeUri) {
+              return 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
+            }
+
+            const slots = await this.calendlyService.getAvailableSlots(eventTypeUri, date);
+
+            if (slots.length === 0) {
+              return `No available time slots found for ${date}. You may want to suggest checking another date.`;
+            }
+
+            const formattedSlots = this.calendlyService.formatSlotsForVoice(slots, 5);
+            return formattedSlots;
           }
 
-          const slots = await this.calendlyService.getAvailableSlots(
-            this.config.calendarIntegration.calendlyEventTypeUri,
-            date
-          );
-
-          if (slots.length === 0) {
-            return `No available time slots found for ${date}. You may want to suggest checking another date.`;
-          }
-
-          // Format slots for the AI to speak naturally
-          const formattedSlots = this.calendlyService.formatSlotsForVoice(slots, 5);
-          return formattedSlots;
+          return 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
         }
 
         case 'book_appointment': {
           const { datetime, name, email, phone, notes } = toolCall.arguments;
           
-          if (!this.calendlyService || !this.config.calendarIntegration?.calendlyEventTypeUri) {
-            return 'Calendar is not properly configured. Appointment details collected but booking could not be completed automatically.';
+          // Cal.com provider - DIRECT BOOKING!
+          if (this.calendarProvider === 'calcom' && this.calcomService) {
+            const eventTypeId = this.config.calendarIntegration?.calcomEventTypeId;
+            if (!eventTypeId) {
+              return 'Calendar is not properly configured. Appointment details collected but booking could not be completed automatically.';
+            }
+
+            // Email is required for Cal.com
+            if (!email) {
+              return 'I need an email address to complete the booking. Could you please provide your email?';
+            }
+
+            try {
+              // Format datetime for Cal.com API
+              const formattedDatetime = this.calcomService.formatDateTimeForApi(datetime);
+              
+              const booking = await this.calcomService.createBooking({
+                eventTypeId,
+                start: formattedDatetime,
+                name,
+                email,
+                timeZone: this.config.calendarIntegration?.timezone,
+                notes: notes || (phone ? `Phone: ${phone}` : undefined),
+              });
+
+              logger.info('[Pipeline] Cal.com booking created:', booking.uid);
+              
+              // Return success message with confirmation details
+              return `Appointment successfully booked for ${name} on ${new Date(booking.startTime).toLocaleString('en-US', {
+                timeZone: this.config.calendarIntegration?.timezone,
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+              })}. A confirmation email has been sent to ${email}. Booking reference: ${booking.uid.substring(0, 8)}.`;
+            } catch (error) {
+              logger.error('[Pipeline] Cal.com booking error:', error);
+              return `I encountered an issue booking the appointment. I've noted the details for ${name} at ${datetime}. Someone from our team will confirm the appointment shortly.`;
+            }
+          }
+          
+          // Calendly provider (no direct booking - link only)
+          if (this.calendarProvider === 'calendly' && this.calendlyService) {
+            const eventTypeUri = this.config.calendarIntegration?.calendlyEventTypeUri;
+            if (!eventTypeUri) {
+              return 'Calendar is not properly configured. Appointment details collected but booking could not be completed automatically.';
+            }
+
+            try {
+              const bookingUrl = await this.calendlyService.createSingleUseLink(eventTypeUri);
+              return `I've collected the appointment details for ${name} at ${datetime}. Unfortunately, I cannot complete the booking automatically with this calendar system. Someone from our team will confirm the appointment shortly.${email ? ` A confirmation will be sent to ${email}.` : ''}`;
+            } catch (error) {
+              logger.error('[Pipeline] Calendly booking error:', error);
+              return `I've collected the appointment details for ${name} at ${datetime}. Someone from our team will confirm the appointment shortly.`;
+            }
           }
 
-          // For now, Calendly doesn't have a direct booking API
-          // We'll create a single-use scheduling link instead
-          try {
-            const bookingUrl = await this.calendlyService.createSingleUseLink(
-              this.config.calendarIntegration.calendlyEventTypeUri
-            );
-            
-            // In a real implementation, you might send this link via SMS
-            return `Appointment request received for ${name} at the requested time. A confirmation link will be sent to complete the booking. The booking details: Name: ${name}, Time: ${datetime}${email ? `, Email: ${email}` : ''}${phone ? `, Phone: ${phone}` : ''}.`;
-          } catch (error) {
-            logger.error('[Pipeline] Booking error:', error);
-            return `I've collected the appointment details for ${name} at ${datetime}. Someone from our team will confirm the appointment shortly.`;
-          }
+          return 'Calendar is not properly configured. Appointment details collected but booking could not be completed automatically.';
         }
 
         default:

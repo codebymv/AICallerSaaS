@@ -299,6 +299,7 @@ class ApiClient {
       configured: boolean;
       provider?: string;
       email?: string;
+      username?: string;
       eventTypeName?: string;
       timezone?: string;
       isActive?: boolean;
@@ -336,6 +337,51 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify({ eventTypeUri, eventTypeName }),
     });
+  }
+
+  // Cal.com Integration endpoints
+  async connectCalcom(apiKey: string) {
+    return this.request<{
+      connected: boolean;
+      username: string;
+      email: string;
+      timezone: string;
+    }>('/api/calendar/calcom/connect', {
+      method: 'POST',
+      body: JSON.stringify({ apiKey }),
+    });
+  }
+
+  async getCalcomEventTypes() {
+    return this.request<Array<{
+      id: number;
+      title: string;
+      slug: string;
+      duration: number;
+      description: string | null;
+    }>>('/api/calendar/calcom/event-types');
+  }
+
+  async updateCalcomEventType(eventTypeId: number, eventTypeSlug?: string, eventTypeName?: string) {
+    return this.request<{
+      eventTypeId: number;
+      eventTypeName: string;
+    }>('/api/calendar/calcom/event-type', {
+      method: 'PUT',
+      body: JSON.stringify({ eventTypeId, eventTypeSlug, eventTypeName }),
+    });
+  }
+
+  async getCalcomAvailability(date: string) {
+    return this.request<{
+      date: string;
+      timezone: string;
+      slots: Array<{
+        startTime: string;
+        formatted: string;
+      }>;
+      voiceFormat: string;
+    }>(`/api/calendar/calcom/availability?date=${date}`);
   }
 
   async testCalendarConnection() {

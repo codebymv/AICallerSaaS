@@ -291,9 +291,9 @@ model StripeEvent {
 model CalendarIntegration {
   id                    String    @id @default(cuid())
   userId                String    @unique
-  provider              String    @default("calendly") // calendly, google, etc.
+  provider              String    @default("calendly") // calendly, calcom
   
-  // OAuth Tokens (encrypted)
+  // OAuth Tokens (encrypted) - used by Calendly
   accessToken           String
   refreshToken          String?
   expiresAt             DateTime?
@@ -303,6 +303,15 @@ model CalendarIntegration {
   calendlyUserEmail     String?
   calendlyEventTypeUri  String?
   calendlyEventTypeName String?
+  
+  // Cal.com-specific
+  calcomApiKey          String?   // Encrypted API key
+  calcomUserId          Int?
+  calcomUsername        String?
+  calcomUserEmail       String?
+  calcomEventTypeId     Int?
+  calcomEventTypeSlug   String?
+  calcomEventTypeName   String?
   
   // Settings
   timezone              String    @default("America/New_York")
