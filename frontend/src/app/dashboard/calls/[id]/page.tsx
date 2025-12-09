@@ -40,6 +40,11 @@ interface Call {
   sentiment?: string;
   recordingUrl?: string;
   costUsd?: number;
+  // Agent snapshot (preserves agent config at time of call)
+  agentName?: string;
+  agentVoice?: string;
+  agentVoiceProvider?: string;
+  // Agent relation (current agent data)
   agent?: {
     id: string;
     name: string;
@@ -188,7 +193,10 @@ export default function CallDetailPage() {
     );
   }
 
-  const agentAvatar = call.agent ? getVoiceAvatar(call.agent.voice) : null;
+  // Use snapshot data if available, fallback to live agent data for backwards compatibility
+  const displayVoice = call.agentVoice || call.agent?.voice;
+  const displayName = call.agentName || call.agent?.name;
+  const agentAvatar = displayVoice ? getVoiceAvatar(displayVoice) : null;
 
   return (
     <div className="space-y-6">
@@ -277,12 +285,12 @@ export default function CallDetailPage() {
             <CardTitle className="text-lg text-slate-600">AI Agent</CardTitle>
           </CardHeader>
           <CardContent>
-            {call.agent ? (
+            {(displayName || call.agent) ? (
               <div className="flex items-center gap-4">
                 {agentAvatar ? (
                   <Image
                     src={agentAvatar}
-                    alt={call.agent.name}
+                    alt={displayName || 'Agent'}
                     width={48}
                     height={48}
                     className="rounded-full"
@@ -293,18 +301,20 @@ export default function CallDetailPage() {
                   </div>
                 )}
                 <div>
-                  <p className="font-semibold text-slate-600">{call.agent.name}</p>
-                  {call.agent.voice && (
+                  <p className="font-semibold text-slate-600">{displayName}</p>
+                  {displayVoice && (
                     <p className="text-sm text-muted-foreground capitalize">
-                      Voice: {call.agent.voice}
+                      Voice: {displayVoice}
                     </p>
                   )}
                 </div>
-                <Link href={`/dashboard/agents/${call.agent.id}`} className="ml-auto">
-                  <Button variant="outline" size="sm" className="text-teal-600 border-teal-600 hover:bg-teal-50">
-                    View Agent
-                  </Button>
-                </Link>
+                {call.agent && (
+                  <Link href={`/dashboard/agents/${call.agent.id}`} className="ml-auto">
+                    <Button variant="outline" size="sm" className="text-teal-600 border-teal-600 hover:bg-teal-50">
+                      View Agent
+                    </Button>
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-4 text-muted-foreground">

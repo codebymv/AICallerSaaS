@@ -157,6 +157,10 @@ router.post('/', async (req: AuthRequest, res, next) => {
         status: 'initiated',
         metadata: data.metadata || {},
         callSid: `pending_${Date.now()}`, // Will be updated by Twilio
+        // Agent snapshot - preserve agent config at time of call
+        agentName: agent.name,
+        agentVoice: agent.voice,
+        agentVoiceProvider: agent.voiceProvider,
       },
     });
 

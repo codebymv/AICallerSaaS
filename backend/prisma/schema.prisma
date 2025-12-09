@@ -208,6 +208,11 @@ model Call {
   metadata        Json?
   errorMessage    String?
   
+  // Agent Snapshot (preserves agent config at time of call)
+  agentName       String?
+  agentVoice      String?
+  agentVoiceProvider String?
+  
   // Relations
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)

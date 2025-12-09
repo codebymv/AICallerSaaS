@@ -20,3 +20,4 @@ echo ""
 echo "⚠️  IMPORTANT: You must restart your backend server for changes to take effect!"
 echo "   Press Ctrl+C in your terminal and run 'npm run dev' again"
 echo ""
+

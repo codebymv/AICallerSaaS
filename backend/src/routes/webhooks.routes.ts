@@ -70,6 +70,10 @@ router.post('/twilio/voice', async (req, res) => {
           to: To,
           status: 'in-progress',
           startTime: new Date(),
+          // Agent snapshot - preserve agent config at time of call
+          agentName: agent.name,
+          agentVoice: agent.voice,
+          agentVoiceProvider: agent.voiceProvider,
         },
       });
     }

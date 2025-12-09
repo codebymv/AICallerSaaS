@@ -389,6 +389,10 @@ router.post('/:id/call', async (req: AuthRequest, res, next) => {
         to: data.phoneNumber,
         status: 'initiated',
         startTime: new Date(),
+        // Agent snapshot - preserve agent config at time of call
+        agentName: agent.name,
+        agentVoice: agent.voice,
+        agentVoiceProvider: agent.voiceProvider,
       },
     });
 
