@@ -106,12 +106,12 @@ export class VoicePipeline extends EventEmitter {
     });
 
     this.stt.on('utterance_end', async () => {
-      logger.info('[Pipeline] Utterance end detected, pending:', this.pendingTranscript.trim());
+      logger.info('[Pipeline] Utterance end detected, pending: ' + this.pendingTranscript.trim());
       if (this.pendingTranscript.trim() && !this.isProcessing) {
         await this.processUserInput(this.pendingTranscript.trim());
         this.pendingTranscript = '';
       } else {
-        logger.info('[Pipeline] Skipping processing - isProcessing:', this.isProcessing, 'pending empty:', !this.pendingTranscript.trim());
+        logger.info(`[Pipeline] Skipping processing - isProcessing: ${this.isProcessing}, pending empty: ${!this.pendingTranscript.trim()}`);
       }
     });
 
