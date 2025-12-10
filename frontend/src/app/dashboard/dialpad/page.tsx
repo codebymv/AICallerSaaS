@@ -380,7 +380,7 @@ export default function DialpadPage() {
                 className="flex flex-col items-center justify-center h-16 rounded-full bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-colors"
                 disabled={calling}
               >
-                <span className="text-xl font-semibold text-slate-700">{key.digit}</span>
+                <span className="text-xl font-semibold text-slate-600">{key.digit}</span>
                 {key.letters && (
                   <span className="text-[10px] text-slate-400 tracking-widest">{key.letters}</span>
                 )}

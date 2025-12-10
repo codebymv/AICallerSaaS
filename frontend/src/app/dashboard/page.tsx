@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDuration, formatCurrency, formatRelativeTime, formatPhoneNumber } from '@/lib/utils';
 import { ELEVENLABS_VOICES, AGENT_MODES } from '@/lib/constants';
 import { ContactModal } from '@/components/ContactModal';
+import { Sparkline } from '@/components/Sparkline';
 
 const getModeIcon = (mode: string) => {
   switch (mode) {
@@ -34,6 +35,7 @@ export default function DashboardPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [recentCalls, setRecentCalls] = useState<any[]>([]);
   const [contacts, setContacts] = useState<Record<string, any>>({});
+  const [timeSeries, setTimeSeries] = useState<{ date: string; calls: number; duration: number; cost: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
@@ -41,15 +43,17 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statsRes, agentsRes, callsRes] = await Promise.all([
+        const [statsRes, agentsRes, callsRes, timeSeriesRes] = await Promise.all([
           api.getCallAnalytics(),
           api.getAgents(),
           api.getCalls({ limit: 5 }),
+          api.getCallTimeSeries(30),
         ]);
         setStats(statsRes.data);
         setAgents(agentsRes.data || []);
         const calls = callsRes.data || [];
         setRecentCalls(calls);
+        setTimeSeries(timeSeriesRes.data || []);
         
         // Fetch contacts for phone numbers in recent calls
         if (calls.length > 0) {
@@ -137,30 +141,27 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
           title="Total Calls"
           value={stats?.totalCalls || 0}
           icon={<Phone className="h-5 w-5" />}
           description="All time"
-        />
-        <StatCard
-          title="Active Agents"
-          value={agents.length}
-          icon={<Bot className="h-5 w-5" />}
-          description="Configured"
+          chartData={timeSeries.map(d => ({ date: d.date, value: d.calls }))}
         />
         <StatCard
           title="Total Duration"
           value={formatDuration(stats?.totalDuration || 0)}
           icon={<Clock className="h-5 w-5" />}
           description="Minutes used"
+          chartData={timeSeries.map(d => ({ date: d.date, value: d.duration }))}
         />
         <StatCard
           title="Total Cost"
           value={formatCurrency(stats?.totalCost || 0)}
           icon={<DollarSign className="h-5 w-5" />}
           description="This period"
+          chartData={timeSeries.map(d => ({ date: d.date, value: d.cost }))}
         />
       </div>
 
@@ -168,8 +169,9 @@ export default function DashboardPage() {
         {/* Agents Card */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
-            <div>
+            <div className="flex items-center gap-2">
               <CardTitle className="text-slate-600">Your Agents</CardTitle>
+              <span className="text-sm text-muted-foreground">({agents.length})</span>
             </div>
             <Link href="/dashboard/agents">
               <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
@@ -194,54 +196,53 @@ export default function DashboardPage() {
                     href={`/dashboard/agents/${agent.id}`}
                     className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors"
                   >
-                    <div className="flex flex-col gap-3 w-full">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
-                              <Image
-                                src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
-                                alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
-                                width={40}
-                                height={40}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <User className="h-5 w-5 text-slate-400" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-600">{agent.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {agent.totalCalls || 0} calls
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end gap-1">
-                          <span
-                            className={`px-2 py-1 text-xs rounded-full ${
-                              agent.isActive
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {agent.isActive ? 'Active' : 'Inactive'}
-                          </span>
-                          {agent.mode && AGENT_MODES[agent.mode as keyof typeof AGENT_MODES] && (
-                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
-                                {getModeIcon(agent.mode)}
-                              </span>
-                              {AGENT_MODES[agent.mode as keyof typeof AGENT_MODES].label}
-                            </span>
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
+                            <Image
+                              src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
+                              alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
+                              width={40}
+                              height={40}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <User className="h-5 w-5 text-slate-400" />
                           )}
                         </div>
-                      </div>
-                      {agent.callPurpose && (
-                        <div className="text-xs text-muted-foreground">
-                          {agent.callPurpose}
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-slate-600 truncate">{agent.name}</p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {agent.totalCalls || 0} calls
+                            {agent.callPurpose && (
+                              <>
+                                <span className="mx-1.5">•</span>
+                                {agent.callPurpose}
+                              </>
+                            )}
+                          </p>
                         </div>
-                      )}
+                      </div>
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-3">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${
+                            agent.isActive
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {agent.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                        {agent.mode && AGENT_MODES[agent.mode as keyof typeof AGENT_MODES] && (
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                            <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                              {getModeIcon(agent.mode)}
+                            </span>
+                            {AGENT_MODES[agent.mode as keyof typeof AGENT_MODES].label}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </Link>
                 ))}
@@ -280,7 +281,7 @@ export default function DashboardPage() {
                     >
                       <Link href={`/dashboard/calls/${call.id}`} className="flex flex-col gap-3 w-full">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
                             <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
                               {call.direction === 'inbound' ? (
                                 <ArrowDownLeft className="h-4 w-4 text-teal-600" />
@@ -288,31 +289,70 @@ export default function DashboardPage() {
                                 <ArrowUpRight className="h-4 w-4 text-teal-600" />
                               )}
                             </div>
-                            <div className="min-w-0">
-                              {contactName ? (
-                                <>
-                                  <p className="text-sm font-medium text-slate-600">{contactName}</p>
-                                  <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-mono text-sm font-medium text-slate-600">{formatPhoneNumber(phone)}</p>
-                                    <button
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleAddContact(phone);
-                                      }}
-                                      className="text-slate-400 hover:text-teal-600 transition-colors"
-                                      title="Add to contacts"
-                                    >
-                                      <UserPlus className="h-3.5 w-3.5" />
-                                    </button>
+                            <div className="min-w-0 flex-1">
+                              {/* Mobile view */}
+                              <div className="sm:hidden">
+                                {contactName ? (
+                                  <>
+                                    <p className="text-sm font-medium text-slate-600">{contactName}</p>
+                                    <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="flex items-center gap-2">
+                                      <p className="font-mono text-sm font-medium text-slate-600">{formatPhoneNumber(phone)}</p>
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleAddContact(phone);
+                                        }}
+                                        className="text-slate-400 hover:text-teal-600 transition-colors"
+                                        title="Add to contacts"
+                                      >
+                                        <UserPlus className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
+                                  </>
+                                )}
+                              </div>
+                              {/* Desktop view */}
+                              <div className="hidden sm:block">
+                                <p className="text-xs text-muted-foreground mb-1">
+                                  {call.direction === 'inbound' ? 'Inbound Call' : 'Outbound Call'}
+                                </p>
+                                {contactName ? (
+                                  <div>
+                                    <p className="text-sm font-medium text-slate-600">{contactName}</p>
+                                    <div className="flex items-center gap-2 text-xs">
+                                      <span className="font-mono text-muted-foreground">{formatPhoneNumber(call.from)}</span>
+                                      <span className="text-muted-foreground">→</span>
+                                      <span className="font-mono text-muted-foreground">{formatPhoneNumber(call.to)}</span>
+                                    </div>
                                   </div>
-                                  <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
-                                </>
-                              )}
+                                ) : (
+                                  <div>
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <span className="font-mono font-medium text-slate-600">{formatPhoneNumber(call.from)}</span>
+                                      <span className="text-muted-foreground">→</span>
+                                      <span className="font-mono font-medium text-slate-600">{formatPhoneNumber(call.to)}</span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleAddContact(phone);
+                                        }}
+                                        className="text-slate-400 hover:text-teal-600 transition-colors"
+                                        title="Add to contacts"
+                                      >
+                                        <UserPlus className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                           <CallStatusBadge status={call.status} />
@@ -350,24 +390,32 @@ function StatCard({
   value,
   icon,
   description,
+  chartData,
 }: {
   title: string;
   value: string | number;
   icon: React.ReactNode;
   description: string;
+  chartData?: { date: string; value: number }[];
 }) {
   return (
     <Card>
       <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6 pb-4">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-[70px] sm:min-w-[90px] shrink-0">
             <p className="text-xs sm:text-sm text-muted-foreground truncate">{title}</p>
             <p className="text-lg sm:text-2xl font-bold text-slate-600 truncate">{value}</p>
             <p className="text-xs text-muted-foreground mt-0.5 sm:mt-1 truncate">{description}</p>
           </div>
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 flex-shrink-0">
-            {icon}
-          </div>
+          {chartData && chartData.length > 0 ? (
+            <div className="flex-1 h-10 sm:h-12 min-w-[60px] max-w-[180px] xl:max-w-[220px]">
+              <Sparkline data={chartData} />
+            </div>
+          ) : (
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 flex-shrink-0">
+              {icon}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

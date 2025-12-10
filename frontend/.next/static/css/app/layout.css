@@ -774,6 +774,10 @@ video {
 .z-\[9999\] {
   z-index: 9999;
 }
+.mx-1\.5 {
+  margin-left: 0.375rem;
+  margin-right: 0.375rem;
+}
 .mx-4 {
   margin-left: 1rem;
   margin-right: 1rem;
@@ -812,6 +816,9 @@ video {
 }
 .ml-1 {
   margin-left: 0.25rem;
+}
+.ml-3 {
+  margin-left: 0.75rem;
 }
 .ml-auto {
   margin-left: auto;
@@ -1039,6 +1046,9 @@ video {
 .w-full {
   width: 100%;
 }
+.w-20 {
+  width: 5rem;
+}
 .min-w-0 {
   min-width: 0px;
 }
@@ -1050,6 +1060,12 @@ video {
 }
 .min-w-\[240px\] {
   min-width: 240px;
+}
+.min-w-\[60px\] {
+  min-width: 60px;
+}
+.min-w-\[70px\] {
+  min-width: 70px;
 }
 .max-w-2xl {
   max-width: 42rem;
@@ -1077,6 +1093,9 @@ video {
 }
 .max-w-xl {
   max-width: 36rem;
+}
+.max-w-\[180px\] {
+  max-width: 180px;
 }
 .flex-1 {
   flex: 1 1 0%;
@@ -1447,9 +1466,6 @@ video {
 }
 .bg-primary {
   background-color: hsl(var(--primary));
-}
-.bg-primary\/10 {
-  background-color: hsl(var(--primary) / 0.1);
 }
 .bg-primary\/5 {
   background-color: hsl(var(--primary) / 0.05);
@@ -1966,6 +1982,10 @@ video {
 .text-yellow-700 {
   --tw-text-opacity: 1;
   color: rgb(161 98 7 / var(--tw-text-opacity, 1));
+}
+.text-teal-900 {
+  --tw-text-opacity: 1;
+  color: rgb(19 78 74 / var(--tw-text-opacity, 1));
 }
 .underline-offset-4 {
   text-underline-offset: 4px;
@@ -2487,6 +2507,10 @@ video {
     width: 3rem;
   }
 
+  .sm\:w-20 {
+    width: 5rem;
+  }
+
   .sm\:w-8 {
     width: 2rem;
   }
@@ -2499,12 +2523,28 @@ video {
     width: auto;
   }
 
+  .sm\:w-28 {
+    width: 7rem;
+  }
+
+  .sm\:w-32 {
+    width: 8rem;
+  }
+
+  .sm\:w-56 {
+    width: 14rem;
+  }
+
   .sm\:min-w-\[140px\] {
     min-width: 140px;
   }
 
   .sm\:min-w-\[160px\] {
     min-width: 160px;
+  }
+
+  .sm\:min-w-\[90px\] {
+    min-width: 90px;
   }
 
   .sm\:max-w-\[250px\] {
@@ -2517,6 +2557,10 @@ video {
 
   .sm\:grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sm\:grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .sm\:flex-row {
@@ -2720,6 +2764,13 @@ video {
   .lg\:text-6xl {
     font-size: 3.75rem;
     line-height: 1;
+  }
+}
+ 
+@media (min-width: 1280px) {
+
+  .xl\:max-w-\[220px\] {
+    max-width: 220px;
   }
 }
  

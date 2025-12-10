@@ -99,7 +99,7 @@ router.post('/batch', async (req: AuthRequest, res, next) => {
     const { phoneNumbers } = req.body;
 
     if (!Array.isArray(phoneNumbers)) {
-      throw createError(ERROR_CODES.VALIDATION_ERROR, 'phoneNumbers must be an array', 400);
+      throw createError('phoneNumbers must be an array', 400, ERROR_CODES.VALIDATION_ERROR);
     }
 
     // Normalize all phone numbers
@@ -147,7 +147,7 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
     });
 
     if (!contact) {
-      throw createError(ERROR_CODES.NOT_FOUND, 'Contact not found', 404);
+      throw createError('Contact not found', 404, ERROR_CODES.NOT_FOUND);
     }
 
     res.json({
@@ -165,7 +165,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const { name, phoneNumber, notes } = req.body;
 
     if (!name || !phoneNumber) {
-      throw createError(ERROR_CODES.VALIDATION_ERROR, 'Name and phone number are required', 400);
+      throw createError('Name and phone number are required', 400, ERROR_CODES.VALIDATION_ERROR);
     }
 
     // Normalize phone number for storage
@@ -185,7 +185,7 @@ router.post('/', async (req: AuthRequest, res, next) => {
     });
 
     if (existing) {
-      throw createError(ERROR_CODES.VALIDATION_ERROR, 'A contact with this phone number already exists', 400);
+      throw createError('A contact with this phone number already exists', 400, ERROR_CODES.VALIDATION_ERROR);
     }
 
     const contact = await prisma.contact.create({
@@ -221,7 +221,7 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
     });
 
     if (!existing) {
-      throw createError(ERROR_CODES.NOT_FOUND, 'Contact not found', 404);
+      throw createError('Contact not found', 404, ERROR_CODES.NOT_FOUND);
     }
 
     // If phone number is changing, check for duplicates
@@ -242,7 +242,7 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       });
 
       if (duplicate) {
-        throw createError(ERROR_CODES.VALIDATION_ERROR, 'A contact with this phone number already exists', 400);
+        throw createError('A contact with this phone number already exists', 400, ERROR_CODES.VALIDATION_ERROR);
       }
     }
 
@@ -278,7 +278,7 @@ router.delete('/:id', async (req: AuthRequest, res, next) => {
     });
 
     if (!existing) {
-      throw createError(ERROR_CODES.NOT_FOUND, 'Contact not found', 404);
+      throw createError('Contact not found', 404, ERROR_CODES.NOT_FOUND);
     }
 
     await prisma.contact.delete({

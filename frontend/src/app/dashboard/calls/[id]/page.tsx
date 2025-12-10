@@ -15,18 +15,33 @@ import {
   MessageSquare,
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowLeftRight,
   CheckCircle,
   XCircle,
   AlertCircle,
   Loader2,
   UserPlus,
+  ArrowRight,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES, STATUS_COLORS, DIRECTION_COLORS } from '@/lib/constants';
+import { ELEVENLABS_VOICES, STATUS_COLORS, DIRECTION_COLORS, AGENT_MODES } from '@/lib/constants';
 import { ContactModal } from '@/components/ContactModal';
+
+const getModeIcon = (mode: string) => {
+  switch (mode) {
+    case 'INBOUND':
+      return <ArrowDownLeft className="h-3.5 w-3.5 text-teal-600" />;
+    case 'OUTBOUND':
+      return <ArrowUpRight className="h-3.5 w-3.5 text-teal-600" />;
+    case 'HYBRID':
+      return <ArrowLeftRight className="h-3.5 w-3.5 text-teal-600" />;
+    default:
+      return null;
+  }
+};
 
 interface Call {
   id: string;
@@ -120,6 +135,7 @@ export default function CallDetailPage() {
   const [contact, setContact] = useState<{ name: string; phoneNumber: string } | null>(null);
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
+  const [fullAgent, setFullAgent] = useState<any>(null);
 
   const callId = params.id as string;
 
@@ -162,6 +178,18 @@ export default function CallDetailPage() {
           }
         } catch (e) {
           // Ignore contact fetch errors
+        }
+
+        // Fetch full agent details if agent exists
+        if (callData.agent?.id) {
+          try {
+            const agentRes = await api.getAgent(callData.agent.id);
+            if (agentRes.data) {
+              setFullAgent(agentRes.data);
+            }
+          } catch (e) {
+            // Ignore agent fetch errors
+          }
         }
       }
     } catch (error) {
@@ -365,42 +393,96 @@ export default function CallDetailPage() {
           </CardHeader>
           <CardContent>
             {(displayName || call.agent) ? (
-              <div className="flex items-center gap-4">
-                {agentAvatar ? (
-                  <Image
-                    src={agentAvatar}
-                    alt={displayName || 'Agent'}
-                    width={48}
-                    height={48}
-                    className="rounded-full"
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Bot className="h-6 w-6 text-primary" />
+              call.agent && fullAgent ? (
+                <Link
+                  href={`/dashboard/agents/${call.agent.id}`}
+                  className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {agentAvatar ? (
+                          <Image
+                            src={agentAvatar}
+                            alt={displayName || 'Agent'}
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <User className="h-5 w-5 text-slate-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-slate-600 truncate">{displayName}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {fullAgent.totalCalls || 0} calls
+                          {fullAgent.callPurpose && (
+                            <>
+                              <span className="mx-1.5">•</span>
+                              {fullAgent.callPurpose}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-3">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          fullAgent.isActive
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {fullAgent.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      {fullAgent.mode && AGENT_MODES[fullAgent.mode as keyof typeof AGENT_MODES] && (
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+                          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                            {getModeIcon(fullAgent.mode)}
+                          </span>
+                          {AGENT_MODES[fullAgent.mode as keyof typeof AGENT_MODES].label}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                )}
-                <div>
-                  <p className="font-semibold text-slate-600">{displayName}</p>
-                  {displayVoice && (
-                    <p className="text-sm text-muted-foreground capitalize">
-                      Voice: {displayVoice}
-                    </p>
-                  )}
+                </Link>
+              ) : (
+                <div className="flex items-center p-3 rounded-lg border bg-slate-50">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {agentAvatar ? (
+                        <Image
+                          src={agentAvatar}
+                          alt={displayName || 'Agent'}
+                          width={40}
+                          height={40}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-5 w-5 text-slate-400" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-600 truncate">{displayName}</p>
+                      {displayVoice && (
+                        <p className="text-sm text-muted-foreground capitalize truncate">
+                          Voice: {displayVoice}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <span className="px-2 py-1 text-xs rounded-full bg-slate-100 text-slate-600 flex-shrink-0 ml-3">
+                    Deleted
+                  </span>
                 </div>
-                {call.agent && (
-                  <Link href={`/dashboard/agents/${call.agent.id}`} className="ml-auto">
-                    <Button variant="outline" size="sm" className="text-teal-600 border-teal-600 hover:bg-teal-50">
-                      View Agent
-                    </Button>
-                  </Link>
-                )}
-              </div>
+              )
             ) : (
-              <div className="flex items-center gap-4 text-muted-foreground">
-                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                  <Bot className="h-6 w-6" />
+              <div className="flex items-center gap-4 text-muted-foreground p-3">
+                <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                  <Bot className="h-5 w-5" />
                 </div>
-                <p>Agent information unavailable</p>
+                <p className="text-sm">Agent information unavailable</p>
               </div>
             )}
           </CardContent>
@@ -422,7 +504,7 @@ export default function CallDetailPage() {
                       <div className={`max-w-[80%] p-3 rounded-lg text-sm ${
                         entry.role === 'assistant' 
                           ? 'bg-white border' 
-                          : 'bg-blue-100 text-blue-900'
+                          : 'bg-teal-100 text-teal-900'
                       }`}>
                         <p className="text-xs text-muted-foreground mb-1 capitalize">{entry.role || 'Unknown'}</p>
                         <p>{entry.content || entry.text || JSON.stringify(entry)}</p>

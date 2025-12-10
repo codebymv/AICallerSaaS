@@ -196,7 +196,7 @@ export default function ContactsPage() {
                       <User className="h-5 w-5 text-teal-600" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-slate-700 truncate">{contact.name}</h3>
+                      <h3 className="font-semibold text-slate-600 truncate">{contact.name}</h3>
                       <p className="text-sm text-muted-foreground font-mono">
                         {formatPhoneNumber(contact.phoneNumber)}
                       </p>

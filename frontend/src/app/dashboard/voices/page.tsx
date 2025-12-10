@@ -322,7 +322,7 @@ export default function VoicesPage() {
                         />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-slate-700">{voice.name}</h3>
+                        <h3 className="font-semibold text-slate-600">{voice.name}</h3>
                         <p className="text-xs text-muted-foreground truncate">{voice.description}</p>
                       </div>
                     </div>
@@ -389,7 +389,7 @@ export default function VoicesPage() {
                       }`}
                     >
                       <div>
-                        <p className="font-medium text-slate-700">{preset.name}</p>
+                        <p className="font-medium text-slate-600">{preset.name}</p>
                         <p className="text-xs text-muted-foreground">{preset.description}</p>
                       </div>
                       {selectedPreset === key && (
@@ -501,7 +501,7 @@ export default function VoicesPage() {
                 <div className="flex items-center gap-3">
                   <Volume2 className="h-5 w-5 text-muted-foreground" />
                   <div>
-                    <p className="font-medium text-slate-700">Default Voice</p>
+                    <p className="font-medium text-slate-600">Default Voice</p>
                     <p className="text-sm text-muted-foreground">
                       New agents will use this voice
                     </p>
@@ -520,7 +520,7 @@ export default function VoicesPage() {
                       />
                     </div>
                     <div>
-                      <p className="font-medium text-slate-700">
+                      <p className="font-medium text-slate-600">
                         {VOICES.find(v => v.id === selectedVoice)?.name}
                       </p>
                       <p className="text-xs text-muted-foreground">

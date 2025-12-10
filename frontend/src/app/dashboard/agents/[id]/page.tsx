@@ -519,7 +519,7 @@ export default function AgentDetailPage() {
                   <div className="flex items-start gap-2 p-3 bg-slate-100 border border-slate-200 rounded-md">
                     <Phone className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
-                      <p className="text-sm text-slate-700">No phone numbers available</p>
+                      <p className="text-sm text-slate-600">No phone numbers available</p>
                       <p className="text-xs text-slate-600 mt-1">
                         Import phone numbers from your Twilio account to assign to this agent.
                       </p>

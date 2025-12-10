@@ -98,7 +98,7 @@ router.get('/:id/recording', async (req: AuthRequest, res, next) => {
     // Fetch recording from Twilio with authentication
     const response = await fetch(call.recordingUrl, {
       headers: {
-        'Authorization': 'Basic ' + Buffer.from(`${config.twilio.accountSid}:${config.twilio.authToken}`).toString('base64'),
+        'Authorization': 'Basic ' + Buffer.from(`${config.twilioAccountSid}:${config.twilioAuthToken}`).toString('base64'),
       },
     });
 
@@ -327,6 +327,74 @@ router.get('/analytics/summary', async (req: AuthRequest, res, next) => {
         avgDuration: Math.round(avgDuration._avg.duration || 0),
         totalCost: Number(totalCost._sum.costUsd || 0),
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/calls/analytics/timeseries - Get time-series data for charts
+router.get('/analytics/timeseries', async (req: AuthRequest, res, next) => {
+  try {
+    const days = parseInt(req.query.days as string) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    // Fetch all calls in the date range
+    const calls = await prisma.call.findMany({
+      where: {
+        userId: req.user!.id,
+        createdAt: {
+          gte: startDate,
+        },
+      },
+      select: {
+        createdAt: true,
+        duration: true,
+        costUsd: true,
+        status: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    // Group by date
+    const dateMap = new Map<string, { calls: number; duration: number; cost: number }>();
+
+    // Initialize all dates in range with zeros
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dateStr = date.toISOString().split('T')[0];
+      dateMap.set(dateStr, { calls: 0, duration: 0, cost: 0 });
+    }
+
+    // Aggregate calls by date
+    for (const call of calls) {
+      const dateStr = call.createdAt.toISOString().split('T')[0];
+      const existing = dateMap.get(dateStr) || { calls: 0, duration: 0, cost: 0 };
+      dateMap.set(dateStr, {
+        calls: existing.calls + 1,
+        duration: existing.duration + (call.duration || 0),
+        cost: existing.cost + Number(call.costUsd || 0),
+      });
+    }
+
+    // Convert to array sorted by date
+    const timeSeries = Array.from(dateMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, data]) => ({
+        date,
+        calls: data.calls,
+        duration: data.duration,
+        cost: Math.round(data.cost * 100) / 100, // Round to 2 decimal places
+      }));
+
+    res.json({
+      success: true,
+      data: timeSeries,
     });
   } catch (error) {
     next(error);

@@ -216,6 +216,13 @@ class ApiClient {
     return this.request<any>(`/api/calls/analytics/summary${query ? `?${query}` : ''}`);
   }
 
+  async getCallTimeSeries(days?: number) {
+    const query = days ? `?days=${days}` : '';
+    return this.request<{ date: string; calls: number; duration: number; cost: number }[]>(
+      `/api/calls/analytics/timeseries${query}`
+    );
+  }
+
   // Contact endpoints
   async getContacts(params?: { search?: string; page?: number; limit?: number }) {
     const searchParams = new URLSearchParams();
