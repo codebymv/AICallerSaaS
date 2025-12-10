@@ -810,7 +810,7 @@ export default function AgentDetailPage() {
                       {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.description}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
-                      Powered by ElevenLabs and GPT-4o
+                      Powered by ElevenLabs and GPT-4o Mini
                     </p>
                   </div>
                 </div>

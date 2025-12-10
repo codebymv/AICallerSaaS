@@ -62,6 +62,9 @@ export class VoicePipeline extends EventEmitter {
   private interrupted = false;
   private hasCalendarAccess = false;
   private calendarProvider: 'calendly' | 'calcom' | null = null;
+  
+  // Performance: Limit conversation context sent to LLM (reduces latency & cost)
+  private readonly MAX_CONTEXT_MESSAGES = 10; // Keep last 10 messages (~5 exchanges)
 
   constructor(config: PipelineConfig, callSid: string) {
     super();
@@ -112,6 +115,7 @@ export class VoicePipeline extends EventEmitter {
   // Dead air detection - reprompt if user doesn't respond
   private deadAirTimeout: NodeJS.Timeout | null = null;
   private lastAiResponse: string = '';
+  private lastAudioPlaybackMs: number = 0; // Track last audio duration for dead air timing
   private deadAirCount: number = 0;
   private readonly DEAD_AIR_TIMEOUT_MS = 7000; // 7 seconds of silence triggers reprompt
   private readonly MAX_DEAD_AIR_REPROMPTS = 2; // Max times to reprompt before giving up
@@ -238,8 +242,9 @@ export class VoicePipeline extends EventEmitter {
 
   /**
    * Start the dead air detection timer
+   * @param audioPlaybackMs - How long the audio will take to play (delay before counting dead air)
    */
-  private startDeadAirTimer(): void {
+  private startDeadAirTimer(audioPlaybackMs: number = 0): void {
     // Clear any existing timer
     if (this.deadAirTimeout) {
       clearTimeout(this.deadAirTimeout);
@@ -251,9 +256,14 @@ export class VoicePipeline extends EventEmitter {
       return;
     }
     
+    // Total delay = audio playback time + dead air timeout
+    // This ensures we only count silence AFTER the AI finishes speaking
+    const totalDelay = audioPlaybackMs + this.DEAD_AIR_TIMEOUT_MS;
+    console.log(`[Pipeline] Dead air timer: ${audioPlaybackMs}ms playback + ${this.DEAD_AIR_TIMEOUT_MS}ms silence = ${totalDelay}ms total`);
+    
     this.deadAirTimeout = setTimeout(async () => {
       await this.handleDeadAir();
-    }, this.DEAD_AIR_TIMEOUT_MS);
+    }, totalDelay);
   }
 
   /**
@@ -273,7 +283,7 @@ export class VoicePipeline extends EventEmitter {
       
       if (repromptMessage && !this.isProcessing) {
         // Send the reprompt audio
-        await this.generateAndSendAudio(repromptMessage);
+        const playbackMs = await this.generateAndSendAudio(repromptMessage);
         
         // Track it in conversation
         this.messages.push({
@@ -286,8 +296,8 @@ export class VoicePipeline extends EventEmitter {
         // Update last response
         this.lastAiResponse = repromptMessage;
         
-        // Start timer again for another potential reprompt
-        this.startDeadAirTimer();
+        // Start timer again for another potential reprompt (after audio plays)
+        this.startDeadAirTimer(playbackMs);
       }
     } catch (error) {
       logger.error('[Pipeline] Error handling dead air:', error);
@@ -354,17 +364,17 @@ export class VoicePipeline extends EventEmitter {
     if (greeting && greeting.trim()) {
       // Use the preset greeting (scripted approach)
       console.log('[Pipeline] Generating preset greeting audio...');
-      await this.generateAndSendAudio(greeting);
+      const playbackMs = await this.generateAndSendAudio(greeting);
       console.log('[Pipeline] ✅ Preset greeting sent');
       
-      // Track greeting as last AI response and start dead air timer
+      // Track greeting as last AI response and start dead air timer (after audio plays)
       this.lastAiResponse = greeting;
       this.messages.push({
         role: 'assistant',
         content: greeting,
         timestamp: Date.now(),
       });
-      this.startDeadAirTimer();
+      this.startDeadAirTimer(playbackMs);
     } else {
       // No preset greeting - generate an opening from the LLM using the system prompt
       console.log('[Pipeline] No preset greeting - generating dynamic opening from LLM...');
@@ -384,7 +394,7 @@ export class VoicePipeline extends EventEmitter {
         
         if (generatedOpening && generatedOpening.trim()) {
           console.log('[Pipeline] Generated opening:', generatedOpening);
-          await this.generateAndSendAudio(generatedOpening);
+          const playbackMs = await this.generateAndSendAudio(generatedOpening);
           console.log('[Pipeline] ✅ Dynamic opening sent');
           
           this.lastAiResponse = generatedOpening;
@@ -393,7 +403,7 @@ export class VoicePipeline extends EventEmitter {
             content: generatedOpening,
             timestamp: Date.now(),
           });
-          this.startDeadAirTimer();
+          this.startDeadAirTimer(playbackMs);
         } else {
           console.log('[Pipeline] ⚠️ LLM returned empty opening - waiting for user');
         }
@@ -471,8 +481,8 @@ export class VoicePipeline extends EventEmitter {
         // Track last response for dead air reprompting
         this.lastAiResponse = fullResponse.trim();
         
-        // Start dead air detection timer
-        this.startDeadAirTimer();
+        // Start dead air detection timer (accounting for audio playback time)
+        this.startDeadAirTimer(this.lastAudioPlaybackMs);
       }
 
       // Report latency metrics
@@ -548,7 +558,7 @@ BOOKING CONFIRMATION:
     
     // First, try to get a response with potential tool calls
     const response = await this.llm.generateResponseWithTools(
-      this.messages.map((m) => ({ role: m.role, content: m.content })),
+      this.getContextMessages(), // Use limited context for performance
       enhancedPrompt,
       CALENDAR_TOOLS,
       0.7,
@@ -568,7 +578,7 @@ BOOKING CONFIRMATION:
         
         // Get natural language response incorporating tool results
         const naturalResponse = await this.llm.continueAfterToolCall(
-          this.messages.map((m) => ({ role: m.role, content: m.content })),
+          this.getContextMessages(), // Use limited context for performance
           enhancedPrompt,
           toolCall, // Pass full toolCall object
           toolResult,
@@ -755,7 +765,7 @@ BOOKING CONFIRMATION:
 
     // Use sentence-based streaming for lower latency
     for await (const { sentence, isComplete } of this.llm.streamSentences(
-      this.messages.map((m) => ({ role: m.role, content: m.content })),
+      this.getContextMessages(), // Use limited context for performance
       this.config.agent.systemPrompt,
       0.7, // temperature
       150  // maxTokens
@@ -775,10 +785,14 @@ BOOKING CONFIRMATION:
     return fullResponse;
   }
 
-  private async generateAndSendAudio(text: string): Promise<void> {
+  /**
+   * Generate TTS audio and send it to Twilio
+   * @returns The estimated playback duration in milliseconds
+   */
+  private async generateAndSendAudio(text: string): Promise<number> {
     if (!text.trim()) {
       console.log('[Pipeline] generateAndSendAudio: text is empty, skipping');
-      return;
+      return 0;
     }
 
     try {
@@ -805,7 +819,13 @@ BOOKING CONFIRMATION:
         }
       );
 
-      console.log('[Pipeline] ✅ TTS generated, ulaw_8000 buffer size:', audioBuffer.length, 'bytes');
+      // Calculate playback duration: ulaw_8000 = 8000 bytes per second
+      const playbackDurationMs = Math.ceil((audioBuffer.length / 8000) * 1000);
+      
+      // Track last playback duration for dead air timing
+      this.lastAudioPlaybackMs = playbackDurationMs;
+      
+      console.log('[Pipeline] ✅ TTS generated, ulaw_8000 buffer size:', audioBuffer.length, 'bytes, playback:', playbackDurationMs, 'ms');
       this.metrics.mark('audio_sent');
 
       // Send audio to client (if not interrupted)
@@ -816,10 +836,13 @@ BOOKING CONFIRMATION:
         console.log('[Pipeline] ⚠️ Audio generation interrupted, not sending');
       }
 
+      return playbackDurationMs;
+
     } catch (error) {
       console.error('[Pipeline] ❌ TTS error:', error);
       logger.error('[Pipeline] TTS error:', error);
       // Continue without audio on error
+      return 0;
     }
   }
 
@@ -844,6 +867,15 @@ BOOKING CONFIRMATION:
 
   getMessages(): ConversationMessage[] {
     return [...this.messages];
+  }
+
+  /**
+   * Get limited conversation context for LLM (reduces latency & cost)
+   * Only sends the most recent messages to keep payload small
+   */
+  private getContextMessages(): Array<{ role: string; content: string }> {
+    const recentMessages = this.messages.slice(-this.MAX_CONTEXT_MESSAGES);
+    return recentMessages.map((m) => ({ role: m.role, content: m.content }));
   }
 
   getState(): string {

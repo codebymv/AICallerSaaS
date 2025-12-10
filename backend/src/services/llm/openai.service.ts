@@ -93,7 +93,7 @@ export class OpenAIService {
   ): Promise<string> {
     try {
       const response = await this.client.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini', // Faster for real-time voice conversation
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages.map((m) => ({
@@ -120,7 +120,7 @@ export class OpenAIService {
   ): AsyncGenerator<string, void, unknown> {
     try {
       const stream = await this.client.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini', // Faster for real-time voice conversation
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages.map((m) => ({
@@ -208,7 +208,7 @@ export class OpenAIService {
       });
 
       const response = await this.client.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini', // Faster for real-time voice conversation
         messages: [
           { role: 'system', content: systemPrompt },
           ...formattedMessages,
@@ -293,7 +293,7 @@ export class OpenAIService {
       ];
 
       const response = await this.client.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini', // Faster for real-time voice conversation
         messages: fullMessages,
         temperature,
         max_tokens: maxTokens,
