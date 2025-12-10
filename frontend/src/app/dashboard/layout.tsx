@@ -15,7 +15,7 @@ import {
   X,
   Loader2,
   LayoutDashboard,
-  Grid3X3
+  Hash
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -23,8 +23,8 @@ import { api } from '@/lib/api';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
-  { href: '/dashboard/dialpad', label: 'Dialpad', icon: Grid3X3 },
-  { href: '/dashboard/calls', label: 'Calls', icon: PhoneCall },
+  { href: '/dashboard/dialpad', label: 'Dialpad', icon: Hash },
+  { href: '/dashboard/calls', label: 'Call Logs', icon: PhoneCall },
 ];
 
 export default function DashboardLayout({

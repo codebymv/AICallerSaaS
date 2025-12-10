@@ -270,7 +270,7 @@ export default function CallsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3 flex-wrap">
           <PhoneCall className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Calls</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Call Logs</h1>
           <span className="hidden sm:inline text-slate-400">•</span>
           <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">View and manage your call history</p>
         </div>

@@ -135,6 +135,8 @@ router.post('/', async (req: AuthRequest, res, next) => {
         callWindowStart: data.callWindowStart,
         callWindowEnd: data.callWindowEnd,
         calendarEnabled: data.calendarEnabled ?? false,
+        personaName: data.personaName,
+        callPurpose: data.callPurpose,
       },
     });
 
@@ -186,6 +188,8 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
         callWindowStart: data.callWindowStart,
         callWindowEnd: data.callWindowEnd,
         calendarEnabled: data.calendarEnabled,
+        personaName: data.personaName,
+        callPurpose: data.callPurpose,
       },
     });
 

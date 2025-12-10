@@ -126,6 +126,54 @@ export const AGENT_MODES = {
 
 export type AgentMode = keyof typeof AGENT_MODES;
 
+// Call purpose presets
+export const CALL_PURPOSES = {
+  SCHEDULE_APPOINTMENTS: {
+    id: 'SCHEDULE_APPOINTMENTS',
+    label: 'Schedule Appointments',
+    description: 'Book meetings and manage calendar',
+    value: 'Schedule appointments and manage bookings',
+    iconType: 'Calendar'
+  },
+  ANSWER_SUPPORT: {
+    id: 'ANSWER_SUPPORT',
+    label: 'Answer Support Questions',
+    description: 'Handle customer service inquiries',
+    value: 'Answer customer support questions and resolve issues',
+    iconType: 'HelpCircle'
+  },
+  COLLECT_INFO: {
+    id: 'COLLECT_INFO',
+    label: 'Collect Information',
+    description: 'Surveys and intake forms',
+    value: 'Collect information through surveys or intake forms',
+    iconType: 'ClipboardList'
+  },
+  SEND_REMINDERS: {
+    id: 'SEND_REMINDERS',
+    label: 'Send Reminders',
+    description: 'Appointment and payment reminders',
+    value: 'Send reminders for appointments or payments',
+    iconType: 'Bell'
+  },
+  GENERAL_INQUIRIES: {
+    id: 'GENERAL_INQUIRIES',
+    label: 'General Inquiries',
+    description: 'Answer common questions',
+    value: 'Handle general inquiries and provide information',
+    iconType: 'MessageCircle'
+  },
+  CUSTOM: {
+    id: 'CUSTOM',
+    label: 'Custom',
+    description: 'Define your own purpose',
+    value: '',
+    iconType: 'Edit'
+  },
+} as const;
+
+export type CallPurposeType = keyof typeof CALL_PURPOSES;
+
 // Mode-specific system prompt templates
 export const MODE_SYSTEM_PROMPTS: Record<AgentMode, { base: string; withCalendar: string }> = {
   INBOUND: {
@@ -292,8 +340,55 @@ IMPORTANT: Email address is REQUIRED for all bookings. Always ask for and verify
   }
 };
 
+// Business context type for system prompt injection
+export interface BusinessContext {
+  organizationName?: string;
+  industry?: string;
+  businessDescription?: string;
+  personaName?: string;
+  callPurpose?: string;
+}
+
 // Helper function to get the appropriate system prompt for a mode
-export function getSystemPromptForMode(mode: AgentMode, hasCalendarAccess: boolean): string {
+export function getSystemPromptForMode(
+  mode: AgentMode, 
+  hasCalendarAccess: boolean,
+  businessContext?: BusinessContext
+): string {
   const prompts = MODE_SYSTEM_PROMPTS[mode];
-  return hasCalendarAccess ? prompts.withCalendar : prompts.base;
+  let prompt = hasCalendarAccess ? prompts.withCalendar : prompts.base;
+  
+  // If business context is provided, prepend it to the prompt
+  if (businessContext && (businessContext.organizationName || businessContext.personaName || businessContext.callPurpose)) {
+    const contextLines: string[] = ['=== BUSINESS CONTEXT ==='];
+    
+    if (businessContext.organizationName) {
+      contextLines.push(`Organization: ${businessContext.organizationName}`);
+    }
+    if (businessContext.industry) {
+      contextLines.push(`Industry: ${businessContext.industry}`);
+    }
+    if (businessContext.businessDescription) {
+      contextLines.push(`About: ${businessContext.businessDescription}`);
+    }
+    if (businessContext.personaName) {
+      contextLines.push(`Your Name: ${businessContext.personaName} (use this when introducing yourself)`);
+    }
+    if (businessContext.callPurpose) {
+      contextLines.push(`Call Purpose: ${businessContext.callPurpose}`);
+    }
+    
+    contextLines.push('========================\n');
+    
+    prompt = contextLines.join('\n') + prompt;
+    
+    // Replace placeholder text in prompts
+    if (businessContext.organizationName) {
+      prompt = prompt.replace(/your organization/gi, businessContext.organizationName);
+      prompt = prompt.replace(/\[company\]/gi, businessContext.organizationName);
+      prompt = prompt.replace(/\[Your Organization\]/gi, businessContext.organizationName);
+    }
+  }
+  
+  return prompt;
 }

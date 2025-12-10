@@ -41,6 +41,12 @@ model User {
   stripeCustomerId String? @unique
   creditsBalance   Decimal @default(0) @db.Decimal(10, 2)
   
+  // Business Profile
+  organizationName    String?
+  industry            String?
+  businessDescription String?   @db.Text
+  businessProfileComplete Boolean @default(false)
+  
   // Twilio Integration (BYOT - Bring Your Own Twilio)
   twilioAccountSid    String?   @map("twilioaccountsid") // User's Twilio Account SID
   twilioAuthToken     String?   @map("twilioauthtoken") // User's Twilio Auth Token (encrypted)
@@ -110,6 +116,10 @@ model Agent {
   retryAttempts    Int       @default(0)
   callWindowStart  String?
   callWindowEnd    String?
+  
+  // Business Context
+  personaName     String?   // e.g., "Sarah" - the name the agent uses
+  callPurpose     String?   @db.Text // e.g., "Schedule dental cleaning appointments"
   
   // Template
   template        String?

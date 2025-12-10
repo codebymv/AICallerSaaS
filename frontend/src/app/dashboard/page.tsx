@@ -175,10 +175,11 @@ export default function DashboardPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span></span>
-                        <span></span>
-                      </div>
+                      {agent.callPurpose && (
+                        <div className="text-xs text-muted-foreground">
+                          {agent.callPurpose}
+                        </div>
+                      )}
                     </div>
                   </Link>
                 ))}

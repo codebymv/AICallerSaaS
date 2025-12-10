@@ -10,10 +10,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode } from '@/lib/constants';
+import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode, BusinessContext } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle } from 'lucide-react';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2 } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -35,6 +35,8 @@ interface Agent {
   callWindowStart?: string;
   callWindowEnd?: string;
   calendarEnabled?: boolean;
+  personaName?: string;
+  callPurpose?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -92,7 +94,6 @@ export default function AgentDetailPage() {
 
   // Form state
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [systemPrompt, setSystemPrompt] = useState('');
   const [greeting, setGreeting] = useState('');
   const [voiceId, setVoiceId] = useState('');
@@ -102,6 +103,13 @@ export default function AgentDetailPage() {
   const [callWindowEnd, setCallWindowEnd] = useState('');
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [calendarStatus, setCalendarStatus] = useState<CalendarStatus | null>(null);
+  const [callPurpose, setCallPurpose] = useState('');
+  const [businessProfile, setBusinessProfile] = useState<{
+    organizationName: string | null;
+    industry: string | null;
+    businessDescription: string | null;
+    isComplete: boolean;
+  } | null>(null);
 
   // Phone number state
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
@@ -117,7 +125,18 @@ export default function AgentDetailPage() {
     fetchAgent();
     fetchCalendarStatus();
     fetchPhoneNumbers();
+    fetchBusinessProfile();
   }, [params.id]);
+
+  // Fetch business profile
+  const fetchBusinessProfile = async () => {
+    try {
+      const response = await api.getBusinessProfile();
+      setBusinessProfile(response.data || null);
+    } catch {
+      // Ignore errors
+    }
+  };
 
   // Handle click outside for phone dropdown
   useEffect(() => {
@@ -207,7 +226,6 @@ export default function AgentDetailPage() {
       if (response.data) {
         setAgent(response.data);
         setName(response.data.name);
-        setDescription(response.data.description || '');
         setSystemPrompt(response.data.systemPrompt);
         setGreeting(response.data.greeting || '');
         setVoiceId(response.data.voice || ELEVENLABS_VOICES[0].id);
@@ -216,6 +234,7 @@ export default function AgentDetailPage() {
         setCallWindowStart(response.data.callWindowStart || '');
         setCallWindowEnd(response.data.callWindowEnd || '');
         setCalendarEnabled(response.data.calendarEnabled || false);
+        setCallPurpose(response.data.callPurpose || '');
       }
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Failed to load agent';
@@ -235,7 +254,6 @@ export default function AgentDetailPage() {
     try {
       await api.updateAgent(params.id as string, {
         name,
-        description,
         systemPrompt,
         greeting,
         voiceId,
@@ -244,6 +262,8 @@ export default function AgentDetailPage() {
         callWindowStart: callWindowStart || undefined,
         callWindowEnd: callWindowEnd || undefined,
         calendarEnabled,
+        personaName: ELEVENLABS_VOICES.find(v => v.id === voiceId)?.name || undefined,
+        callPurpose: callPurpose || undefined,
       });
       toast({
         title: 'Agent updated',
@@ -336,7 +356,7 @@ export default function AgentDetailPage() {
           <div className="hidden lg:flex items-stretch gap-3 flex-1 mx-6">
             <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
               <span className="text-xs text-muted-foreground">Total Calls</span>
-              <span className="text-lg font-semibold text-slate-600">{agent.totalCalls}</span>
+              <span className="text-lg font-semibold text-slate-600">{agent.totalCalls || '—'}</span>
             </div>
             <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
               <span className="text-xs text-muted-foreground">Avg Duration</span>
@@ -399,7 +419,7 @@ export default function AgentDetailPage() {
           <Card>
             <CardHeader className="p-3">
               <CardDescription className="text-xs">Total Calls</CardDescription>
-              <CardTitle className="text-xl text-slate-600">{agent.totalCalls}</CardTitle>
+              <CardTitle className="text-xl text-slate-600">{agent.totalCalls || '—'}</CardTitle>
             </CardHeader>
           </Card>
           <Card>
@@ -437,99 +457,44 @@ export default function AgentDetailPage() {
           {editing ? (
             <>
               <div className="space-y-2">
-                <Label htmlFor="voice">Voice</Label>
-                <VoiceSelector
-                  value={voiceId}
-                  onChange={setVoiceId}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
+                <Label htmlFor="name" className="text-muted-foreground">Agent Name</Label>
                 <Input
                   id="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
+
+              {/* Organization */}
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Optional description"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Agent Mode</Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {Object.entries(AGENT_MODES).map(([key, modeData]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`p-3 border rounded-lg text-left hover:border-primary transition-colors ${
-                        mode === key ? 'border-primary bg-primary/5' : ''
-                      }`}
-                      onClick={() => setMode(key as AgentMode)}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
-                          {getModeIcon(key)}
-                        </span>
-                        <h3 className="font-semibold text-xs">{modeData.label}</h3>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{modeData.description}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="greeting">Greeting</Label>
-                <Input
-                  id="greeting"
-                  value={greeting}
-                  onChange={(e) => setGreeting(e.target.value)}
-                  placeholder="Hello! How can I help you today?"
-                />
-              </div>
-              {(mode === 'OUTBOUND' || mode === 'HYBRID') && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="outboundGreeting">Outbound Greeting</Label>
-                    <Input
-                      id="outboundGreeting"
-                      value={outboundGreeting}
-                      onChange={(e) => setOutboundGreeting(e.target.value)}
-                      placeholder="Hi, this is calling from [company]..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Call Window</Label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Input
-                        type="time"
-                        value={callWindowStart}
-                        onChange={(e) => setCallWindowStart(e.target.value)}
-                        placeholder="Start time"
-                      />
-                      <Input
-                        type="time"
-                        value={callWindowEnd}
-                        onChange={(e) => setCallWindowEnd(e.target.value)}
-                        placeholder="End time"
-                      />
+                <Label className="text-muted-foreground">Organization</Label>
+                {businessProfile?.organizationName ? (
+                  <div className="p-4 border rounded-lg border-teal-500 bg-teal-50">
+                    <div className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                        <Building2 className="h-3 w-3 text-teal-600" />
+                      </span>
+                      <h3 className="font-semibold text-sm text-muted-foreground">{businessProfile.organizationName}</h3>
                     </div>
-                    <p className="text-xs text-muted-foreground">Restrict when outbound calls can be made</p>
                   </div>
-                </>
-              )}
+                ) : (
+                  <Link href="/dashboard/settings?tab=preferences" className="block">
+                    <div className="p-4 border rounded-lg border-amber-300 bg-amber-50 hover:border-amber-400 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-amber-100">
+                          <AlertCircle className="h-3 w-3 text-amber-600" />
+                        </span>
+                        <h3 className="font-semibold text-sm text-amber-800">Not configured</h3>
+                      </div>
+                      <p className="text-xs text-amber-700">Click to set up your organization profile in Settings</p>
+                    </div>
+                  </Link>
+                )}
+              </div>
 
               {/* Phone Number Assignment */}
-              <div className="space-y-3 p-4 border rounded-lg bg-slate-50">
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-teal-600" />
-                  <Label>Assigned Phone Number</Label>
-                </div>
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Phone Number</Label>
                 
                 {phoneNumbersLoading ? (
                   <div className="text-sm text-muted-foreground">Loading phone numbers...</div>
@@ -575,7 +540,9 @@ export default function AgentDetailPage() {
                         type="button"
                         onClick={() => setPhoneDropdownOpen(!phoneDropdownOpen)}
                         disabled={savingPhoneNumber}
-                        className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md bg-white w-full justify-between hover:bg-slate-50 transition-colors disabled:opacity-50"
+                        className={`flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full justify-between transition-colors disabled:opacity-50 ${
+                          selectedPhoneNumberId ? 'border-teal-500 bg-teal-50' : 'bg-white hover:bg-slate-50'
+                        }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {selectedPhoneNumberId ? (
@@ -583,16 +550,9 @@ export default function AgentDetailPage() {
                               <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
                                 <Phone className="h-4 w-4 text-teal-600" />
                               </div>
-                              <div className="text-left">
-                                <span className="font-medium block">
-                                  {formatPhoneNumber(phoneNumbers.find(p => p.id === selectedPhoneNumberId)?.phoneNumber || '')}
-                                </span>
-                                {phoneNumbers.find(p => p.id === selectedPhoneNumberId)?.friendlyName && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {phoneNumbers.find(p => p.id === selectedPhoneNumberId)?.friendlyName}
-                                  </span>
-                                )}
-                              </div>
+                              <span className="font-medium text-slate-600">
+                                {formatPhoneNumber(phoneNumbers.find(p => p.id === selectedPhoneNumberId)?.phoneNumber || '')}
+                              </span>
                             </>
                           ) : (
                             <>
@@ -646,11 +606,6 @@ export default function AgentDetailPage() {
                                   <span className="font-medium block truncate">
                                     {formatPhoneNumber(phone.phoneNumber)}
                                   </span>
-                                  {phone.friendlyName && (
-                                    <span className="text-xs text-muted-foreground block truncate">
-                                      {phone.friendlyName}
-                                    </span>
-                                  )}
                                   {isAssignedToOther && (
                                     <span className="text-xs text-amber-600 block">
                                       Currently assigned to: {phone.agent?.name}
@@ -668,22 +623,114 @@ export default function AgentDetailPage() {
                         </div>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Assign a Twilio phone number to receive calls for this agent. Changes are saved immediately.
-                    </p>
                   </>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="systemPrompt">System Prompt</Label>
+                <Label className="text-muted-foreground">Agent Mode</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(AGENT_MODES).map(([key, modeData]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
+                        mode === key ? 'border-teal-500 bg-teal-50' : ''
+                      }`}
+                      onClick={() => setMode(key as AgentMode)}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                          {getModeIcon(key)}
+                        </span>
+                        <h3 className="font-semibold text-xs text-slate-600">{modeData.label}</h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{modeData.description}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Call Purpose */}
+              <div className="space-y-2">
+                <Label htmlFor="callPurpose" className="text-muted-foreground">Call Purpose</Label>
+                <Input
+                  id="callPurpose"
+                  value={callPurpose}
+                  onChange={(e) => setCallPurpose(e.target.value)}
+                  placeholder="e.g., Schedule appointments, Answer support questions"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="voice" className="text-muted-foreground">Voice</Label>
+                <VoiceSelector
+                  value={voiceId}
+                  onChange={setVoiceId}
+                />
+              </div>
+
+              {(mode === 'INBOUND' || mode === 'HYBRID') && (
+                <div className="space-y-2">
+                  <Label htmlFor="greeting" className="text-muted-foreground">Inbound Greeting (optional)</Label>
+                  <Input
+                    id="greeting"
+                    value={greeting}
+                    onChange={(e) => setGreeting(e.target.value)}
+                    placeholder={`e.g., Hi, this is ${ELEVENLABS_VOICES.find(v => v.id === voiceId)?.name || 'your assistant'}. How can I help you today?`}
+                  />
+                </div>
+              )}
+              {(mode === 'OUTBOUND' || mode === 'HYBRID') && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="outboundGreeting" className="text-muted-foreground">Outbound Greeting (optional)</Label>
+                    <Input
+                      id="outboundGreeting"
+                      value={outboundGreeting}
+                      onChange={(e) => setOutboundGreeting(e.target.value)}
+                      placeholder={`e.g., Hi, this is ${ELEVENLABS_VOICES.find(v => v.id === voiceId)?.name || 'your assistant'} calling from ${businessProfile?.organizationName || '[company]'}...`}
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Call Window */}
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Call Window (optional)</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">From</span>
+                    <Input
+                      type="time"
+                      value={callWindowStart}
+                      onChange={(e) => setCallWindowStart(e.target.value)}
+                      placeholder="Start time"
+                      className="flex-1 [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:saturate-100 [&::-webkit-calendar-picker-indicator]:invert-[.5] [&::-webkit-calendar-picker-indicator]:sepia-[1] [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[130deg]"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">To</span>
+                    <Input
+                      type="time"
+                      value={callWindowEnd}
+                      onChange={(e) => setCallWindowEnd(e.target.value)}
+                      placeholder="End time"
+                      className="flex-1 [&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:saturate-100 [&::-webkit-calendar-picker-indicator]:invert-[.5] [&::-webkit-calendar-picker-indicator]:sepia-[1] [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[130deg]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="systemPrompt" className="text-muted-foreground">System Prompt</Label>
                 <textarea
                   id="systemPrompt"
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
                   className="w-full min-h-[200px] px-3 py-2 border rounded-md bg-background"
                 />
-                <Button
+                {/* <Button
                   type="button"
                   variant="outline"
                   size="sm"
@@ -700,71 +747,46 @@ export default function AgentDetailPage() {
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
                   Generate Mode-Optimized Prompt
-                </Button>
+                </Button> */}
               </div>
 
               {/* Tool Access */}
-              <div className="space-y-3 pt-4 border-t">
-                <div className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5 text-teal-600" />
-                  <Label className="text-base font-medium">Tool Access</Label>
-                </div>
-                
-                {calendarStatus?.connected ? (
-                  <div className="space-y-3">
-                    {/* Calendar Tool */}
-                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={calendarEnabled}
-                        onChange={(e) => setCalendarEnabled(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                      />
-                      <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <span className="font-medium text-sm">Calendar</span>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          When enabled, this agent can check your availability and book appointments
-                        </p>
-                        {calendarEnabled && (
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
-                              {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
-                            </span>
-                            {calendarStatus.provider === 'calcom' && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                                ✓ Direct Booking
-                              </span>
-                            )}
-                            <span className="text-xs text-muted-foreground">
-                              {calendarStatus.eventTypeName || 'No event type selected'}
-                            </span>
-                          </div>
+              {calendarStatus?.connected && (
+                <div className="space-y-3">
+                  <Label className="text-muted-foreground">Tool Access (optional)</Label>
+                  
+                  {/* Calendar Tool */}
+                  <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={calendarEnabled}
+                      onChange={(e) => setCalendarEnabled(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-slate-600">Calendar</span>
+                        {calendarStatus?.provider && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                            {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
+                          </span>
                         )}
                       </div>
-                    </label>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        When enabled, this agent can check your availability and book appointments
+                      </p>
+                    </div>
+                  </label>
 
-                    {/* Future tools can be added here */}
-                  </div>
-                ) : (
-                  <div className="bg-slate-50 border rounded-lg p-3">
-                    <p className="text-sm text-muted-foreground">
-                      No tools available. Connect your calendar in Settings to enable scheduling.
-                    </p>
-                    <a 
-                      href="/dashboard/settings" 
-                      className="inline-flex items-center gap-1 mt-2 text-sm text-teal-600 hover:underline"
-                    >
-                      Go to Settings <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                )}
-              </div>
+                  {/* Future tools can be added here */}
+                </div>
+              )}
             </>
           ) : (
             <div className="space-y-6">
-              {/* Voice Avatar Section */}
-              <div className="flex items-center gap-6 pb-6 border-b">
+              {/* Voice Avatar & Tool Access Section */}
+              <div className="flex items-start gap-6 pb-6 border-b">
                 <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                   {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
                     <Image
@@ -792,110 +814,17 @@ export default function AgentDetailPage() {
                     </p>
                   </div>
                 </div>
-              </div>
-
-              {/* Other Info */}
-              <div className="grid gap-4 md:grid-cols-2">
-                {agent.mode && AGENT_MODES[agent.mode] && (
-                  <div>
-                    <Label className="text-muted-foreground">Mode</Label>
-                    <div className="mt-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full flex items-center justify-center bg-teal-100">
-                          {getModeIcon(agent.mode)}
-                        </span>
-                        <span className="font-medium text-slate-600">{AGENT_MODES[agent.mode].label}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{AGENT_MODES[agent.mode].description}</p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Assigned Phone Number */}
-                <div>
-                  <Label className="text-muted-foreground">Phone Number</Label>
-                  {phoneNumbersLoading ? (
-                    <p className="text-sm text-muted-foreground mt-1">Loading...</p>
-                  ) : assignedPhoneNumber ? (
-                    <div className="mt-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full flex items-center justify-center bg-teal-100">
-                          <Phone className="h-3 w-3 text-teal-600" />
-                        </span>
-                        <span className="font-medium text-slate-600">{formatPhoneNumber(assignedPhoneNumber.phoneNumber)}</span>
-                      </div>
-                      {assignedPhoneNumber.friendlyName && (
-                        <p className="text-xs text-muted-foreground mt-1">{assignedPhoneNumber.friendlyName}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-1">
-                      <p className="text-sm text-muted-foreground">No phone number assigned</p>
-                      <Link 
-                        href="/dashboard/settings" 
-                        className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1"
-                      >
-                        <Settings className="h-3 w-3" />
-                        Assign in Settings
-                      </Link>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <Label className="text-muted-foreground">Created</Label>
-                  <p className="font-medium text-slate-600">
-                    {new Date(agent.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && agent.callWindowStart && agent.callWindowEnd && (
-                  <div>
-                    <Label className="text-muted-foreground">Call Window</Label>
-                    <p className="font-medium text-slate-600">{agent.callWindowStart} - {agent.callWindowEnd}</p>
-                  </div>
-                )}
-                <div className="md:col-span-2">
-                  <Label className="text-muted-foreground">Greeting</Label>
-                  <p className="font-medium text-slate-600">{agent.greeting || 'No greeting set'}</p>
-                </div>
-                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && agent.outboundGreeting && (
-                  <div className="md:col-span-2">
-                    <Label className="text-muted-foreground">Outbound Greeting</Label>
-                    <p className="font-medium text-slate-600">{agent.outboundGreeting}</p>
-                  </div>
-                )}
-                <div className="md:col-span-2">
-                  <Label className="text-muted-foreground">System Prompt</Label>
-                  <p className="font-medium text-slate-600 whitespace-pre-wrap bg-muted p-3 rounded-md text-sm mt-1">
-                    {agent.systemPrompt}
-                  </p>
-                </div>
-
-                {/* Calendar Integration Status */}
-                {/* Tool Access */}
-                <div className="md:col-span-2 pt-4 border-t">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Wrench className="h-4 w-4 text-teal-600" />
-                    <Label className="text-muted-foreground">Tool Access</Label>
-                  </div>
-                  
-                  {/* Calendar Tool */}
-                  <div className="flex items-start gap-3 p-3 rounded-lg border bg-slate-50/50">
+                <div className="flex-1">
+                  <Label className="text-muted-foreground">Tool Access</Label>
+                  <div className="flex items-start gap-3 mt-2">
                     <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">Calendar</span>
+                        <span className="font-medium text-sm text-slate-600">Calendar</span>
                         {agent.calendarEnabled && calendarStatus?.connected ? (
-                          <>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
-                              {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
-                            </span>
-                            {calendarStatus.provider === 'calcom' && (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-                                ✓ Direct Booking
-                              </span>
-                            )}
-                          </>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                            {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
+                          </span>
                         ) : (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
                             Disabled
@@ -911,6 +840,116 @@ export default function AgentDetailPage() {
                       </p>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Other Info */}
+              <div className="grid gap-4 md:grid-cols-3">
+                {/* Business Context - Organization */}
+                <div>
+                  <Label className="text-muted-foreground">Organization</Label>
+                  {businessProfile?.organizationName ? (
+                    <div className="mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center bg-teal-100">
+                          <Building2 className="h-3 w-3 text-teal-600" />
+                        </span>
+                        <span className="font-medium text-slate-600">{businessProfile.organizationName}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      <p className="text-sm text-muted-foreground">Not configured</p>
+                      <Link 
+                        href="/dashboard/settings?tab=preferences" 
+                        className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1"
+                      >
+                        <Settings className="h-3 w-3" />
+                        Set up in Settings
+                      </Link>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Assigned Phone Number */}
+                <div>
+                  <Label className="text-muted-foreground">Phone Number</Label>
+                  {phoneNumbersLoading ? (
+                    <p className="text-sm text-muted-foreground mt-1">Loading...</p>
+                  ) : assignedPhoneNumber ? (
+                    <div className="mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center bg-teal-100">
+                          <Phone className="h-3 w-3 text-teal-600" />
+                        </span>
+                        <span className="font-medium text-slate-600">{formatPhoneNumber(assignedPhoneNumber.phoneNumber)}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      <p className="text-sm text-muted-foreground">No phone number assigned</p>
+                      <Link 
+                        href="/dashboard/settings" 
+                        className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1"
+                      >
+                        <Settings className="h-3 w-3" />
+                        Assign in Settings
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {agent.mode && AGENT_MODES[agent.mode] && (
+                  <div>
+                    <Label className="text-muted-foreground">Mode</Label>
+                    <div className="mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center bg-teal-100">
+                          {getModeIcon(agent.mode)}
+                        </span>
+                        <span className="font-medium text-slate-600">{AGENT_MODES[agent.mode].label}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Call Purpose */}
+                {agent.callPurpose && (
+                  <div>
+                    <Label className="text-muted-foreground">Call Purpose</Label>
+                    <p className="font-medium text-slate-600 mt-1">{agent.callPurpose}</p>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="text-muted-foreground">Created</Label>
+                  <p className="font-medium text-slate-600">
+                    {new Date(agent.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && agent.callWindowStart && agent.callWindowEnd && (
+                  <div>
+                    <Label className="text-muted-foreground">Call Window</Label>
+                    <p className="font-medium text-slate-600">{agent.callWindowStart} - {agent.callWindowEnd}</p>
+                  </div>
+                )}
+                {agent.greeting && (
+                  <div className="md:col-span-2">
+                    <Label className="text-muted-foreground">Greeting</Label>
+                    <p className="font-medium text-slate-600">{agent.greeting}</p>
+                  </div>
+                )}
+                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && agent.outboundGreeting && (
+                  <div className="md:col-span-2">
+                    <Label className="text-muted-foreground">Outbound Greeting</Label>
+                    <p className="font-medium text-slate-600">{agent.outboundGreeting}</p>
+                  </div>
+                )}
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground">System Prompt</Label>
+                  <p className="font-medium text-slate-600 whitespace-pre-wrap bg-muted p-3 rounded-md text-sm mt-1">
+                    {agent.systemPrompt}
+                  </p>
                 </div>
               </div>
             </div>

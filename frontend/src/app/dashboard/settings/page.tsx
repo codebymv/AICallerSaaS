@@ -54,6 +54,13 @@ interface CalComEventType {
   description: string | null;
 }
 
+interface BusinessProfile {
+  organizationName: string | null;
+  industry: string | null;
+  businessDescription: string | null;
+  isComplete: boolean;
+}
+
 // Phone number interfaces
 interface PhoneNumber {
   id: string;
@@ -237,11 +244,62 @@ export default function SettingsPage() {
   const [loadingPhoneNumbers, setLoadingPhoneNumbers] = useState(false);
   const [updatingNumber, setUpdatingNumber] = useState<string | null>(null);
 
+  // Business Profile state
+  const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null);
+  const [businessProfileLoading, setBusinessProfileLoading] = useState(true);
+  const [businessProfileSaving, setBusinessProfileSaving] = useState(false);
+  const [showBusinessProfileHelp, setShowBusinessProfileHelp] = useState(false);
+  const [businessProfileForm, setBusinessProfileForm] = useState({
+    organizationName: '',
+    industry: '',
+    businessDescription: '',
+  });
+
   useEffect(() => {
     fetchSettings();
     fetchPhoneNumbersAndAgents();
     fetchCalendarStatus();
+    fetchBusinessProfile();
   }, []);
+
+  const fetchBusinessProfile = async () => {
+    setBusinessProfileLoading(true);
+    try {
+      const response = await api.getBusinessProfile();
+      const profile = response.data;
+      setBusinessProfile(profile || null);
+      if (profile) {
+        setBusinessProfileForm({
+          organizationName: profile.organizationName || '',
+          industry: profile.industry || '',
+          businessDescription: profile.businessDescription || '',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch business profile:', error);
+    } finally {
+      setBusinessProfileLoading(false);
+    }
+  };
+
+  const handleSaveBusinessProfile = async () => {
+    setBusinessProfileSaving(true);
+    try {
+      const response = await api.updateBusinessProfile(businessProfileForm);
+      setBusinessProfile(response.data || null);
+      toast({
+        title: 'Business profile saved',
+        description: response.data?.isComplete 
+          ? 'Your business profile is complete!' 
+          : 'Business profile updated. Add organization name to complete it.',
+      });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Failed to save business profile';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setBusinessProfileSaving(false);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -1285,14 +1343,118 @@ export default function SettingsPage() {
       {/* Preferences Tab */}
       {settingsTab === 'preferences' && (
         <div className="space-y-6">
+          {/* Business Profile Card */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base sm:text-lg text-slate-600">Preferences</CardTitle>
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base sm:text-lg text-slate-600">Organization Profile</CardTitle>
+                  {/* Help Tooltip */}}
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowBusinessProfileHelp(!showBusinessProfileHelp)}
+                      className="text-teal-500 hover:text-teal-700 transition-colors"
+                      aria-label="About business profile"
+                    >
+                      <HelpCircle className="h-4 w-4" />
+                    </button>
+                    {showBusinessProfileHelp && (
+                      <>
+                        <div 
+                          className="fixed inset-0 z-40" 
+                          onClick={() => setShowBusinessProfileHelp(false)}
+                        />
+                        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-72 bg-white border rounded-lg shadow-lg p-4">
+                          <h4 className="font-medium text-sm mb-2">Why set up an Organization Profile?</h4>
+                          <p className="text-sm text-muted-foreground">
+                            This information helps your AI agents introduce themselves properly. When agents make or receive calls, they'll use your organization name and context to sound professional and authentic.
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 sm:ml-0">
+                  {businessProfile?.isComplete ? (
+                    <span className="flex items-center gap-1 text-sm text-green-600">
+                      <CheckCircle className="h-4 w-4" />
+                      Complete
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-sm text-slate-500">
+                      <XCircle className="h-4 w-4" />
+                      Incomplete
+                    </span>
+                  )}
+                </div>
+              </div>
             </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground text-sm">
-                Preference settings coming soon. This is where you'll be able to customize your experience.
-              </p>
+            <CardContent className="space-y-4">
+              {businessProfileLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="organizationName" className="text-muted-foreground">
+                      Organization Name *
+                    </Label>
+                    <Input
+                      id="organizationName"
+                      placeholder="e.g., Acme Dental, Smith Law Firm"
+                      value={businessProfileForm.organizationName}
+                      onChange={(e) => setBusinessProfileForm(prev => ({ ...prev, organizationName: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="industry" className="text-muted-foreground">
+                      Industry
+                    </Label>
+                    <Input
+                      id="industry"
+                      placeholder="e.g., Healthcare, Legal Services, Real Estate"
+                      value={businessProfileForm.industry}
+                      onChange={(e) => setBusinessProfileForm(prev => ({ ...prev, industry: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="businessDescription" className="text-muted-foreground">
+                      Business Description
+                    </Label>
+                    <textarea
+                      id="businessDescription"
+                      className="w-full min-h-[100px] p-3 border rounded-md text-sm"
+                      placeholder="Brief description of your business, services offered, and what makes you unique..."
+                      value={businessProfileForm.businessDescription}
+                      onChange={(e) => setBusinessProfileForm(prev => ({ ...prev, businessDescription: e.target.value }))}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      onClick={handleSaveBusinessProfile}
+                      disabled={businessProfileSaving}
+                      className="bg-teal-600 hover:bg-teal-700"
+                    >
+                      {businessProfileSaving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Profile'
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

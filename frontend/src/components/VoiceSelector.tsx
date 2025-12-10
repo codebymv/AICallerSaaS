@@ -64,7 +64,7 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
         
         {/* Name and description */}
         <div className="flex-1 text-left">
-          <div className="font-medium text-sm">{selectedVoice.name}</div>
+          <div className="font-medium text-sm text-slate-600">{selectedVoice.name}</div>
           <div className="text-xs text-muted-foreground">{selectedVoice.description}</div>
         </div>
         
@@ -101,7 +101,7 @@ export function VoiceSelector({ value, onChange, disabled = false }: VoiceSelect
               
               {/* Name and description */}
               <div className="flex-1 text-left">
-                <div className="font-medium text-sm">{voice.name}</div>
+                <div className="font-medium text-sm text-slate-600">{voice.name}</div>
                 <div className="text-xs text-muted-foreground">{voice.description}</div>
               </div>
               

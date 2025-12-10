@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
-import { Phone, PhoneCall, Delete, Loader2, Bot, ChevronDown, ArrowUpRight, Plus, Grid3X3 } from 'lucide-react';
+import { Phone, PhoneCall, Delete, Loader2, Bot, ChevronDown, Hash, Plus, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -42,6 +42,19 @@ const getVoiceAvatar = (voiceId?: string): string | null => {
   if (!voiceId) return null;
   const voice = ELEVENLABS_VOICES.find(v => v.id === voiceId.toLowerCase());
   return voice?.avatar || null;
+};
+
+const getModeIcon = (mode: string) => {
+  switch (mode) {
+    case 'INBOUND':
+      return <ArrowDownLeft className="h-3 w-3" />;
+    case 'OUTBOUND':
+      return <ArrowUpRight className="h-3 w-3" />;
+    case 'HYBRID':
+      return <ArrowLeftRight className="h-3 w-3" />;
+    default:
+      return null;
+  }
 };
 
 export default function DialpadPage() {
@@ -198,7 +211,7 @@ export default function DialpadPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-3">
-          <Grid3X3 className="h-8 w-8 text-slate-600" />
+          <Hash className="h-8 w-8 text-slate-600" />
           <div>
             <h1 className="text-2xl font-bold text-slate-600">Dialpad</h1>
             <p className="text-muted-foreground">Make outbound calls with your AI agents</p>
@@ -232,14 +245,15 @@ export default function DialpadPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Grid3X3 className="h-8 w-8 text-slate-600" />
+        <Hash className="h-8 w-8 text-slate-600" />
         <div>
           <h1 className="text-2xl font-bold text-slate-600">Dialpad</h1>
           <p className="text-muted-foreground">Make outbound calls with your AI agents</p>
         </div>
       </div>
 
-      <Card className="max-w-md">
+      <div className="flex justify-center">
+        <Card className="max-w-md w-full">
         <CardContent className="pt-6 space-y-6">
           {/* Agent Selector */}
           <div className="space-y-2">
@@ -269,7 +283,7 @@ export default function DialpadPage() {
                       <div className="text-left min-w-0">
                         <span className="font-medium text-slate-600 block truncate">{selectedAgent.name}</span>
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <ArrowUpRight className="h-3 w-3" />
+                          {getModeIcon(selectedAgent.mode)}
                           {selectedAgent.mode === 'HYBRID' ? 'Hybrid' : 'Outbound'}
                         </span>
                       </div>
@@ -318,7 +332,7 @@ export default function DialpadPage() {
                         <div className="flex-1 min-w-0">
                           <span className="font-medium text-slate-600 block truncate">{agent.name}</span>
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <ArrowUpRight className="h-3 w-3" />
+                            {getModeIcon(agent.mode)}
                             {agent.mode === 'HYBRID' ? 'Hybrid' : 'Outbound'}
                           </span>
                         </div>
@@ -405,6 +419,7 @@ export default function DialpadPage() {
           </Button>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }

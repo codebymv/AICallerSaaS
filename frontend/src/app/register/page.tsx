@@ -74,7 +74,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-muted-foreground">Name</Label>
+              <label htmlFor="name" className="text-sm font-medium text-muted-foreground">Name</label>
               <Input
                 id="name"
                 type="text"
@@ -84,7 +84,7 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-muted-foreground">Email</Label>
+              <label htmlFor="email" className="text-sm font-medium text-muted-foreground">Email</label>
               <Input
                 id="email"
                 type="email"
@@ -95,7 +95,7 @@ export default function RegisterPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-muted-foreground">Password</Label>
+              <label htmlFor="password" className="text-sm font-medium text-muted-foreground">Password</label>
               <Input
                 id="password"
                 type="password"

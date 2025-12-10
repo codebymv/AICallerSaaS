@@ -166,5 +166,83 @@ router.post('/twilio/test', async (req: AuthRequest, res, next) => {
   }
 });
 
+// ============================================
+// Business Profile Routes
+// ============================================
+
+// GET /api/settings/business-profile - Get business profile
+router.get('/business-profile', async (req: AuthRequest, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        organizationName: true,
+        industry: true,
+        businessDescription: true,
+        businessProfileComplete: true,
+      },
+    });
+
+    if (!user) {
+      throw createError('User not found', 404, ERROR_CODES.USER_NOT_FOUND);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        organizationName: user.organizationName,
+        industry: user.industry,
+        businessDescription: user.businessDescription,
+        isComplete: user.businessProfileComplete,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// PUT /api/settings/business-profile - Update business profile
+router.put('/business-profile', async (req: AuthRequest, res, next) => {
+  try {
+    const { organizationName, industry, businessDescription } = req.body;
+
+    // Determine if profile is complete (organizationName is required)
+    const isComplete = !!(organizationName && organizationName.trim());
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        organizationName: organizationName?.trim() || null,
+        industry: industry?.trim() || null,
+        businessDescription: businessDescription?.trim() || null,
+        businessProfileComplete: isComplete,
+      },
+      select: {
+        organizationName: true,
+        industry: true,
+        businessDescription: true,
+        businessProfileComplete: true,
+      },
+    });
+
+    logger.info('[Settings] Business profile updated', { 
+      userId: req.user!.id, 
+      isComplete 
+    });
+
+    res.json({
+      success: true,
+      data: {
+        organizationName: updatedUser.organizationName,
+        industry: updatedUser.industry,
+        businessDescription: updatedUser.businessDescription,
+        isComplete: updatedUser.businessProfileComplete,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
 

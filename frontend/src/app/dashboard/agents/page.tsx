@@ -122,7 +122,7 @@ export default function AgentsPage() {
                   <div>
                     <CardTitle className="text-lg text-slate-600">{agent.name}</CardTitle>
                     <CardDescription className="line-clamp-1">
-                      {agent.description || 'No description'}
+                      {agent.callPurpose || 'No purpose set'}
                     </CardDescription>
                   </div>
                 </div>

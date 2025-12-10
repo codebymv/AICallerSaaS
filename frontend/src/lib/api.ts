@@ -292,6 +292,32 @@ class ApiClient {
     });
   }
 
+  // Business Profile endpoints
+  async getBusinessProfile() {
+    return this.request<{
+      organizationName: string | null;
+      industry: string | null;
+      businessDescription: string | null;
+      isComplete: boolean;
+    }>('/api/settings/business-profile');
+  }
+
+  async updateBusinessProfile(data: {
+    organizationName?: string;
+    industry?: string;
+    businessDescription?: string;
+  }) {
+    return this.request<{
+      organizationName: string | null;
+      industry: string | null;
+      businessDescription: string | null;
+      isComplete: boolean;
+    }>('/api/settings/business-profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Calendar Integration endpoints
   async getCalendarStatus() {
     return this.request<{
