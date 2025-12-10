@@ -56,6 +56,7 @@ model User {
   agents        Agent[]
   calls         Call[]
   phoneNumbers  PhoneNumber[]
+  contacts      Contact[]
   apiKeys       ApiKey[]
   usageMetrics  UsageMetric[]
   calendarIntegration CalendarIntegration?
@@ -175,6 +176,25 @@ model PhoneNumber {
   
   @@index([userId])
   @@index([agentId])
+}
+
+// ============ CONTACTS ============
+
+model Contact {
+  id           String   @id @default(cuid())
+  phoneNumber  String   // Primary identifier, not unique (user-scoped)
+  name         String
+  notes        String?  @db.Text
+  
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([userId, phoneNumber])  // One contact per phone per user
+  @@index([userId])
+  @@index([phoneNumber])
 }
 
 // ============ CALLS ============

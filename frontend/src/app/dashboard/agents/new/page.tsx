@@ -104,6 +104,7 @@ export default function NewAgentPage() {
     template: string;
    systemPrompt: string;
    voiceId: string;
+   voiceSettings: { stability: number; similarity_boost: number; style: number } | null;
    greeting: string;
    mode: AgentMode;
    outboundGreeting: string;
@@ -114,11 +115,12 @@ export default function NewAgentPage() {
    calendarEnabled: boolean;
    callPurposeType: CallPurposeType;
    callPurpose: string;
- }>({
+}>({
     name: '',
     template: 'mode-default',
     systemPrompt: getSystemPromptForMode('INBOUND', false), // Default to inbound mode prompt
     voiceId: ELEVENLABS_VOICES[0].id,
+    voiceSettings: null, // Will be loaded from voice defaults
     greeting: '',
     mode: 'INBOUND',
     outboundGreeting: '',
@@ -130,6 +132,25 @@ export default function NewAgentPage() {
     callPurposeType: 'SCHEDULE_APPOINTMENTS',
     callPurpose: CALL_PURPOSES.SCHEDULE_APPOINTMENTS.value,
   });
+
+  // Load voice defaults from localStorage on mount
+  useEffect(() => {
+    const savedVoiceDefaults = localStorage.getItem('voiceDefaults');
+    if (savedVoiceDefaults) {
+      try {
+        const defaults = JSON.parse(savedVoiceDefaults);
+        if (defaults.voice || defaults.settings) {
+          setFormData(prev => ({
+            ...prev,
+            voiceId: defaults.voice || prev.voiceId,
+            voiceSettings: defaults.settings || null,
+          }));
+        }
+      } catch {
+        // Ignore parse errors
+      }
+    }
+  }, []);
 
   // Business profile state
   const [businessProfile, setBusinessProfile] = useState<{
@@ -263,6 +284,7 @@ export default function NewAgentPage() {
         name: formData.name,
         systemPrompt: prompt,
         voiceId: formData.voiceId,
+        voiceSettings: formData.voiceSettings || undefined,
         greeting: formData.greeting,
         template: formData.template !== 'custom' ? formData.template : undefined,
         mode: formData.mode,

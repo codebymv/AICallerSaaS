@@ -83,6 +83,7 @@ export function setupTwilioMediaStream(wss: WebSocketServer) {
     logger.info('[MediaStream] Connection opened, waiting for start event');
 
     let session: CallSession | null = null;
+    let sessionStopped = false; // Guard against duplicate stop handling
 
     ws.on('message', async (data: Buffer) => {
       try {
@@ -115,7 +116,8 @@ export function setupTwilioMediaStream(wss: WebSocketServer) {
             break;
 
           case 'stop':
-            if (session) {
+            if (session && !sessionStopped) {
+              sessionStopped = true;
               await handleStreamStop(session);
             }
             break;
@@ -127,7 +129,8 @@ export function setupTwilioMediaStream(wss: WebSocketServer) {
 
     ws.on('close', async () => {
       logger.info('[MediaStream] Connection closed', { callSid: session?.callSid });
-      if (session) {
+      if (session && !sessionStopped) {
+        sessionStopped = true;
         await handleStreamStop(session);
       }
     });

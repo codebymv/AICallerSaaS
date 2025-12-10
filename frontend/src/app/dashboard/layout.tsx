@@ -15,7 +15,9 @@ import {
   X,
   Loader2,
   LayoutDashboard,
-  Hash
+  Hash,
+  AudioLines,
+  Users
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -26,6 +28,8 @@ const navItems = [
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
   { href: '/dashboard/dialpad', label: 'Dialpad', icon: Hash },
   { href: '/dashboard/calls', label: 'Call Logs', icon: PhoneCall },
+  { href: '/dashboard/contacts', label: 'Contacts', icon: Users },
+  { href: '/dashboard/voices', label: 'Voices', icon: AudioLines },
 ];
 
 export default function DashboardLayout({

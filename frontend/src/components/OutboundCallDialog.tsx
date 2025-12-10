@@ -157,8 +157,8 @@ export function OutboundCallDialog({
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Phone Number Display */}
-          <div className="text-center py-4">
+          {/* Phone Number Display with Backspace */}
+          <div className="relative py-4">
             <div className="h-10 flex items-center justify-center">
               {phoneNumber ? (
                 <span className="text-2xl font-semibold text-slate-700 tracking-wide">
@@ -170,6 +170,17 @@ export function OutboundCallDialog({
                 </span>
               )}
             </div>
+            {/* Backspace button - absolutely positioned to the right of phone number */}
+            {phoneNumber && (
+              <button
+                type="button"
+                onClick={handleBackspace}
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                disabled={loading}
+              >
+                <Delete className="h-6 w-6" />
+              </button>
+            )}
           </div>
 
           {/* Dialpad */}
@@ -188,18 +199,6 @@ export function OutboundCallDialog({
                 )}
               </button>
             ))}
-          </div>
-
-          {/* Backspace */}
-          <div className="flex justify-end px-4">
-            <button
-              type="button"
-              onClick={handleBackspace}
-              className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
-              disabled={!phoneNumber || loading}
-            >
-              <Delete className="h-6 w-6" />
-            </button>
           </div>
 
           {/* Call Window Warning */}

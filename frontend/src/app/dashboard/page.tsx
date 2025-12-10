@@ -3,12 +3,14 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BarChart3, Loader2 } from 'lucide-react';
+import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BarChart3, Loader2, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 import { formatDuration, formatCurrency, formatRelativeTime, formatPhoneNumber } from '@/lib/utils';
 import { ELEVENLABS_VOICES, AGENT_MODES } from '@/lib/constants';
+import { ContactModal } from '@/components/ContactModal';
 
 const getModeIcon = (mode: string) => {
   switch (mode) {
@@ -23,11 +25,18 @@ const getModeIcon = (mode: string) => {
   }
 };
 
+// Helper to get the relevant phone number for a call
+const getCallPhone = (call: any) => call.direction === 'inbound' ? call.from : call.to;
+
 export default function DashboardPage() {
+  const { toast } = useToast();
   const [stats, setStats] = useState<any>(null);
   const [agents, setAgents] = useState<any[]>([]);
   const [recentCalls, setRecentCalls] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+  const [addContactModalOpen, setAddContactModalOpen] = useState(false);
+  const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +48,21 @@ export default function DashboardPage() {
         ]);
         setStats(statsRes.data);
         setAgents(agentsRes.data || []);
-        setRecentCalls(callsRes.data || []);
+        const calls = callsRes.data || [];
+        setRecentCalls(calls);
+        
+        // Fetch contacts for phone numbers in recent calls
+        if (calls.length > 0) {
+          const phoneNumbers = Array.from(new Set(calls.map(getCallPhone)));
+          try {
+            const contactsRes = await api.getContactsBatch(phoneNumbers);
+            if (contactsRes.data) {
+              setContacts(contactsRes.data);
+            }
+          } catch (e) {
+            // Ignore contact fetch errors
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);
       } finally {
@@ -48,6 +71,45 @@ export default function DashboardPage() {
     };
     fetchData();
   }, []);
+  
+  // Helper to get contact name for a phone number
+  const getContactName = (phone: string) => {
+    const normalized = phone.replace(/\D/g, '');
+    return contacts[phone]?.name || contacts[normalized]?.name || contacts[`+${normalized}`]?.name || contacts[`+1${normalized}`]?.name || null;
+  };
+
+  const handleAddContact = (phone: string) => {
+    setSelectedPhoneNumber(phone);
+    setAddContactModalOpen(true);
+  };
+
+  const handleSaveContact = async (data: { name: string; phoneNumber: string; notes?: string }) => {
+    try {
+      await api.createContact(data);
+      toast({
+        title: 'Contact added',
+        description: 'The contact has been saved',
+      });
+      setAddContactModalOpen(false);
+      // Refresh contacts
+      const phoneNumbers = Array.from(new Set(recentCalls.map(getCallPhone)));
+      try {
+        const contactsRes = await api.getContactsBatch(phoneNumbers);
+        if (contactsRes.data) {
+          setContacts(contactsRes.data);
+        }
+      } catch (e) {
+        // Ignore
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save contact',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
 
   if (loading) {
     return (
@@ -208,43 +270,77 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                {recentCalls.map((call) => (
-                  <Link
-                    key={call.id}
-                    href={`/dashboard/calls/${call.id}`}
-                    className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex flex-col gap-3 w-full">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
-                            {call.direction === 'inbound' ? (
-                              <ArrowDownLeft className="h-4 w-4 text-teal-600" />
-                            ) : (
-                              <ArrowUpRight className="h-4 w-4 text-teal-600" />
-                            )}
+                {recentCalls.map((call) => {
+                  const phone = getCallPhone(call);
+                  const contactName = getContactName(phone);
+                  return (
+                    <div
+                      key={call.id}
+                      className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors"
+                    >
+                      <Link href={`/dashboard/calls/${call.id}`} className="flex flex-col gap-3 w-full">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
+                              {call.direction === 'inbound' ? (
+                                <ArrowDownLeft className="h-4 w-4 text-teal-600" />
+                              ) : (
+                                <ArrowUpRight className="h-4 w-4 text-teal-600" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              {contactName ? (
+                                <>
+                                  <p className="text-sm font-medium text-slate-600">{contactName}</p>
+                                  <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-mono text-sm font-medium text-slate-600">{formatPhoneNumber(phone)}</p>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleAddContact(phone);
+                                      }}
+                                      className="text-slate-400 hover:text-teal-600 transition-colors"
+                                      title="Add to contacts"
+                                    >
+                                      <UserPlus className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-mono text-sm font-medium text-slate-600">
-                              {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
-                          </div>
+                          <CallStatusBadge status={call.status} />
                         </div>
-                        <CallStatusBadge status={call.status} />
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{call.duration ? formatDuration(call.duration) : '-'}</span>
-                        <span>{formatRelativeTime(call.createdAt)}</span>
-                      </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>{call.duration ? formatDuration(call.duration) : '-'}</span>
+                          <span>{formatRelativeTime(call.createdAt)}</span>
+                        </div>
+                      </Link>
                     </div>
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Contact Modal */}
+      <ContactModal
+        open={addContactModalOpen}
+        onClose={() => {
+          setAddContactModalOpen(false);
+          setSelectedPhoneNumber('');
+        }}
+        onSave={handleSaveContact}
+        initialPhoneNumber={selectedPhoneNumber}
+      />
     </div>
   );
 }

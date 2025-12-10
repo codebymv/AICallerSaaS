@@ -945,7 +945,9 @@ export default function AgentDetailPage() {
                     <p className="font-medium text-slate-600">{agent.outboundGreeting}</p>
                   </div>
                 )}
-                <div className="md:col-span-2">
+                
+                {/* Divider before System Prompt */}
+                <div className="md:col-span-2 border-t pt-4 mt-2">
                   <Label className="text-muted-foreground">System Prompt</Label>
                   <p className="font-medium text-slate-600 whitespace-pre-wrap bg-muted p-3 rounded-md text-sm mt-1">
                     {agent.systemPrompt}

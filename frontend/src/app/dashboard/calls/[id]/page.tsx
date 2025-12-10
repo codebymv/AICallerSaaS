@@ -19,12 +19,14 @@ import {
   XCircle,
   AlertCircle,
   Loader2,
+  UserPlus,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES, STATUS_COLORS, DIRECTION_COLORS } from '@/lib/constants';
+import { ContactModal } from '@/components/ContactModal';
 
 interface Call {
   id: string;
@@ -115,6 +117,9 @@ export default function CallDetailPage() {
   const { toast } = useToast();
   const [call, setCall] = useState<Call | null>(null);
   const [loading, setLoading] = useState(true);
+  const [contact, setContact] = useState<{ name: string; phoneNumber: string } | null>(null);
+  const [addContactModalOpen, setAddContactModalOpen] = useState(false);
+  const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
 
   const callId = params.id as string;
 
@@ -145,6 +150,20 @@ export default function CallDetailPage() {
     try {
       const response = await api.getCall(callId);
       setCall(response.data);
+      
+      // Fetch contact for the relevant phone number
+      const callData = response.data;
+      if (callData) {
+        const phone = callData.direction === 'inbound' ? callData.from : callData.to;
+        try {
+          const contactRes = await api.getContactByPhone(phone);
+          if (contactRes.data) {
+            setContact(contactRes.data);
+          }
+        } catch (e) {
+          // Ignore contact fetch errors
+        }
+      }
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Failed to fetch call details';
       toast({
@@ -158,6 +177,43 @@ export default function CallDetailPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddContact = (phone: string) => {
+    setSelectedPhoneNumber(phone);
+    setAddContactModalOpen(true);
+  };
+
+  const handleSaveContact = async (data: { name: string; phoneNumber: string; notes?: string }) => {
+    try {
+      await api.createContact(data);
+      toast({
+        title: 'Contact added',
+        description: 'The contact has been saved',
+      });
+      setAddContactModalOpen(false);
+      // Refresh contact
+      if (call) {
+        const phone = call.direction === 'inbound' ? call.from : call.to;
+        if (phone) {
+          try {
+            const contactRes = await api.getContactByPhone(phone);
+            if (contactRes.data) {
+              setContact(contactRes.data);
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save contact',
+        variant: 'destructive',
+      });
+      throw error;
     }
   };
 
@@ -247,11 +303,34 @@ export default function CallDetailPage() {
                 <p className="text-sm text-muted-foreground">
                   {call.direction === 'inbound' ? 'Inbound Call' : 'Outbound Call'}
                 </p>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="font-mono text-slate-600">{formatPhoneNumber(call.from)}</span>
-                  <span className="text-muted-foreground">→</span>
-                  <span className="font-mono text-slate-600">{formatPhoneNumber(call.to)}</span>
-                </div>
+                {contact ? (
+                  <div>
+                    <p className="font-medium text-slate-600">{contact.name}</p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-mono text-muted-foreground">{formatPhoneNumber(call.from)}</span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="font-mono text-muted-foreground">{formatPhoneNumber(call.to)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="font-mono text-slate-600">{formatPhoneNumber(call.from)}</span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="font-mono text-slate-600">{formatPhoneNumber(call.to)}</span>
+                      <button
+                        onClick={() => {
+                          const phone = call.direction === 'inbound' ? call.from : call.to;
+                          if (phone) handleAddContact(phone);
+                        }}
+                        className="text-slate-400 hover:text-teal-600 transition-colors ml-1"
+                        title="Add to contacts"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -386,12 +465,23 @@ export default function CallDetailPage() {
           </CardHeader>
           <CardContent>
             <audio controls className="w-full">
-              <source src={call.recordingUrl} type="audio/mpeg" />
+              <source src={`${process.env.NEXT_PUBLIC_API_URL}/api/calls/${call.id}/recording`} type="audio/mpeg" />
               Your browser does not support the audio element.
             </audio>
           </CardContent>
         </Card>
       )}
+
+      {/* Contact Modal */}
+      <ContactModal
+        open={addContactModalOpen}
+        onClose={() => {
+          setAddContactModalOpen(false);
+          setSelectedPhoneNumber('');
+        }}
+        onSave={handleSaveContact}
+        initialPhoneNumber={selectedPhoneNumber}
+      />
     </div>
   );
 }

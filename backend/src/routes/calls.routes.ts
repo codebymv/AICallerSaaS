@@ -77,6 +77,46 @@ router.get('/', async (req: AuthRequest, res, next) => {
   }
 });
 
+// GET /api/calls/:id/recording - Proxy call recording
+router.get('/:id/recording', async (req: AuthRequest, res, next) => {
+  try {
+    const call = await prisma.call.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user!.id,
+      },
+    });
+
+    if (!call) {
+      throw createError('Call not found', 404, ERROR_CODES.CALL_NOT_FOUND);
+    }
+
+    if (!call.recordingUrl) {
+      throw createError('Recording not available', 404, ERROR_CODES.CALL_NOT_FOUND);
+    }
+
+    // Fetch recording from Twilio with authentication
+    const response = await fetch(call.recordingUrl, {
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(`${config.twilio.accountSid}:${config.twilio.authToken}`).toString('base64'),
+      },
+    });
+
+    if (!response.ok) {
+      throw createError('Failed to fetch recording', response.status);
+    }
+
+    // Stream the recording to the client
+    res.setHeader('Content-Type', response.headers.get('content-type') || 'audio/mpeg');
+    res.setHeader('Content-Length', response.headers.get('content-length') || '0');
+    
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /api/calls/:id - Get single call
 router.get('/:id', async (req: AuthRequest, res, next) => {
   try {

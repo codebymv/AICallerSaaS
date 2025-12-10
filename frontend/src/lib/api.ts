@@ -216,6 +216,52 @@ class ApiClient {
     return this.request<any>(`/api/calls/analytics/summary${query ? `?${query}` : ''}`);
   }
 
+  // Contact endpoints
+  async getContacts(params?: { search?: string; page?: number; limit?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+
+    const query = searchParams.toString();
+    return this.request<any[]>(`/api/contacts${query ? `?${query}` : ''}`);
+  }
+
+  async getContact(id: string) {
+    return this.request<any>(`/api/contacts/${id}`);
+  }
+
+  async getContactByPhone(phone: string) {
+    return this.request<any>(`/api/contacts/by-phone/${encodeURIComponent(phone)}`);
+  }
+
+  async getContactsBatch(phoneNumbers: string[]) {
+    return this.request<Record<string, any>>('/api/contacts/batch', {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumbers }),
+    });
+  }
+
+  async createContact(data: { name: string; phoneNumber: string; notes?: string }) {
+    return this.request<any>('/api/contacts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateContact(id: string, data: { name?: string; phoneNumber?: string; notes?: string }) {
+    return this.request<any>(`/api/contacts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteContact(id: string) {
+    return this.request<any>(`/api/contacts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Phone number endpoints
   async getPhoneNumbers() {
     return this.request<any[]>('/api/phone-numbers');

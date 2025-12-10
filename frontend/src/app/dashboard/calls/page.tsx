@@ -3,13 +3,15 @@
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, PhoneCall, ArrowUpRight, ArrowDownLeft, Search, RefreshCw, ChevronDown, Bot, User, Loader2 } from 'lucide-react';
+import { Phone, PhoneCall, ArrowUpRight, ArrowDownLeft, Search, RefreshCw, ChevronDown, Bot, User, Loader2, Users, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 import { formatDuration, formatDate, formatPhoneNumber } from '@/lib/utils';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
+import { ContactModal } from '@/components/ContactModal';
 
 interface Agent {
   id: string;
@@ -200,9 +202,14 @@ function AgentSelector({
   );
 }
 
+// Helper to get the relevant phone number for a call
+const getCallPhone = (call: any) => call.direction === 'inbound' ? call.from : call.to;
+
 export default function CallsPage() {
+  const { toast } = useToast();
   const [calls, setCalls] = useState<any[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [contacts, setContacts] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
@@ -214,6 +221,8 @@ export default function CallsPage() {
     startDate: '',
     endDate: ''
   });
+  const [addContactModalOpen, setAddContactModalOpen] = useState(false);
+  const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
 
   const fetchCalls = async (pageNum: number = 1) => {
     try {
@@ -226,12 +235,27 @@ export default function CallsPage() {
         endDate: filter.endDate || undefined,
       });
       
+      const newCalls = response.data || [];
+      
       if (pageNum === 1) {
-        setCalls(response.data || []);
+        setCalls(newCalls);
       } else {
-        setCalls((prev) => [...prev, ...(response.data || [])]);
+        setCalls((prev) => [...prev, ...newCalls]);
       }
       setHasMore(response.meta?.hasMore || false);
+      
+      // Fetch contacts for phone numbers in these calls
+      if (newCalls.length > 0) {
+        const phoneNumbers = Array.from(new Set(newCalls.map(getCallPhone)));
+        try {
+          const contactsRes = await api.getContactsBatch(phoneNumbers);
+          if (contactsRes.data) {
+            setContacts(prev => ({ ...prev, ...contactsRes.data }));
+          }
+        } catch (e) {
+          // Ignore contact fetch errors
+        }
+      }
     } catch (error) {
       console.error('Failed to fetch calls:', error);
     } finally {
@@ -250,6 +274,41 @@ export default function CallsPage() {
   useEffect(() => {
     fetchCalls(1);
   }, [filter.status, filter.agentId, filter.duration, filter.startDate, filter.endDate]);
+  
+  // Helper to get contact name for a phone number
+  const getContactName = (phone: string) => {
+    const normalized = phone.replace(/\D/g, '');
+    return contacts[phone]?.name || contacts[normalized]?.name || contacts[`+${normalized}`]?.name || contacts[`+1${normalized}`]?.name || null;
+  };
+
+  const handleAddContact = (phone: string) => {
+    setSelectedPhoneNumber(phone);
+    setAddContactModalOpen(true);
+  };
+
+  const handleSaveContact = async (data: { name: string; phoneNumber: string; notes?: string }) => {
+    try {
+      await api.createContact(data);
+      toast({
+        title: 'Contact added',
+        description: 'The contact has been saved',
+      });
+      setAddContactModalOpen(false);
+      // Refresh contacts
+      const phoneNumbers = Array.from(new Set(calls.map(getCallPhone)));
+      const contactsRes = await api.getContactsBatch(phoneNumbers);
+      if (contactsRes.data) {
+        setContacts(contactsRes.data);
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save contact',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
 
   const loadMore = () => {
     const nextPage = page + 1;
@@ -274,10 +333,23 @@ export default function CallsPage() {
           <span className="hidden sm:inline text-slate-400">•</span>
           <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">View and manage your call history</p>
         </div>
-        <Button onClick={() => fetchCalls(1)} disabled={loading} className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button 
+            onClick={() => fetchCalls(1)} 
+            disabled={loading} 
+            variant="outline"
+            className="flex-1 sm:flex-none text-teal-600 border-teal-600 hover:bg-teal-50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Link href="/dashboard/dialpad" className="flex-1 sm:flex-none">
+            <Button className="w-full bg-teal-600 hover:bg-teal-700">
+              <Phone className="h-4 w-4 mr-2" />
+              Make Call
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -384,36 +456,62 @@ export default function CallsPage() {
         <>
           {/* Mobile Card View */}
           <div className="space-y-3 md:hidden">
-            {calls.map((call) => (
-              <Link key={call.id} href={`/dashboard/calls/${call.id}`}>
-                <Card className="hover:bg-slate-50 transition-colors">
+            {calls.map((call) => {
+              const phone = getCallPhone(call);
+              const contactName = getContactName(phone);
+              return (
+                <Card key={call.id} className="hover:bg-slate-50 transition-colors">
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100">
-                          {call.direction === 'inbound' ? (
-                            <ArrowDownLeft className="h-4 w-4 text-teal-600" />
-                          ) : (
-                            <ArrowUpRight className="h-4 w-4 text-teal-600" />
-                          )}
+                    <Link href={`/dashboard/calls/${call.id}`} className="block">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
+                            {call.direction === 'inbound' ? (
+                              <ArrowDownLeft className="h-4 w-4 text-teal-600" />
+                            ) : (
+                              <ArrowUpRight className="h-4 w-4 text-teal-600" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            {contactName ? (
+                              <>
+                                <p className="text-sm font-medium text-slate-600">{contactName}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-mono text-sm font-medium text-slate-600">{formatPhoneNumber(phone)}</p>
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      handleAddContact(phone);
+                                    }}
+                                    className="text-slate-400 hover:text-teal-600 transition-colors"
+                                    title="Add to contacts"
+                                  >
+                                    <UserPlus className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-mono text-sm font-medium text-slate-600">
-                            {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
-                        </div>
+                        <CallStatusBadge status={call.status} />
                       </div>
-                      <CallStatusBadge status={call.status} />
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{call.duration ? formatDuration(call.duration) : '-'}</span>
-                      <span>{formatDate(call.createdAt)}</span>
-                    </div>
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>{call.duration ? formatDuration(call.duration) : '-'}</span>
+                        <span>{formatDate(call.createdAt)}</span>
+                      </div>
+                    </Link>
                   </CardContent>
                 </Card>
-              </Link>
-            ))}
+              );
+            })}
           </div>
 
           {/* Desktop Table View */}
@@ -433,47 +531,71 @@ export default function CallsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {calls.map((call) => (
-                      <tr key={call.id} className="border-b hover:bg-slate-50">
-                        <td className="p-4">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100">
-                            {call.direction === 'inbound' ? (
-                              <ArrowDownLeft className="h-4 w-4 text-teal-600" />
+                    {calls.map((call) => {
+                      const phone = getCallPhone(call);
+                      const contactName = getContactName(phone);
+                      return (
+                        <tr key={call.id} className="border-b hover:bg-slate-50">
+                          <td className="p-4">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100">
+                              {call.direction === 'inbound' ? (
+                                <ArrowDownLeft className="h-4 w-4 text-teal-600" />
+                              ) : (
+                                <ArrowUpRight className="h-4 w-4 text-teal-600" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            {contactName ? (
+                              <div>
+                                <p className="text-sm font-medium text-slate-600">{contactName}</p>
+                                <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
+                              </div>
                             ) : (
-                              <ArrowUpRight className="h-4 w-4 text-teal-600" />
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm text-slate-600">
+                                  {formatPhoneNumber(phone)}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleAddContact(phone);
+                                  }}
+                                  className="text-slate-400 hover:text-teal-600 transition-colors"
+                                  title="Add to contacts"
+                                >
+                                  <UserPlus className="h-4 w-4" />
+                                </button>
+                              </div>
                             )}
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <span className="font-mono text-sm text-slate-600">
-                            {formatPhoneNumber(call.direction === 'inbound' ? call.from : call.to)}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <span className="text-sm text-slate-600">{call.agent?.name || call.agentName || 'Deleted Agent'}</span>
-                        </td>
-                        <td className="p-4">
-                          <span className="text-sm text-slate-600">
-                            {call.duration ? formatDuration(call.duration) : '-'}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <CallStatusBadge status={call.status} />
-                        </td>
-                        <td className="p-4">
-                          <span className="text-sm text-muted-foreground">
-                            {formatDate(call.createdAt)}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <Link href={`/dashboard/calls/${call.id}`}>
-                            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
-                              View
-                            </Button>
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-4">
+                            <span className="text-sm text-slate-600">{call.agent?.name || call.agentName || 'Deleted Agent'}</span>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-sm text-slate-600">
+                              {call.duration ? formatDuration(call.duration) : '-'}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <CallStatusBadge status={call.status} />
+                          </td>
+                          <td className="p-4">
+                            <span className="text-sm text-muted-foreground">
+                              {formatDate(call.createdAt)}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <Link href={`/dashboard/calls/${call.id}`}>
+                              <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                                View
+                              </Button>
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -489,6 +611,17 @@ export default function CallsPage() {
           )}
         </>
       )}
+
+      {/* Contact Modal */}
+      <ContactModal
+        open={addContactModalOpen}
+        onClose={() => {
+          setAddContactModalOpen(false);
+          setSelectedPhoneNumber('');
+        }}
+        onSave={handleSaveContact}
+        initialPhoneNumber={selectedPhoneNumber}
+      />
     </div>
   );
 }

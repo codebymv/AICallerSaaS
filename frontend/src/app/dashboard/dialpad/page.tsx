@@ -344,8 +344,8 @@ export default function DialpadPage() {
             </div>
           </div>
 
-          {/* Phone Number Display */}
-          <div className="text-center py-4">
+          {/* Phone Number Display with Backspace */}
+          <div className="relative py-4">
             <div className="h-12 flex items-center justify-center">
               {phoneNumber ? (
                 <span className="text-3xl font-semibold text-slate-600 tracking-wide">
@@ -357,6 +357,17 @@ export default function DialpadPage() {
                 </span>
               )}
             </div>
+            {/* Backspace button - absolutely positioned to the right of phone number */}
+            {phoneNumber && (
+              <button
+                type="button"
+                onClick={handleBackspace}
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-slate-600 transition-colors"
+                disabled={calling}
+              >
+                <Delete className="h-6 w-6" />
+              </button>
+            )}
           </div>
 
           {/* Dialpad */}
@@ -375,18 +386,6 @@ export default function DialpadPage() {
                 )}
               </button>
             ))}
-          </div>
-
-          {/* Backspace */}
-          <div className="flex justify-end px-4">
-            <button
-              type="button"
-              onClick={handleBackspace}
-              className="p-2 text-slate-400 hover:text-slate-600 transition-colors"
-              disabled={!phoneNumber || calling}
-            >
-              <Delete className="h-6 w-6" />
-            </button>
           </div>
 
           {/* Call Window Warning */}

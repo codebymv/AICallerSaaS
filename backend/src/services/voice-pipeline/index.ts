@@ -848,7 +848,7 @@ BOOKING CONFIRMATION:
           elevenLabsVoiceId,
           {
             stability: voiceSettings?.stability ?? 0.5,
-            similarity_boost: voiceSettings?.similarityBoost ?? 0.75,
+            similarity_boost: voiceSettings?.similarity_boost ?? 0.75,
           },
           (chunk) => {
             // Stream each chunk to Twilio immediately
@@ -874,7 +874,7 @@ BOOKING CONFIRMATION:
           elevenLabsVoiceId,
           {
             stability: voiceSettings?.stability ?? 0.5,
-            similarity_boost: voiceSettings?.similarityBoost ?? 0.75,
+            similarity_boost: voiceSettings?.similarity_boost ?? 0.75,
           }
         );
 
