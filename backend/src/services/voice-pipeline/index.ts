@@ -335,7 +335,7 @@ export class VoicePipeline extends EventEmitter {
     console.log('[Pipeline] ✅ Deepgram STT started');
 
     // Determine which greeting to use based on call direction
-    let greeting = this.config.agent.greeting;
+    let greeting: string | undefined | null = this.config.agent.greeting;
     if (this.config.callDirection === 'outbound' && this.config.agent.outboundGreeting) {
       greeting = this.config.agent.outboundGreeting;
       console.log('[Pipeline] Using outbound greeting');
@@ -344,14 +344,14 @@ export class VoicePipeline extends EventEmitter {
     }
     
     // Clean up empty string greetings (treat as no greeting)
-    if (greeting !== undefined && greeting.trim() === '') {
-      greeting = undefined;
+    if (greeting && greeting.trim() === '') {
+      greeting = null;
     }
     
     console.log('[Pipeline] Greeting:', greeting || 'none');
 
     // Send greeting if configured
-    if (greeting) {
+    if (greeting && greeting.trim()) {
       console.log('[Pipeline] Generating greeting audio...');
       await this.generateAndSendAudio(greeting);
       console.log('[Pipeline] ✅ Greeting sent');
