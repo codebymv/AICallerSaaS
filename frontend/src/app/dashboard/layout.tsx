@@ -79,7 +79,7 @@ export default function DashboardLayout({
         </Button>
         <div className="flex items-center gap-3 absolute left-1/2 transform -translate-x-1/2">
           <Image
-            src="/gleam-logo -icon.png"
+            src="/gleam-logo-icon.png"
             alt="Gleam"
             width={28}
             height={28}

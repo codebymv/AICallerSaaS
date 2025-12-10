@@ -350,11 +350,12 @@ export class VoicePipeline extends EventEmitter {
     
     console.log('[Pipeline] Greeting:', greeting || 'none');
 
-    // Send greeting if configured
+    // Send greeting if configured, otherwise generate one from the LLM
     if (greeting && greeting.trim()) {
-      console.log('[Pipeline] Generating greeting audio...');
+      // Use the preset greeting (scripted approach)
+      console.log('[Pipeline] Generating preset greeting audio...');
       await this.generateAndSendAudio(greeting);
-      console.log('[Pipeline] ✅ Greeting sent');
+      console.log('[Pipeline] ✅ Preset greeting sent');
       
       // Track greeting as last AI response and start dead air timer
       this.lastAiResponse = greeting;
@@ -365,7 +366,41 @@ export class VoicePipeline extends EventEmitter {
       });
       this.startDeadAirTimer();
     } else {
-      console.log('[Pipeline] ⚠️ No greeting configured - agent will respond when user speaks');
+      // No preset greeting - generate an opening from the LLM using the system prompt
+      console.log('[Pipeline] No preset greeting - generating dynamic opening from LLM...');
+      
+      try {
+        // Ask the LLM to generate an appropriate opening based on the system prompt
+        const openingPrompt = this.config.callDirection === 'outbound'
+          ? 'You are starting an outbound call. Introduce yourself briefly and state the purpose of the call. Keep it natural and under 2 sentences.'
+          : 'A caller has just connected. Greet them warmly and offer assistance. Keep it natural and under 2 sentences.';
+        
+        const generatedOpening = await this.llm.generateResponse(
+          [{ role: 'user', content: openingPrompt }],
+          this.config.agent.systemPrompt,
+          0.7,
+          100 // Short response
+        );
+        
+        if (generatedOpening && generatedOpening.trim()) {
+          console.log('[Pipeline] Generated opening:', generatedOpening);
+          await this.generateAndSendAudio(generatedOpening);
+          console.log('[Pipeline] ✅ Dynamic opening sent');
+          
+          this.lastAiResponse = generatedOpening;
+          this.messages.push({
+            role: 'assistant',
+            content: generatedOpening,
+            timestamp: Date.now(),
+          });
+          this.startDeadAirTimer();
+        } else {
+          console.log('[Pipeline] ⚠️ LLM returned empty opening - waiting for user');
+        }
+      } catch (error) {
+        console.error('[Pipeline] Failed to generate opening:', error);
+        // Fall back to waiting for user to speak
+      }
     }
   }
 
