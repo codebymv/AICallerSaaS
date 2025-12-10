@@ -339,11 +339,16 @@ export class VoicePipeline extends EventEmitter {
     if (this.config.callDirection === 'outbound' && this.config.agent.outboundGreeting) {
       greeting = this.config.agent.outboundGreeting;
       console.log('[Pipeline] Using outbound greeting');
-    } else {
-      console.log('[Pipeline] Using regular greeting');
+    } else if (this.config.callDirection === 'inbound' && this.config.agent.greeting) {
+      console.log('[Pipeline] Using inbound greeting');
     }
     
-    console.log('[Pipeline] Greeting:', greeting);
+    // Clean up empty string greetings (treat as no greeting)
+    if (greeting !== undefined && greeting.trim() === '') {
+      greeting = undefined;
+    }
+    
+    console.log('[Pipeline] Greeting:', greeting || 'none');
 
     // Send greeting if configured
     if (greeting) {
@@ -360,7 +365,7 @@ export class VoicePipeline extends EventEmitter {
       });
       this.startDeadAirTimer();
     } else {
-      console.log('[Pipeline] ⚠️ No greeting configured');
+      console.log('[Pipeline] ⚠️ No greeting configured - agent will respond when user speaks');
     }
   }
 
