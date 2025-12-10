@@ -110,8 +110,8 @@ export function OutboundCallDialog({
       const response = await api.makeOutboundCall(agentId, formattedNumber);
       
       toast({
-        title: 'Call initiated!',
-        description: `Calling ${phoneNumber}...`,
+        title: '📱 Dialing...',
+        description: `Calling ${phoneNumber}`,
       });
       
       if (onCallInitiated) {

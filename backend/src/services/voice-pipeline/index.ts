@@ -423,12 +423,20 @@ export class VoicePipeline extends EventEmitter {
   }
 
   private thinkingTimeout: NodeJS.Timeout | null = null;
-  private readonly THINKING_DELAY_MS = 2500; // Say "one moment" if processing takes longer than 2.5s
+  private readonly THINKING_DELAY_MS = 1200; // Say "one moment" if processing takes longer than 1.2s
   private readonly THINKING_PHRASES = [
-    "One moment please.",
-    "Let me check that for you.",
-    "Just a moment.",
+    "One moment.",
+    "Let me check.",
+    "Just a sec.",
   ];
+  
+  // Quick acknowledgments sent immediately when processing starts (reduces perceived latency)
+  private readonly QUICK_ACKS = [
+    "Mm-hmm.",
+    "Got it.",
+    "Okay.",
+  ];
+  private readonly SEND_QUICK_ACK = true; // Enable immediate acknowledgments
 
   private async processUserInput(text: string): Promise<void> {
     if (this.isProcessing) return;
@@ -439,10 +447,23 @@ export class VoicePipeline extends EventEmitter {
     logger.info('[Pipeline] Processing user input:', text);
     logger.info('[Pipeline] Calendar access:', this.hasCalendarAccess);
 
-    // Start a "thinking" timer - if processing takes too long, say something
+    // For tool calls (calendar), send immediate acknowledgment to reduce perceived latency
+    // This lets the user know we heard them while LLM processes
+    let quickAckSent = false;
+    if (this.SEND_QUICK_ACK && this.hasCalendarAccess) {
+      const ack = this.QUICK_ACKS[Math.floor(Math.random() * this.QUICK_ACKS.length)];
+      logger.info('[Pipeline] Sending quick acknowledgment:', ack);
+      // Fire and forget - don't await to avoid blocking
+      this.generateAndSendAudio(ack).catch(err => 
+        logger.error('[Pipeline] Quick ack error:', err)
+      );
+      quickAckSent = true;
+    }
+
+    // Start a "thinking" timer - if processing takes too long, say something more
     let thinkingMessageSent = false;
     this.thinkingTimeout = setTimeout(async () => {
-      if (this.isProcessing && !this.interrupted && !thinkingMessageSent) {
+      if (this.isProcessing && !this.interrupted && !thinkingMessageSent && !quickAckSent) {
         thinkingMessageSent = true;
         const phrase = this.THINKING_PHRASES[Math.floor(Math.random() * this.THINKING_PHRASES.length)];
         logger.info('[Pipeline] Sending thinking message:', phrase);
@@ -560,12 +581,13 @@ BOOKING CONFIRMATION:
     logger.info('[Pipeline] Calling LLM with tools...');
     
     // First, try to get a response with potential tool calls
+    // PERF: Reduced max_tokens (150) and temperature (0.5) for faster voice responses
     const response = await this.llm.generateResponseWithTools(
       this.getContextMessages(), // Use limited context for performance
       enhancedPrompt,
       CALENDAR_TOOLS,
-      0.7,
-      300
+      0.5,  // Lower temperature = faster, more deterministic
+      150   // Reduced from 300 - voice responses should be concise
     );
 
     logger.info('[Pipeline] LLM response:', { hasContent: !!response.content, hasToolCalls: !!response.toolCalls?.length });
@@ -580,13 +602,14 @@ BOOKING CONFIRMATION:
         logger.info('[Pipeline] Tool result:', toolResult.substring(0, 100));
         
         // Get natural language response incorporating tool results
+        // PERF: Reduced max_tokens (100) for faster responses
         const naturalResponse = await this.llm.continueAfterToolCall(
           this.getContextMessages(), // Use limited context for performance
           enhancedPrompt,
           toolCall, // Pass full toolCall object
           toolResult,
-          0.7,
-          200
+          0.5,  // Lower temperature = faster
+          100   // Reduced from 200 - keep it concise
         );
 
         if (naturalResponse && !this.interrupted) {
@@ -767,11 +790,12 @@ BOOKING CONFIRMATION:
     let fullResponse = '';
 
     // Use sentence-based streaming for lower latency
+    // PERF: Lower temperature (0.5) for faster responses
     for await (const { sentence, isComplete } of this.llm.streamSentences(
       this.getContextMessages(), // Use limited context for performance
       this.config.agent.systemPrompt,
-      0.7, // temperature
-      150  // maxTokens
+      0.5, // Lower temperature = faster, more deterministic
+      100  // Reduced from 150 - keep voice responses concise
     )) {
       if (this.interrupted) {
         logger.debug('[Pipeline] Processing interrupted');

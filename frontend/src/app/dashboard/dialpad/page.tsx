@@ -178,8 +178,8 @@ export default function DialpadPage() {
       const response = await api.makeOutboundCall(selectedAgentId, formattedNumber);
       
       toast({
-        title: 'Call initiated!',
-        description: `Calling ${phoneNumber}...`,
+        title: '📱 Dialing...',
+        description: `Calling ${phoneNumber}`,
       });
       
       // Optionally redirect to calls page or the specific call
