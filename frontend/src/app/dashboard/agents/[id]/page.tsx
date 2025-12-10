@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -13,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench } from 'lucide-react';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -48,6 +48,23 @@ interface CalendarStatus {
   eventTypeName?: string;
   timezone?: string;
 }
+
+interface PhoneNumber {
+  id: string;
+  phoneNumber: string;
+  twilioSid?: string;
+  friendlyName?: string;
+  isActive: boolean;
+  agent?: { id: string; name: string } | null;
+}
+
+const formatPhoneNumber = (phone: string) => {
+  const cleaned = phone.replace(/\D/g, '');
+  if (cleaned.length === 11 && cleaned.startsWith('1')) {
+    return `(${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+  }
+  return phone;
+};
 
 const getModeIcon = (mode: string) => {
   switch (mode) {
@@ -86,10 +103,32 @@ export default function AgentDetailPage() {
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [calendarStatus, setCalendarStatus] = useState<CalendarStatus | null>(null);
 
+  // Phone number state
+  const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
+  const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<PhoneNumber | null>(null);
+  const [selectedPhoneNumberId, setSelectedPhoneNumberId] = useState<string>('');
+  const [phoneNumbersLoading, setPhoneNumbersLoading] = useState(true);
+  const [twilioConfigured, setTwilioConfigured] = useState(false);
+  const [phoneDropdownOpen, setPhoneDropdownOpen] = useState(false);
+  const [savingPhoneNumber, setSavingPhoneNumber] = useState(false);
+  const phoneDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     fetchAgent();
     fetchCalendarStatus();
+    fetchPhoneNumbers();
   }, [params.id]);
+
+  // Handle click outside for phone dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (phoneDropdownRef.current && !phoneDropdownRef.current.contains(event.target as Node)) {
+        setPhoneDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchCalendarStatus = async () => {
     try {
@@ -97,6 +136,68 @@ export default function AgentDetailPage() {
       setCalendarStatus(response.data || null);
     } catch (error) {
       console.error('Failed to fetch calendar status:', error);
+    }
+  };
+
+  const fetchPhoneNumbers = async () => {
+    setPhoneNumbersLoading(true);
+    try {
+      // First check if Twilio is configured
+      const twilioRes = await api.getTwilioSettings();
+      setTwilioConfigured(twilioRes.data?.configured || false);
+      
+      if (twilioRes.data?.configured) {
+        const numbersRes = await api.getPhoneNumbers();
+        const numbers = numbersRes.data || [];
+        setPhoneNumbers(numbers);
+        
+        // Find the phone number assigned to this agent
+        const assigned = numbers.find((p: PhoneNumber) => p.agent?.id === params.id);
+        setAssignedPhoneNumber(assigned || null);
+        setSelectedPhoneNumberId(assigned?.id || '');
+      }
+    } catch {
+      // Ignore errors
+    } finally {
+      setPhoneNumbersLoading(false);
+    }
+  };
+
+  const handlePhoneNumberChange = async (newPhoneNumberId: string) => {
+    setSavingPhoneNumber(true);
+    setPhoneDropdownOpen(false);
+    
+    try {
+      // If there was a previously assigned number, unassign it
+      if (assignedPhoneNumber && assignedPhoneNumber.id !== newPhoneNumberId) {
+        await api.updatePhoneNumber(assignedPhoneNumber.id, { agentId: null });
+      }
+      
+      // Assign the new number (if one was selected)
+      if (newPhoneNumberId) {
+        await api.updatePhoneNumber(newPhoneNumberId, { agentId: params.id as string });
+      }
+      
+      setSelectedPhoneNumberId(newPhoneNumberId);
+      await fetchPhoneNumbers(); // Refresh to get updated assignments
+      
+      toast({
+        title: newPhoneNumberId ? 'Phone number assigned' : 'Phone number unassigned',
+        description: newPhoneNumberId 
+          ? 'The phone number has been assigned to this agent.'
+          : 'The phone number has been removed from this agent.',
+      });
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Failed to update phone number';
+      toast({
+        title: 'Error',
+        description: message,
+        variant: 'destructive',
+      });
+      // Revert selection on error
+      setSelectedPhoneNumberId(assignedPhoneNumber?.id || '');
+    } finally {
+      setSavingPhoneNumber(false);
     }
   };
 
@@ -422,6 +523,158 @@ export default function AgentDetailPage() {
                   </div>
                 </>
               )}
+
+              {/* Phone Number Assignment */}
+              <div className="space-y-3 p-4 border rounded-lg bg-slate-50">
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-teal-600" />
+                  <Label>Assigned Phone Number</Label>
+                </div>
+                
+                {phoneNumbersLoading ? (
+                  <div className="text-sm text-muted-foreground">Loading phone numbers...</div>
+                ) : !twilioConfigured ? (
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-md">
+                    <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-amber-800">Twilio not configured</p>
+                      <p className="text-xs text-amber-700 mt-1">
+                        Configure your Twilio credentials in Settings to enable phone number assignment.
+                      </p>
+                      <Link 
+                        href="/dashboard/settings" 
+                        className="inline-flex items-center gap-1 mt-2 text-xs text-teal-600 hover:underline"
+                      >
+                        <Settings className="h-3 w-3" />
+                        Go to Settings
+                      </Link>
+                    </div>
+                  </div>
+                ) : phoneNumbers.length === 0 ? (
+                  <div className="flex items-start gap-2 p-3 bg-slate-100 border border-slate-200 rounded-md">
+                    <Phone className="h-4 w-4 text-slate-500 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm text-slate-700">No phone numbers available</p>
+                      <p className="text-xs text-slate-600 mt-1">
+                        Import phone numbers from your Twilio account to assign to this agent.
+                      </p>
+                      <Link 
+                        href="/dashboard/settings" 
+                        className="inline-flex items-center gap-1 mt-2 text-xs text-teal-600 hover:underline"
+                      >
+                        <Settings className="h-3 w-3" />
+                        Manage Phone Numbers
+                      </Link>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Phone Number Dropdown */}
+                    <div className="relative" ref={phoneDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setPhoneDropdownOpen(!phoneDropdownOpen)}
+                        disabled={savingPhoneNumber}
+                        className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md bg-white w-full justify-between hover:bg-slate-50 transition-colors disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {selectedPhoneNumberId ? (
+                            <>
+                              <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                                <Phone className="h-4 w-4 text-teal-600" />
+                              </div>
+                              <div className="text-left">
+                                <span className="font-medium block">
+                                  {formatPhoneNumber(phoneNumbers.find(p => p.id === selectedPhoneNumberId)?.phoneNumber || '')}
+                                </span>
+                                {phoneNumbers.find(p => p.id === selectedPhoneNumberId)?.friendlyName && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {phoneNumbers.find(p => p.id === selectedPhoneNumberId)?.friendlyName}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                <Phone className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <span className="text-muted-foreground">No phone number assigned</span>
+                            </>
+                          )}
+                        </div>
+                        {savingPhoneNumber ? (
+                          <span className="text-xs text-muted-foreground">Saving...</span>
+                        ) : (
+                          <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${phoneDropdownOpen ? 'rotate-180' : ''}`} />
+                        )}
+                      </button>
+
+                      {phoneDropdownOpen && (
+                        <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg py-1 max-h-60 overflow-auto">
+                          {/* No assignment option */}
+                          <button
+                            type="button"
+                            onClick={() => handlePhoneNumberChange('')}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                              <Phone className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                            <span className="text-muted-foreground">No phone number</span>
+                          </button>
+                          
+                          {/* Available numbers */}
+                          {phoneNumbers.map((phone) => {
+                            const isAssignedToOther = phone.agent && phone.agent.id && phone.agent.id !== params.id;
+                            const isAssignedToThis = phone.agent?.id === params.id;
+                            return (
+                              <button
+                                key={phone.id}
+                                type="button"
+                                onClick={() => handlePhoneNumberChange(phone.id)}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left ${
+                                  isAssignedToThis ? 'bg-teal-50' : ''
+                                }`}
+                              >
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                  isAssignedToOther ? 'bg-amber-100' : 'bg-teal-100'
+                                }`}>
+                                  <Phone className={`h-4 w-4 ${isAssignedToOther ? 'text-amber-600' : 'text-teal-600'}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-medium block truncate">
+                                    {formatPhoneNumber(phone.phoneNumber)}
+                                  </span>
+                                  {phone.friendlyName && (
+                                    <span className="text-xs text-muted-foreground block truncate">
+                                      {phone.friendlyName}
+                                    </span>
+                                  )}
+                                  {isAssignedToOther && (
+                                    <span className="text-xs text-amber-600 block">
+                                      Currently assigned to: {phone.agent?.name}
+                                    </span>
+                                  )}
+                                  {isAssignedToThis && (
+                                    <span className="text-xs text-teal-600 block">
+                                      Currently assigned to this agent
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Assign a Twilio phone number to receive calls for this agent. Changes are saved immediately.
+                    </p>
+                  </>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="systemPrompt">System Prompt</Label>
                 <textarea
@@ -557,6 +810,38 @@ export default function AgentDetailPage() {
                     </div>
                   </div>
                 )}
+                
+                {/* Assigned Phone Number */}
+                <div>
+                  <Label className="text-muted-foreground">Phone Number</Label>
+                  {phoneNumbersLoading ? (
+                    <p className="text-sm text-muted-foreground mt-1">Loading...</p>
+                  ) : assignedPhoneNumber ? (
+                    <div className="mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full flex items-center justify-center bg-teal-100">
+                          <Phone className="h-3 w-3 text-teal-600" />
+                        </span>
+                        <span className="font-medium text-slate-600">{formatPhoneNumber(assignedPhoneNumber.phoneNumber)}</span>
+                      </div>
+                      {assignedPhoneNumber.friendlyName && (
+                        <p className="text-xs text-muted-foreground mt-1">{assignedPhoneNumber.friendlyName}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-1">
+                      <p className="text-sm text-muted-foreground">No phone number assigned</p>
+                      <Link 
+                        href="/dashboard/settings" 
+                        className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1"
+                      >
+                        <Settings className="h-3 w-3" />
+                        Assign in Settings
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
                 <div>
                   <Label className="text-muted-foreground">Created</Label>
                   <p className="font-medium text-slate-600">

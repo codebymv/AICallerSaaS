@@ -13,14 +13,17 @@ import {
   LogOut,
   Menu,
   X,
-  Loader2
+  Loader2,
+  LayoutDashboard,
+  Grid3X3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: BarChart3 },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
+  { href: '/dashboard/dialpad', label: 'Dialpad', icon: Grid3X3 },
   { href: '/dashboard/calls', label: 'Calls', icon: PhoneCall },
 ];
 

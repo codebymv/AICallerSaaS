@@ -1,6 +1,6 @@
-/*!**********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
-  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[2].use[1]!./node_modules/next/dist/build/webpack/loaders/next-font-loader/index.js??ruleSet[1].rules[14].oneOf[2].use[2]!./node_modules/next/font/google/target.css?{"path":"src\\app\\layout.tsx","import":"Work_Sans","arguments":[{"subsets":["latin"],"weight":["300","400","500","600","700"]}],"variableName":"workSans"} ***!
-  \**********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+/*!********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[14].oneOf[2].use[1]!./node_modules/next/dist/build/webpack/loaders/next-font-loader/index.js??ruleSet[1].rules[14].oneOf[2].use[2]!./node_modules/next/font/google/target.css?{"path":"src/app/layout.tsx","import":"Work_Sans","arguments":[{"subsets":["latin"],"weight":["300","400","500","600","700"]}],"variableName":"workSans"} ***!
+  \********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
 /* vietnamese */
 @font-face {
   font-family: '__Work_Sans_f9d2a6';
@@ -771,16 +771,13 @@ video {
 .z-\[100\] {
   z-index: 100;
 }
-.z-\[60\] {
-  z-index: 60;
+.mx-6 {
+  margin-left: 1.5rem;
+  margin-right: 1.5rem;
 }
 .mx-auto {
   margin-left: auto;
   margin-right: auto;
-}
-.mx-6 {
-  margin-left: 1.5rem;
-  margin-right: 1.5rem;
 }
 .-ml-2 {
   margin-left: -0.5rem;
@@ -842,14 +839,17 @@ video {
 .mt-6 {
   margin-top: 1.5rem;
 }
+.ml-2 {
+  margin-left: 0.5rem;
+}
 .line-clamp-1 {
   overflow: hidden;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
 }
-.inline {
-  display: inline;
+.block {
+  display: block;
 }
 .flex {
   display: flex;
@@ -931,6 +931,9 @@ video {
 }
 .h-full {
   height: 100%;
+}
+.h-14 {
+  height: 3.5rem;
 }
 .max-h-60 {
   max-height: 15rem;
@@ -1019,6 +1022,10 @@ video {
 .w-full {
   width: 100%;
 }
+.w-fit {
+  width: -moz-fit-content;
+  width: fit-content;
+}
 .min-w-0 {
   min-width: 0px;
 }
@@ -1030,12 +1037,6 @@ video {
 }
 .min-w-\[240px\] {
   min-width: 240px;
-}
-.min-w-\[100px\] {
-  min-width: 100px;
-}
-.min-w-\[140px\] {
-  min-width: 140px;
 }
 .max-w-2xl {
   max-width: 42rem;
@@ -1049,20 +1050,20 @@ video {
 .max-w-7xl {
   max-width: 80rem;
 }
+.max-w-\[200px\] {
+  max-width: 200px;
+}
 .max-w-\[80\%\] {
   max-width: 80%;
 }
 .max-w-md {
   max-width: 28rem;
 }
-.max-w-xl {
-  max-width: 36rem;
-}
 .max-w-sm {
   max-width: 24rem;
 }
-.max-w-\[200px\] {
-  max-width: 200px;
+.max-w-xl {
+  max-width: 36rem;
 }
 .flex-1 {
   flex: 1 1 0%;
@@ -1348,10 +1349,6 @@ video {
   --tw-border-opacity: 1;
   border-color: rgb(204 251 241 / var(--tw-border-opacity, 1));
 }
-.border-teal-200 {
-  --tw-border-opacity: 1;
-  border-color: rgb(153 246 228 / var(--tw-border-opacity, 1));
-}
 .border-teal-500 {
   --tw-border-opacity: 1;
   border-color: rgb(20 184 166 / var(--tw-border-opacity, 1));
@@ -1415,10 +1412,6 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(34 197 94 / var(--tw-bg-opacity, 1));
 }
-.bg-green-600 {
-  --tw-bg-opacity: 1;
-  background-color: rgb(22 163 74 / var(--tw-bg-opacity, 1));
-}
 .bg-muted {
   background-color: hsl(var(--muted));
 }
@@ -1454,6 +1447,9 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(248 250 252 / var(--tw-bg-opacity, 1));
 }
+.bg-slate-50\/50 {
+  background-color: rgb(248 250 252 / 0.5);
+}
 .bg-slate-900 {
   --tw-bg-opacity: 1;
   background-color: rgb(15 23 42 / var(--tw-bg-opacity, 1));
@@ -1487,8 +1483,9 @@ video {
   --tw-bg-opacity: 1;
   background-color: rgb(254 249 195 / var(--tw-bg-opacity, 1));
 }
-.bg-slate-50\/50 {
-  background-color: rgb(248 250 252 / 0.5);
+.bg-amber-100 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(254 243 199 / var(--tw-bg-opacity, 1));
 }
 .bg-gradient-to-b {
   background-image: linear-gradient(to bottom, var(--tw-gradient-stops));
@@ -1622,10 +1619,6 @@ video {
   padding-left: 0.5rem;
   padding-right: 0.5rem;
 }
-.px-2\.5 {
-  padding-left: 0.625rem;
-  padding-right: 0.625rem;
-}
 .px-3 {
   padding-left: 0.75rem;
   padding-right: 0.75rem;
@@ -1754,6 +1747,9 @@ video {
   font-size: 2.25rem;
   line-height: 2.5rem;
 }
+.text-\[10px\] {
+  font-size: 10px;
+}
 .text-base {
   font-size: 1rem;
   line-height: 1.5rem;
@@ -1774,9 +1770,6 @@ video {
   font-size: 0.75rem;
   line-height: 1rem;
 }
-.text-\[10px\] {
-  font-size: 10px;
-}
 .font-bold {
   font-weight: 700;
 }
@@ -1785,6 +1778,9 @@ video {
 }
 .font-semibold {
   font-weight: 600;
+}
+.font-normal {
+  font-weight: 400;
 }
 .uppercase {
   text-transform: uppercase;
@@ -1809,10 +1805,6 @@ video {
 }
 .tracking-widest {
   letter-spacing: 0.1em;
-}
-.text-amber-600 {
-  --tw-text-opacity: 1;
-  color: rgb(217 119 6 / var(--tw-text-opacity, 1));
 }
 .text-amber-700 {
   --tw-text-opacity: 1;
@@ -1872,10 +1864,6 @@ video {
 .text-muted-foreground {
   color: hsl(var(--muted-foreground));
 }
-.text-orange-600 {
-  --tw-text-opacity: 1;
-  color: rgb(234 88 12 / var(--tw-text-opacity, 1));
-}
 .text-orange-700 {
   --tw-text-opacity: 1;
   color: rgb(194 65 12 / var(--tw-text-opacity, 1));
@@ -1933,10 +1921,6 @@ video {
   --tw-text-opacity: 1;
   color: rgb(15 118 110 / var(--tw-text-opacity, 1));
 }
-.text-teal-800 {
-  --tw-text-opacity: 1;
-  color: rgb(17 94 89 / var(--tw-text-opacity, 1));
-}
 .text-transparent {
   color: transparent;
 }
@@ -1951,6 +1935,10 @@ video {
 .text-yellow-700 {
   --tw-text-opacity: 1;
   color: rgb(161 98 7 / var(--tw-text-opacity, 1));
+}
+.text-amber-600 {
+  --tw-text-opacity: 1;
+  color: rgb(217 119 6 / var(--tw-text-opacity, 1));
 }
 .underline-offset-4 {
   text-underline-offset: 4px;
@@ -2099,17 +2087,17 @@ video {
   border-color: rgb(94 234 212 / var(--tw-border-opacity, 1));
 }
  
+.hover\:border-teal-400:hover {
+  --tw-border-opacity: 1;
+  border-color: rgb(45 212 191 / var(--tw-border-opacity, 1));
+}
+ 
 .hover\:bg-accent:hover {
   background-color: hsl(var(--accent));
 }
  
 .hover\:bg-destructive\/90:hover {
   background-color: hsl(var(--destructive) / 0.9);
-}
- 
-.hover\:bg-green-700:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(21 128 61 / var(--tw-bg-opacity, 1));
 }
  
 .hover\:bg-primary\/90:hover {
@@ -2127,6 +2115,11 @@ video {
 .hover\:bg-slate-100:hover {
   --tw-bg-opacity: 1;
   background-color: rgb(241 245 249 / var(--tw-bg-opacity, 1));
+}
+ 
+.hover\:bg-slate-200:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(226 232 240 / var(--tw-bg-opacity, 1));
 }
  
 .hover\:bg-slate-50:hover {
@@ -2151,11 +2144,6 @@ video {
  
 .hover\:bg-white\/10:hover {
   background-color: rgb(255 255 255 / 0.1);
-}
- 
-.hover\:bg-slate-200:hover {
-  --tw-bg-opacity: 1;
-  background-color: rgb(226 232 240 / var(--tw-bg-opacity, 1));
 }
  
 .hover\:text-accent-foreground:hover {
@@ -2491,6 +2479,10 @@ video {
 
   .sm\:gap-4 {
     gap: 1rem;
+  }
+
+  .sm\:gap-2 {
+    gap: 0.5rem;
   }
 
   .sm\:p-6 {
