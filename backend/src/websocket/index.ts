@@ -373,11 +373,20 @@ async function handleStreamStop(session: CallSession) {
   });
 }
 
+// Track audio chunks for logging (don't spam logs during streaming)
+let audioChunkCount = 0;
+let totalAudioBytes = 0;
+
 function sendAudioToTwilio(ws: WebSocket, streamSid: string, audio: Buffer) {
-  console.log('[Twilio] sendAudioToTwilio called, audio size:', audio.length);
+  audioChunkCount++;
+  totalAudioBytes += audio.length;
   
-  // Send ENTIRE audio buffer in ONE message (matching ElevenLabs example)
-  // ulaw_8000 from ElevenLabs should be sent as a single payload
+  // Only log occasionally during streaming to avoid spam
+  if (audioChunkCount === 1 || audio.length > 10000) {
+    console.log(`[Twilio] Sending audio chunk #${audioChunkCount}, size: ${audio.length} bytes (total: ${totalAudioBytes})`);
+  }
+  
+  // Send audio buffer as media message
   const message = {
     event: 'media',
     streamSid,
@@ -387,18 +396,19 @@ function sendAudioToTwilio(ws: WebSocket, streamSid: string, audio: Buffer) {
   };
   
   ws.send(JSON.stringify(message));
-  console.log('[Twilio] ✅ Entire audio buffer sent to Twilio in one message');
 
-  // Send mark to track playback completion
-  const markMessage = {
-    event: 'mark',
-    streamSid,
-    mark: {
-      name: `audio_${Date.now()}`,
-    },
-  };
-  ws.send(JSON.stringify(markMessage));
-  console.log('[Twilio] ✅ Mark message sent');
+  // Only send mark for larger chunks (final or batch mode)
+  // This avoids flooding Twilio with mark events during streaming
+  if (audio.length > 5000) {
+    const markMessage = {
+      event: 'mark',
+      streamSid,
+      mark: {
+        name: `audio_${Date.now()}`,
+      },
+    };
+    ws.send(JSON.stringify(markMessage));
+  }
 }
 
 function sendClearMessage(ws: WebSocket, streamSid: string) {

@@ -65,6 +65,9 @@ export class VoicePipeline extends EventEmitter {
   
   // Performance: Limit conversation context sent to LLM (reduces latency & cost)
   private readonly MAX_CONTEXT_MESSAGES = 10; // Keep last 10 messages (~5 exchanges)
+  
+  // Performance: Use streaming TTS for lower latency (audio starts playing before full generation)
+  private readonly USE_STREAMING_TTS = true;
 
   constructor(config: PipelineConfig, callSid: string) {
     super();
@@ -787,6 +790,7 @@ BOOKING CONFIRMATION:
 
   /**
    * Generate TTS audio and send it to Twilio
+   * Uses streaming for lower latency when enabled
    * @returns The estimated playback duration in milliseconds
    */
   private async generateAndSendAudio(text: string): Promise<number> {
@@ -801,15 +805,89 @@ BOOKING CONFIRMATION:
 
       console.log('[Pipeline] Generating TTS for text:', text.substring(0, 50) + '...');
       
-      // Generate TTS audio
+      // Get voice settings
       const voiceSettings = this.config.agent.voiceSettings as any;
-      // Map friendly voice name to actual ElevenLabs voice ID
       const elevenLabsVoiceId = getElevenLabsVoiceId(this.config.agent.voice);
       
       console.log('[Pipeline] Using voice:', this.config.agent.voice, '-> ElevenLabs ID:', elevenLabsVoiceId);
+
+      let playbackDurationMs: number;
+
+      if (this.USE_STREAMING_TTS) {
+        // STREAMING MODE: Send audio chunks as they're generated (lower latency)
+        console.log('[Pipeline] 🚀 Using STREAMING TTS for lower latency');
+        
+        let firstChunkTime: number | null = null;
+        
+        const result = await this.tts.streamTTSForTwilio(
+          text,
+          elevenLabsVoiceId,
+          {
+            stability: voiceSettings?.stability ?? 0.5,
+            similarity_boost: voiceSettings?.similarityBoost ?? 0.75,
+          },
+          (chunk) => {
+            // Stream each chunk to Twilio immediately
+            if (!this.interrupted) {
+              if (!firstChunkTime) {
+                firstChunkTime = Date.now();
+                console.log(`[Pipeline] ⚡ First audio chunk in ${firstChunkTime - ttsStart}ms`);
+              }
+              this.config.onAudio(chunk);
+            }
+          }
+        );
+        
+        playbackDurationMs = result.durationMs;
+        console.log(`[Pipeline] ✅ Streaming TTS complete, total: ${result.totalBuffer.length} bytes, ${playbackDurationMs}ms`);
+        
+      } else {
+        // BATCH MODE: Wait for full audio then send (original behavior)
+        console.log('[Pipeline] Using BATCH TTS (waiting for full audio)');
+        
+        const audioBuffer = await this.tts.textToSpeechForTwilio(
+          text,
+          elevenLabsVoiceId,
+          {
+            stability: voiceSettings?.stability ?? 0.5,
+            similarity_boost: voiceSettings?.similarityBoost ?? 0.75,
+          }
+        );
+
+        playbackDurationMs = Math.ceil((audioBuffer.length / 8000) * 1000);
+        
+        console.log('[Pipeline] ✅ TTS generated, ulaw_8000 buffer size:', audioBuffer.length, 'bytes, playback:', playbackDurationMs, 'ms');
+
+        if (!this.interrupted) {
+          console.log('[Pipeline] Sending audio to client via onAudio callback');
+          this.config.onAudio(audioBuffer);
+        } else {
+          console.log('[Pipeline] ⚠️ Audio generation interrupted, not sending');
+        }
+      }
+
+      // Track last playback duration for dead air timing
+      this.lastAudioPlaybackMs = playbackDurationMs;
+      this.metrics.mark('audio_sent');
+
+      return playbackDurationMs;
+
+    } catch (error) {
+      console.error('[Pipeline] ❌ TTS error:', error);
+      logger.error('[Pipeline] TTS error:', error);
+      // Continue without audio on error - fall back to batch mode
+      return this.generateAndSendAudioBatch(text);
+    }
+  }
+
+  /**
+   * Fallback batch TTS (in case streaming fails)
+   */
+  private async generateAndSendAudioBatch(text: string): Promise<number> {
+    try {
+      const voiceSettings = this.config.agent.voiceSettings as any;
+      const elevenLabsVoiceId = getElevenLabsVoiceId(this.config.agent.voice);
       
-      // Use Twilio-optimized TTS (ElevenLabs outputs ulaw_8000 directly!)
-      console.log('[Pipeline] Requesting ulaw_8000 audio from ElevenLabs (native Twilio format)');
       const audioBuffer = await this.tts.textToSpeechForTwilio(
         text,
         elevenLabsVoiceId,
@@ -819,29 +897,16 @@ BOOKING CONFIRMATION:
         }
       );
 
-      // Calculate playback duration: ulaw_8000 = 8000 bytes per second
       const playbackDurationMs = Math.ceil((audioBuffer.length / 8000) * 1000);
-      
-      // Track last playback duration for dead air timing
       this.lastAudioPlaybackMs = playbackDurationMs;
-      
-      console.log('[Pipeline] ✅ TTS generated, ulaw_8000 buffer size:', audioBuffer.length, 'bytes, playback:', playbackDurationMs, 'ms');
-      this.metrics.mark('audio_sent');
 
-      // Send audio to client (if not interrupted)
       if (!this.interrupted) {
-        console.log('[Pipeline] Sending audio to client via onAudio callback');
         this.config.onAudio(audioBuffer);
-      } else {
-        console.log('[Pipeline] ⚠️ Audio generation interrupted, not sending');
       }
 
       return playbackDurationMs;
-
     } catch (error) {
-      console.error('[Pipeline] ❌ TTS error:', error);
-      logger.error('[Pipeline] TTS error:', error);
-      // Continue without audio on error
+      logger.error('[Pipeline] Batch TTS fallback also failed:', error);
       return 0;
     }
   }

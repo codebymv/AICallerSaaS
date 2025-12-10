@@ -4,6 +4,7 @@
 
 import { ElevenLabsClient } from 'elevenlabs';
 import { Readable } from 'stream';
+import { WebSocket } from 'ws';
 import { config } from '../../config';
 import { logger } from '../../utils/logger';
 
@@ -12,6 +13,11 @@ export interface VoiceSettings {
   similarity_boost?: number;
   style?: number;
   use_speaker_boost?: boolean;
+}
+
+export interface AudioChunk {
+  audio: Buffer;
+  isFinal: boolean;
 }
 
 export class ElevenLabsService {
@@ -110,6 +116,104 @@ export class ElevenLabsService {
       logger.error('[ElevenLabs] Get voices error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Stream TTS via WebSocket for ultra-low latency
+   * Yields audio chunks as they're generated (don't wait for full audio)
+   * 
+   * @param text - Text to convert to speech
+   * @param voiceId - ElevenLabs voice ID
+   * @param settings - Voice settings
+   * @param onChunk - Callback for each audio chunk (for immediate streaming to Twilio)
+   * @returns Total audio buffer and duration
+   */
+  async streamTTSForTwilio(
+    text: string,
+    voiceId: string,
+    settings: VoiceSettings | undefined,
+    onChunk: (chunk: Buffer) => void
+  ): Promise<{ totalBuffer: Buffer; durationMs: number }> {
+    return new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      let totalBytes = 0;
+      
+      const wsUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_flash_v2_5&output_format=ulaw_8000`;
+      
+      console.log('[ElevenLabs] Opening WebSocket stream...');
+      
+      const ws = new WebSocket(wsUrl);
+      
+      ws.on('open', () => {
+        console.log('[ElevenLabs] WebSocket connected, sending init message');
+        
+        // Send initialization message with voice settings
+        const initMessage = {
+          text: ' ', // Initial space to start the stream
+          voice_settings: {
+            stability: settings?.stability ?? 0.5,
+            similarity_boost: settings?.similarity_boost ?? 0.75,
+          },
+          xi_api_key: config.elevenlabsApiKey,
+        };
+        ws.send(JSON.stringify(initMessage));
+        
+        // Send the actual text
+        const textMessage = {
+          text: text,
+          try_trigger_generation: true,
+        };
+        ws.send(JSON.stringify(textMessage));
+        
+        // Signal end of input
+        ws.send(JSON.stringify({ text: '' }));
+      });
+      
+      ws.on('message', (data: Buffer | string) => {
+        try {
+          const response = JSON.parse(data.toString());
+          
+          if (response.audio) {
+            // Decode base64 audio chunk
+            const audioChunk = Buffer.from(response.audio, 'base64');
+            chunks.push(audioChunk);
+            totalBytes += audioChunk.length;
+            
+            // Stream chunk immediately to Twilio
+            onChunk(audioChunk);
+            
+            console.log(`[ElevenLabs] Streamed chunk: ${audioChunk.length} bytes (total: ${totalBytes})`);
+          }
+          
+          if (response.isFinal) {
+            console.log('[ElevenLabs] Received final message');
+          }
+        } catch (error) {
+          // Might be binary data, ignore parse errors
+        }
+      });
+      
+      ws.on('close', () => {
+        console.log(`[ElevenLabs] WebSocket closed. Total: ${totalBytes} bytes`);
+        
+        const totalBuffer = Buffer.concat(chunks);
+        const durationMs = Math.ceil((totalBuffer.length / 8000) * 1000);
+        
+        resolve({ totalBuffer, durationMs });
+      });
+      
+      ws.on('error', (error) => {
+        logger.error('[ElevenLabs] WebSocket error:', error);
+        reject(error);
+      });
+      
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.close();
+        }
+      }, 10000);
+    });
   }
 
   /**
