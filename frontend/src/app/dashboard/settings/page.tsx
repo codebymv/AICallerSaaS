@@ -1349,7 +1349,7 @@ export default function SettingsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <CardTitle className="text-base sm:text-lg text-slate-600">Organization Profile</CardTitle>
-                  {/* Help Tooltip */}}
+                  {/* Help Tooltip */}
                   <div className="relative">
                     <button
                       type="button"
