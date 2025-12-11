@@ -27,3 +27,4 @@ export function Sparkline({ data, color = '#0d9488', strokeWidth = 2 }: Sparklin
     </ResponsiveContainer>
   );
 }
+

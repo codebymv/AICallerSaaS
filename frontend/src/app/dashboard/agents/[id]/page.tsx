@@ -14,6 +14,7 @@ import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode, Busi
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
 import { OutboundMessageDialog } from '@/components/OutboundMessageDialog';
+import { DeleteButton } from '@/components/DeleteButton';
 import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2, MessageSquare, Layers, Image as ImageIcon, FileText, Video } from 'lucide-react';
 
 interface Agent {
@@ -38,6 +39,12 @@ interface Agent {
   callWindowStart?: string;
   callWindowEnd?: string;
   calendarEnabled?: boolean;
+  // Calendar configuration (agent-centric)
+  calendarIntegrationId?: string;
+  calendarScopes?: string[];
+  defaultEventTypeId?: string;
+  defaultEventTypeName?: string;
+  defaultEventDuration?: number;
   personaName?: string;
   callPurpose?: string;
   // Messaging fields
@@ -54,6 +61,8 @@ interface Agent {
 interface CalendarStatus {
   connected: boolean;
   configured: boolean;
+  calendars?: Array<{ id: string; provider: string; email?: string; username?: string }>;
+  connectedProviders?: string[];
   provider?: string;
   email?: string;
   username?: string;
@@ -128,8 +137,16 @@ export default function AgentDetailPage() {
   const [callWindowEnd, setCallWindowEnd] = useState('');
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [calendarStatus, setCalendarStatus] = useState<CalendarStatus | null>(null);
+  // Calendar configuration (agent-centric)
+  const [calendarIntegrationId, setCalendarIntegrationId] = useState('');
+  const [calendarScopes, setCalendarScopes] = useState<string[]>(['read_calendar', 'create_events', 'reschedule_events']);
+  const [defaultEventTypeId, setDefaultEventTypeId] = useState('');
+  const [defaultEventTypeName, setDefaultEventTypeName] = useState('');
+  const [defaultEventDuration, setDefaultEventDuration] = useState(30);
+  const [eventTypes, setEventTypes] = useState<Array<{ id: string; name: string; duration: number }>>([]);
+  const [loadingEventTypes, setLoadingEventTypes] = useState(false);
   const [callPurpose, setCallPurpose] = useState('');
-  
+
   // Communication channel and media tools state
   const [communicationChannel, setCommunicationChannel] = useState<CommunicationChannel>('VOICE_ONLY');
   const [imageToolEnabled, setImageToolEnabled] = useState(false);
@@ -189,18 +206,61 @@ export default function AgentDetailPage() {
     }
   };
 
+  // Fetch event types for a specific calendar
+  const fetchEventTypes = async (calendarId: string) => {
+    if (!calendarId || !calendarStatus?.calendars) return;
+    
+    const calendar = calendarStatus.calendars.find(c => c.id === calendarId);
+    if (!calendar) return;
+    
+    setLoadingEventTypes(true);
+    try {
+      let types: Array<{ id: string; name: string; duration: number }> = [];
+      
+      if (calendar.provider === 'calcom') {
+        const response = await api.getCalcomEventTypes();
+        types = (response.data || []).map((et: any) => ({
+          id: String(et.id),
+          name: et.title,
+          duration: et.duration,
+        }));
+      } else if (calendar.provider === 'calendly') {
+        const response = await api.getCalendarEventTypes();
+        types = (response.data || []).map((et: any) => ({
+          id: et.uri,
+          name: et.name,
+          duration: et.duration,
+        }));
+      }
+      // Google Calendar doesn't have event types - uses duration instead
+      
+      setEventTypes(types);
+    } catch (error) {
+      console.error('Failed to fetch event types:', error);
+    } finally {
+      setLoadingEventTypes(false);
+    }
+  };
+
+  // Fetch event types when calendar selection changes
+  useEffect(() => {
+    if (calendarIntegrationId && calendarEnabled && calendarStatus?.calendars) {
+      fetchEventTypes(calendarIntegrationId);
+    }
+  }, [calendarIntegrationId, calendarEnabled, calendarStatus?.calendars]);
+
   const fetchPhoneNumbers = async () => {
     setPhoneNumbersLoading(true);
     try {
       // First check if Twilio is configured
       const twilioRes = await api.getTwilioSettings();
       setTwilioConfigured(twilioRes.data?.configured || false);
-      
+
       if (twilioRes.data?.configured) {
         const numbersRes = await api.getPhoneNumbers();
         const numbers = numbersRes.data || [];
         setPhoneNumbers(numbers);
-        
+
         // Find the phone number assigned to this agent
         const assigned = numbers.find((p: PhoneNumber) => p.agent?.id === params.id);
         setAssignedPhoneNumber(assigned || null);
@@ -216,24 +276,24 @@ export default function AgentDetailPage() {
   const handlePhoneNumberChange = async (newPhoneNumberId: string) => {
     setSavingPhoneNumber(true);
     setPhoneDropdownOpen(false);
-    
+
     try {
       // If there was a previously assigned number, unassign it
       if (assignedPhoneNumber && assignedPhoneNumber.id !== newPhoneNumberId) {
         await api.updatePhoneNumber(assignedPhoneNumber.id, { agentId: null });
       }
-      
+
       // Assign the new number (if one was selected)
       if (newPhoneNumberId) {
         await api.updatePhoneNumber(newPhoneNumberId, { agentId: params.id as string });
       }
-      
+
       setSelectedPhoneNumberId(newPhoneNumberId);
       await fetchPhoneNumbers(); // Refresh to get updated assignments
-      
+
       toast({
         title: newPhoneNumberId ? 'Phone number assigned' : 'Phone number unassigned',
-        description: newPhoneNumberId 
+        description: newPhoneNumberId
           ? 'The phone number has been assigned to this agent.'
           : 'The phone number has been removed from this agent.',
       });
@@ -265,6 +325,12 @@ export default function AgentDetailPage() {
         setCallWindowStart(response.data.callWindowStart || '');
         setCallWindowEnd(response.data.callWindowEnd || '');
         setCalendarEnabled(response.data.calendarEnabled || false);
+        // Calendar configuration (agent-centric)
+        setCalendarIntegrationId(response.data.calendarIntegrationId || '');
+        setCalendarScopes(response.data.calendarScopes || ['read_calendar', 'create_events', 'reschedule_events']);
+        setDefaultEventTypeId(response.data.defaultEventTypeId || '');
+        setDefaultEventTypeName(response.data.defaultEventTypeName || '');
+        setDefaultEventDuration(response.data.defaultEventDuration || 30);
         setCallPurpose(response.data.callPurpose || '');
         setCommunicationChannel(response.data.communicationChannel || 'VOICE_ONLY');
         setImageToolEnabled(response.data.imageToolEnabled || false);
@@ -296,7 +362,13 @@ export default function AgentDetailPage() {
         outboundGreeting: outboundGreeting || undefined,
         callWindowStart: callWindowStart || undefined,
         callWindowEnd: callWindowEnd || undefined,
+        // Calendar configuration (agent-centric)
         calendarEnabled,
+        calendarIntegrationId: calendarEnabled ? calendarIntegrationId || undefined : undefined,
+        calendarScopes: calendarEnabled ? calendarScopes : undefined,
+        defaultEventTypeId: calendarEnabled ? defaultEventTypeId || undefined : undefined,
+        defaultEventTypeName: calendarEnabled ? defaultEventTypeName || undefined : undefined,
+        defaultEventDuration: calendarEnabled ? defaultEventDuration : undefined,
         personaName: ELEVENLABS_VOICES.find(v => v.id === voiceId)?.name || undefined,
         callPurpose: callPurpose || undefined,
         communicationChannel,
@@ -323,8 +395,6 @@ export default function AgentDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this agent?')) return;
-
     try {
       await api.deleteAgent(params.id as string);
       toast({
@@ -339,6 +409,7 @@ export default function AgentDetailPage() {
         description: message,
         variant: 'destructive',
       });
+      throw error; // Re-throw to keep modal open on error
     }
   };
 
@@ -408,14 +479,18 @@ export default function AgentDetailPage() {
               <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
                 <span className="text-xs text-muted-foreground">Total Communications</span>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-semibold text-slate-600">{(agent.totalCalls || 0) + (agent.totalMessages || 0)}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({agent.totalCalls || 0} calls, {agent.totalMessages || 0} msgs)
+                  <span className="text-lg font-semibold text-slate-600">
+                    {(agent.totalCalls || 0) + (agent.totalMessages || 0) || '—'}
                   </span>
+                  {((agent.totalCalls || 0) + (agent.totalMessages || 0) > 0) && (
+                    <span className="text-xs text-muted-foreground">
+                      ({agent.totalCalls || 0} calls, {agent.totalMessages || 0} msgs)
+                    </span>
+                  )}
                 </div>
               </div>
             )}
-            
+
             {/* Avg Duration - only show for voice-capable agents */}
             {(agent.communicationChannel === 'VOICE_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
               <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
@@ -425,13 +500,12 @@ export default function AgentDetailPage() {
                 </span>
               </div>
             )}
-            
+
             <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
               <span className="text-xs text-muted-foreground">Status</span>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                }`}>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                  }`}>
                   {agent.isActive ? 'Active' : 'Inactive'}
                 </span>
                 {agent.mode && AGENT_MODES[agent.mode] && (
@@ -453,43 +527,45 @@ export default function AgentDetailPage() {
                 <Button variant="outline" onClick={() => setEditing(false)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
                   Cancel
                 </Button>
-                <Button onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
+                <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
                   {saving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </>
             ) : (
               <>
                 {/* Make Call button - only for outbound/hybrid agents with voice capability */}
-                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && 
-                 (!agent.communicationChannel || agent.communicationChannel === 'VOICE_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
-                  <Button onClick={() => setShowCallDialog(true)} className="bg-teal-600 hover:bg-teal-700">
-                    <Phone className="h-4 w-4 mr-2" />
-                    Make Call
-                  </Button>
-                )}
+                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') &&
+                  (!agent.communicationChannel || agent.communicationChannel === 'VOICE_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
+                    <Button onClick={() => setShowCallDialog(true)} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
+                      <Phone className="h-4 w-4 mr-2" />
+                      Make Call
+                    </Button>
+                  )}
                 {/* Send Message button - only for outbound/hybrid agents with messaging capability */}
-                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && 
-                 (agent.communicationChannel === 'MESSAGING_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
-                  <Button onClick={() => setShowMessageDialog(true)} className="bg-teal-600 hover:bg-teal-700">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Send Message
-                  </Button>
-                )}
+                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') &&
+                  (agent.communicationChannel === 'MESSAGING_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
+                    <Button onClick={() => setShowMessageDialog(true)} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      Send Message
+                    </Button>
+                  )}
                 <Button variant="outline" onClick={() => setEditing(true)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
                   Edit
                 </Button>
-                <Button variant="destructive" onClick={handleDelete}>
-                  Delete
-                </Button>
+                <DeleteButton
+                  variant="full"
+                  onDelete={handleDelete}
+                  itemName={agent.name}
+                  title="Delete Agent"
+                />
               </>
             )}
           </div>
         </div>
 
         {/* Stats - Mobile/Tablet only (stacked cards) */}
-        <div className={`grid gap-4 lg:hidden ${
-          agent.communicationChannel === 'OMNICHANNEL' ? 'grid-cols-2' : 'grid-cols-3'
-        }`}>
+        <div className={`grid gap-4 lg:hidden ${agent.communicationChannel === 'OMNICHANNEL' ? 'grid-cols-2' : 'grid-cols-3'
+          }`}>
           {/* Communication stats card */}
           {agent.communicationChannel === 'VOICE_ONLY' ? (
             <Card>
@@ -509,14 +585,18 @@ export default function AgentDetailPage() {
             <Card>
               <CardHeader className="p-3">
                 <CardDescription className="text-xs">Communications</CardDescription>
-                <CardTitle className="text-xl text-slate-600">{(agent.totalCalls || 0) + (agent.totalMessages || 0)}</CardTitle>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {agent.totalCalls || 0} calls · {agent.totalMessages || 0} msgs
-                </p>
+                <CardTitle className="text-xl text-slate-600">
+                  {(agent.totalCalls || 0) + (agent.totalMessages || 0) || '—'}
+                </CardTitle>
+                {((agent.totalCalls || 0) + (agent.totalMessages || 0) > 0) && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {agent.totalCalls || 0} calls · {agent.totalMessages || 0} msgs
+                  </p>
+                )}
               </CardHeader>
             </Card>
           )}
-          
+
           {/* Avg Duration - only for voice-capable */}
           {(agent.communicationChannel === 'VOICE_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
             <Card>
@@ -528,14 +608,13 @@ export default function AgentDetailPage() {
               </CardHeader>
             </Card>
           )}
-          
+
           <Card>
             <CardHeader className="p-3">
               <CardDescription className="text-xs">Status</CardDescription>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                }`}>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                  }`}>
                   {agent.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
@@ -594,7 +673,7 @@ export default function AgentDetailPage() {
               {/* Phone Number Assignment */}
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Phone Number</Label>
-                
+
                 {phoneNumbersLoading ? (
                   <div className="text-sm text-muted-foreground">Loading phone numbers...</div>
                 ) : !twilioConfigured ? (
@@ -605,8 +684,8 @@ export default function AgentDetailPage() {
                       <p className="text-xs text-amber-700 mt-1">
                         Configure your Twilio credentials in Settings to enable phone number assignment.
                       </p>
-                      <Link 
-                        href="/dashboard/settings" 
+                      <Link
+                        href="/dashboard/settings"
                         className="inline-flex items-center gap-1 mt-2 text-xs text-teal-600 hover:underline"
                       >
                         <Settings className="h-3 w-3" />
@@ -622,8 +701,8 @@ export default function AgentDetailPage() {
                       <p className="text-xs text-slate-600 mt-1">
                         Import phone numbers from your Twilio account to assign to this agent.
                       </p>
-                      <Link 
-                        href="/dashboard/settings" 
+                      <Link
+                        href="/dashboard/settings"
                         className="inline-flex items-center gap-1 mt-2 text-xs text-teal-600 hover:underline"
                       >
                         <Settings className="h-3 w-3" />
@@ -639,9 +718,8 @@ export default function AgentDetailPage() {
                         type="button"
                         onClick={() => setPhoneDropdownOpen(!phoneDropdownOpen)}
                         disabled={savingPhoneNumber}
-                        className={`flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full justify-between transition-colors disabled:opacity-50 ${
-                          selectedPhoneNumberId ? 'border-teal-500 bg-teal-50' : 'bg-white hover:bg-slate-50'
-                        }`}
+                        className={`flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full justify-between transition-colors disabled:opacity-50 ${selectedPhoneNumberId ? 'border-teal-500 bg-teal-50' : 'bg-white hover:bg-slate-50'
+                          }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           {selectedPhoneNumberId ? (
@@ -682,7 +760,7 @@ export default function AgentDetailPage() {
                             </div>
                             <span className="text-muted-foreground">No phone number</span>
                           </button>
-                          
+
                           {/* Available numbers */}
                           {phoneNumbers.map((phone) => {
                             const isAssignedToOther = phone.agent && phone.agent.id && phone.agent.id !== params.id;
@@ -692,13 +770,11 @@ export default function AgentDetailPage() {
                                 key={phone.id}
                                 type="button"
                                 onClick={() => handlePhoneNumberChange(phone.id)}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left ${
-                                  isAssignedToThis ? 'bg-teal-50' : ''
-                                }`}
+                                className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left ${isAssignedToThis ? 'bg-teal-50' : ''
+                                  }`}
                               >
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                  isAssignedToOther ? 'bg-amber-100' : 'bg-teal-100'
-                                }`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isAssignedToOther ? 'bg-amber-100' : 'bg-teal-100'
+                                  }`}>
                                   <Phone className={`h-4 w-4 ${isAssignedToOther ? 'text-amber-600' : 'text-teal-600'}`} />
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -736,9 +812,8 @@ export default function AgentDetailPage() {
                       <button
                         key={key}
                         type="button"
-                        className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
-                          isSelected ? 'border-teal-500 bg-teal-50' : ''
-                        }`}
+                        className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${isSelected ? 'border-teal-500 bg-teal-50' : ''
+                          }`}
                         onClick={() => setCommunicationChannel(key as CommunicationChannel)}
                       >
                         <div className="flex items-center gap-2 mb-1">
@@ -761,9 +836,8 @@ export default function AgentDetailPage() {
                     <button
                       key={key}
                       type="button"
-                      className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
-                        mode === key ? 'border-teal-500 bg-teal-50' : ''
-                      }`}
+                      className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${mode === key ? 'border-teal-500 bg-teal-50' : ''
+                        }`}
                       onClick={() => setMode(key as AgentMode)}
                     >
                       <div className="flex items-center gap-2 mb-1">
@@ -878,34 +952,165 @@ export default function AgentDetailPage() {
               </div>
 
               {/* Tool Access */}
-              {(calendarStatus?.connected || supportsMessaging(communicationChannel)) && (
+              {((calendarStatus?.calendars && calendarStatus.calendars.length > 0) || supportsMessaging(communicationChannel)) && (
                 <div className="space-y-3">
                   <Label className="text-muted-foreground">Tool Access (optional)</Label>
-                  
+
                   {/* Calendar Tool */}
-                  {calendarStatus?.connected && (
-                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={calendarEnabled}
-                        onChange={(e) => setCalendarEnabled(e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
-                      />
-                      <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-slate-600">Calendar</span>
-                          {calendarStatus?.provider && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
-                              {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
-                            </span>
-                          )}
+                  {calendarStatus?.calendars && calendarStatus.calendars.length > 0 && (
+                    <div className="space-y-3">
+                      <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={calendarEnabled}
+                          onChange={(e) => setCalendarEnabled(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                        />
+                        <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm text-slate-600">Calendar Tool</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Check availability and book appointments
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Check your availability and book appointments
-                        </p>
-                      </div>
-                    </label>
+                      </label>
+                      
+                      {/* Expanded Calendar Configuration - only when enabled */}
+                      {calendarEnabled && (
+                        <div className="ml-7 pl-4 border-l-2 border-teal-200 space-y-4">
+                          {/* Calendar Selector */}
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs">Calendar</Label>
+                            <select
+                              className="w-full px-3 py-2 text-sm border rounded-md bg-white"
+                              value={calendarIntegrationId}
+                              onChange={(e) => {
+                                const calId = e.target.value;
+                                setCalendarIntegrationId(calId);
+                                // Reset event type when calendar changes
+                                setDefaultEventTypeId('');
+                                setDefaultEventTypeName('');
+                              }}
+                            >
+                              <option value="">Select a calendar</option>
+                              {calendarStatus.calendars.map((cal) => (
+                                <option key={cal.id} value={cal.id}>
+                                  {cal.provider === 'google' ? 'Google Calendar' :
+                                   cal.provider === 'calcom' ? 'Cal.com' : 'Calendly'} - {cal.email || cal.username || 'Connected'}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          {/* Scopes Checkboxes */}
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs">Permissions</Label>
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={calendarScopes.includes('read_calendar')}
+                                  onChange={(e) => {
+                                    setCalendarScopes(prev => e.target.checked
+                                      ? [...prev, 'read_calendar']
+                                      : prev.filter(s => s !== 'read_calendar')
+                                    );
+                                  }}
+                                  className="h-4 w-4 rounded border-gray-300 accent-teal-600"
+                                />
+                                <span className="text-slate-600">Read Calendar</span>
+                                <span className="text-xs text-muted-foreground">(check availability)</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={calendarScopes.includes('create_events')}
+                                  onChange={(e) => {
+                                    setCalendarScopes(prev => e.target.checked
+                                      ? [...prev, 'create_events']
+                                      : prev.filter(s => s !== 'create_events')
+                                    );
+                                  }}
+                                  className="h-4 w-4 rounded border-gray-300 accent-teal-600"
+                                />
+                                <span className="text-slate-600">Create Events</span>
+                                <span className="text-xs text-muted-foreground">(book appointments)</span>
+                              </label>
+                              <label className="flex items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={calendarScopes.includes('reschedule_events')}
+                                  onChange={(e) => {
+                                    setCalendarScopes(prev => e.target.checked
+                                      ? [...prev, 'reschedule_events']
+                                      : prev.filter(s => s !== 'reschedule_events')
+                                    );
+                                  }}
+                                  className="h-4 w-4 rounded border-gray-300 accent-teal-600"
+                                />
+                                <span className="text-slate-600">Reschedule Events</span>
+                                <span className="text-xs text-muted-foreground">(modify bookings)</span>
+                              </label>
+                            </div>
+                          </div>
+                          
+                          {/* Event Type or Duration Selector */}
+                          {(() => {
+                            const selectedCal = calendarStatus?.calendars?.find(c => c.id === calendarIntegrationId);
+                            if (selectedCal?.provider === 'google') {
+                              // Duration selector for Google Calendar
+                              return (
+                                <div className="space-y-2">
+                                  <Label className="text-muted-foreground text-xs">Default Duration</Label>
+                                  <select
+                                    className="w-full px-3 py-2 text-sm border rounded-md bg-white"
+                                    value={defaultEventDuration}
+                                    onChange={(e) => setDefaultEventDuration(parseInt(e.target.value))}
+                                  >
+                                    <option value={15}>15 minutes</option>
+                                    <option value={30}>30 minutes</option>
+                                    <option value={45}>45 minutes</option>
+                                    <option value={60}>60 minutes</option>
+                                    <option value={90}>90 minutes</option>
+                                  </select>
+                                </div>
+                              );
+                            } else if (eventTypes.length > 0) {
+                              // Event type selector for Cal.com/Calendly
+                              return (
+                                <div className="space-y-2">
+                                  <Label className="text-muted-foreground text-xs">Default Event Type</Label>
+                                  <select
+                                    className="w-full px-3 py-2 text-sm border rounded-md bg-white"
+                                    value={defaultEventTypeId}
+                                    onChange={(e) => {
+                                      const eventType = eventTypes.find(et => et.id === e.target.value);
+                                      setDefaultEventTypeId(e.target.value);
+                                      setDefaultEventTypeName(eventType?.name || '');
+                                    }}
+                                    disabled={loadingEventTypes}
+                                  >
+                                    <option value="">Select event type</option>
+                                    {loadingEventTypes ? (
+                                      <option>Loading...</option>
+                                    ) : (
+                                      eventTypes.map((et) => (
+                                        <option key={et.id} value={et.id}>
+                                          {et.name} ({et.duration} min)
+                                        </option>
+                                      ))
+                                    )}
+                                  </select>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {/* Media Tools - only for messaging-capable channels */}
@@ -1014,34 +1219,31 @@ export default function AgentDetailPage() {
                         </span>
                       )}
                     </div>
-                    
+
                     {/* Media Tools - only show if messaging channel */}
                     {(agent.communicationChannel === 'MESSAGING_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
                       <>
                         <div className="flex items-center gap-2">
                           <ImageIcon className="h-4 w-4 text-teal-600 flex-shrink-0" />
                           <span className="font-medium text-sm text-slate-600">Images</span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            agent.imageToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
-                          }`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.imageToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                            }`}>
                             {agent.imageToolEnabled ? 'MMS' : 'Off'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-teal-600 flex-shrink-0" />
                           <span className="font-medium text-sm text-slate-600">Documents</span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            agent.documentToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
-                          }`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.documentToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                            }`}>
                             {agent.documentToolEnabled ? 'MMS' : 'Off'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Video className="h-4 w-4 text-teal-600 flex-shrink-0" />
                           <span className="font-medium text-sm text-slate-600">Videos</span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                            agent.videoToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
-                          }`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.videoToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                            }`}>
                             {agent.videoToolEnabled ? 'MMS' : 'Off'}
                           </span>
                         </div>
@@ -1068,8 +1270,8 @@ export default function AgentDetailPage() {
                   ) : (
                     <div className="mt-1">
                       <p className="text-sm text-muted-foreground">Not configured</p>
-                      <Link 
-                        href="/dashboard/settings?tab=preferences" 
+                      <Link
+                        href="/dashboard/settings?tab=preferences"
                         className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1"
                       >
                         <Settings className="h-3 w-3" />
@@ -1078,7 +1280,7 @@ export default function AgentDetailPage() {
                     </div>
                   )}
                 </div>
-                
+
                 {/* Assigned Phone Number */}
                 <div>
                   <Label className="text-muted-foreground">Phone Number</Label>
@@ -1096,8 +1298,8 @@ export default function AgentDetailPage() {
                   ) : (
                     <div className="mt-1">
                       <p className="text-sm text-muted-foreground">No phone number assigned</p>
-                      <Link 
-                        href="/dashboard/settings" 
+                      <Link
+                        href="/dashboard/settings"
                         className="inline-flex items-center gap-1 text-xs text-teal-600 hover:underline mt-1"
                       >
                         <Settings className="h-3 w-3" />
@@ -1153,7 +1355,7 @@ export default function AgentDetailPage() {
                     <p className="font-medium text-slate-600">{agent.outboundGreeting}</p>
                   </div>
                 )}
-                
+
                 {/* Divider before System Prompt */}
                 <div className="md:col-span-2 border-t pt-4 mt-2">
                   <Label className="text-muted-foreground">System Prompt</Label>

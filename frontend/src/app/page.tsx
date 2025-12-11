@@ -16,7 +16,7 @@ import {
   Check,
   ArrowRight,
   Sparkles,
-  Headphones,
+  Link2,
   MessageSquare,
   Menu,
   X
@@ -131,7 +131,7 @@ export default function LandingPage() {
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 bg-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                className="inline-flex items-center gap-2 bg-gradient-to-b from-[#0fa693] to-teal-600 text-white px-4 py-2 rounded-lg font-medium hover:from-[#0e9585] hover:to-teal-700 transition-colors"
               >
                 Try for Free
               </Link>
@@ -215,7 +215,7 @@ export default function LandingPage() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   href="/register"
-                  className="inline-flex items-center justify-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-b from-[#0fa693] to-teal-600 text-white px-6 py-3 rounded-lg font-medium hover:from-[#0e9585] hover:to-teal-700 transition-colors"
                 >
                   Get Started Free
                   <ArrowRight className="h-4 w-4" />
@@ -277,14 +277,14 @@ export default function LandingPage() {
                 {/* Floating badges */}
                 <div className="absolute -top-4 -right-4 bg-white rounded-lg shadow-lg px-3 py-2 border border-gray-100">
                   <div className="flex items-center gap-2">
-                    <Headphones className="h-4 w-4 text-teal-600" />
-                    <span className="text-sm font-medium">ElevenLabs Voice</span>
+                    <Link2 className="h-4 w-4 text-teal-600" />
+                    <span className="text-sm font-medium">Connects with Meta Ads, Calendly, and More!</span>
                   </div>
                 </div>
                 <div className="absolute -bottom-4 -left-4 bg-white rounded-lg shadow-lg px-3 py-2 border border-gray-100">
                   <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm font-medium">GPT-4 Powered</span>
+                    <MessageSquare className="h-4 w-4 text-teal-600" />
+                    <span className="text-sm font-medium">Powered by ElevenLabs and GPT-4o</span>
                   </div>
                 </div>
               </div>
@@ -460,7 +460,7 @@ export default function LandingPage() {
                                                 </p>
                                                             <Link
                                                                           href="/register"
-                                                                                        className="inline-flex items-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-teal-700 transition-colors"
+                                                                                        className="inline-flex items-center gap-2 bg-gradient-to-b from-[#0fa693] to-teal-600 text-white px-6 py-3 rounded-lg font-medium hover:from-[#0e9585] hover:to-teal-700 transition-colors"
                                                                                                     >
                                                                                                                   Try the Full Platform
                                                                                                                                 <ArrowRight className="h-4 w-4" />
@@ -482,7 +482,7 @@ export default function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/register"
-              className="inline-flex items-center justify-center gap-2 bg-teal-600 text-white px-8 py-4 rounded-lg font-medium hover:bg-teal-700 transition-colors"
+              className="inline-flex items-center justify-center gap-2 bg-gradient-to-b from-[#0fa693] to-teal-600 text-white px-8 py-4 rounded-lg font-medium hover:from-[#0e9585] hover:to-teal-700 transition-colors"
             >
               Get Started Free
               <ArrowRight className="h-5 w-5" />

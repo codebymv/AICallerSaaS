@@ -98,6 +98,8 @@ router.get('/conversations', async (req: AuthRequest, res, next) => {
       lastMessageAt: conv.lastMessageAt,
       messageCount: conv._count.messages,
       agent: conv.agent,
+      agentName: conv.agentName, // Denormalized for when agent is deleted
+      agentVoice: conv.agentVoice,
       lastMessage: conv.messages[0] || null,
       createdAt: conv.createdAt,
       updatedAt: conv.updatedAt,
@@ -224,6 +226,8 @@ router.get('/conversations/:id', async (req: AuthRequest, res, next) => {
           twilioNumber: conversation.twilioNumber,
           lastMessageAt: conversation.lastMessageAt,
           agent: conversation.agent,
+          agentName: conversation.agentName, // Denormalized for when agent is deleted
+          agentVoice: conversation.agentVoice,
           createdAt: conversation.createdAt,
         },
         messages: chronologicalMessages,

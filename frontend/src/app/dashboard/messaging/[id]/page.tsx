@@ -61,6 +61,8 @@ interface ConversationData {
     voice?: string;
     communicationChannel?: string;
   } | null;
+  agentName?: string; // Denormalized for when agent is deleted
+  agentVoice?: string;
   createdAt: string;
 }
 
@@ -301,7 +303,7 @@ export default function ConversationDetailPage() {
     );
   }
 
-  const agentAvatar = conversation.agent?.voice ? getVoiceAvatar(conversation.agent.voice) : null;
+  const agentAvatar = getVoiceAvatar(conversation.agent?.voice || conversation.agentVoice);
 
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col">
@@ -345,13 +347,13 @@ export default function ConversationDetailPage() {
           </div>
           
           {/* Agent Info */}
-          {conversation.agent && (
+          {(conversation.agent || conversation.agentName) && (
             <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg">
               <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {agentAvatar ? (
                   <Image
                     src={agentAvatar}
-                    alt={conversation.agent.name}
+                    alt={conversation.agent?.name || conversation.agentName || 'Deleted Agent'}
                     width={32}
                     height={32}
                     className="w-full h-full object-cover"
@@ -361,7 +363,7 @@ export default function ConversationDetailPage() {
                 )}
               </div>
               <div className="text-sm">
-                <p className="font-medium text-slate-600">{conversation.agent.name}</p>
+                <p className="font-medium text-slate-600">{conversation.agent?.name || conversation.agentName || 'Deleted Agent'}</p>
                 <p className="text-xs text-muted-foreground">Agent</p>
               </div>
             </div>
@@ -410,7 +412,7 @@ export default function ConversationDetailPage() {
                       {isOutbound ? (
                         <>
                           <span className="text-xs text-muted-foreground">
-                            {msg.aiGenerated ? (msg.agentName || conversation.agent?.name || 'Agent') : 'You'}
+                            {msg.aiGenerated ? (msg.agentName || conversation.agent?.name || conversation.agentName || 'Agent') : 'You'}
                           </span>
                           <ArrowUpRight className="h-3 w-3 text-teal-500" />
                         </>

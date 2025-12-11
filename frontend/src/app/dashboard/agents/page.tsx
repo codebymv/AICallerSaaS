@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { Plus, Bot, MoreVertical, Trash2, Edit, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Loader2, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { DeleteButton } from '@/components/DeleteButton';
+import { EmptyState } from '@/components/EmptyState';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES, AGENT_MODES } from '@/lib/constants';
@@ -82,9 +84,9 @@ export default function AgentsPage() {
         </div>
         {/* Mobile: icon-only buttons */}
         <div className="flex gap-2 sm:hidden">
-          <Button 
-            onClick={() => fetchAgents(true)} 
-            disabled={refreshing} 
+          <Button
+            onClick={() => fetchAgents(true)}
+            disabled={refreshing}
             variant="outline"
             size="icon"
             className="text-teal-600 border-teal-600 hover:bg-teal-50"
@@ -92,16 +94,16 @@ export default function AgentsPage() {
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
           <Link href="/dashboard/agents/new">
-            <Button size="icon" className="bg-teal-600 hover:bg-teal-700">
+            <Button size="icon" className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
               <Plus className="h-4 w-4" />
             </Button>
           </Link>
         </div>
         {/* Desktop: full buttons */}
         <div className="hidden sm:flex gap-2">
-          <Button 
-            onClick={() => fetchAgents(true)} 
-            disabled={refreshing} 
+          <Button
+            onClick={() => fetchAgents(true)}
+            disabled={refreshing}
             variant="outline"
             className="text-teal-600 border-teal-600 hover:bg-teal-50"
           >
@@ -109,7 +111,7 @@ export default function AgentsPage() {
             Refresh
           </Button>
           <Link href="/dashboard/agents/new">
-            <Button className="bg-teal-600 hover:bg-teal-700">
+            <Button className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
               <Plus className="h-4 w-4 mr-2" />
               New Agent
             </Button>
@@ -119,18 +121,16 @@ export default function AgentsPage() {
 
       {agents.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Bot className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No agents yet</h3>
-            <p className="text-muted-foreground mb-6 text-center max-w-md">
-              Create your first AI voice agent to start handling calls automatically.
-            </p>
-            <Link href="/dashboard/agents/new">
-              <Button className="bg-teal-600 hover:bg-teal-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Your First Agent
-              </Button>
-            </Link>
+          <CardContent>
+            <EmptyState
+              icon={Bot}
+              title="No agents yet"
+              description="Create your first AI voice agent to start handling calls automatically."
+              action={{
+                label: 'Create Your First Agent',
+                onClick: () => window.location.href = '/dashboard/agents/new',
+              }}
+            />
           </CardContent>
         </Card>
       ) : (
@@ -165,13 +165,11 @@ export default function AgentsPage() {
                       <Edit className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(agent.id, agent.name)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <DeleteButton
+                    onDelete={() => handleDelete(agent.id, agent.name)}
+                    itemName={agent.name}
+                    title="Delete Agent"
+                  />
                 </div>
               </CardHeader>
               <CardContent>
@@ -189,11 +187,10 @@ export default function AgentsPage() {
                       </span>
                     )}
                     <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        agent.isActive
+                      className={`px-2 py-1 rounded-full text-xs ${agent.isActive
                           ? 'bg-green-100 text-green-700'
                           : 'bg-slate-100 text-slate-600'
-                      }`}
+                        }`}
                     >
                       {agent.isActive ? 'Active' : 'Inactive'}
                     </span>

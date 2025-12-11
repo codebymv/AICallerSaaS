@@ -7,19 +7,21 @@ import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { formatPhoneNumber } from '@/lib/utils';
-import { 
-  Users, 
-  Search, 
-  Plus, 
-  Phone, 
-  Edit, 
-  Trash2, 
+import {
+  Users,
+  Search,
+  Plus,
+  Phone,
+  Edit,
+  Trash2,
   Loader2,
   User,
   FileText,
   RefreshCw
 } from 'lucide-react';
 import { ContactModal } from '@/components/ContactModal';
+import { DeleteButton } from '@/components/DeleteButton';
+import { EmptyState } from '@/components/EmptyState';
 
 interface Contact {
   id: string;
@@ -39,8 +41,6 @@ export default function ContactsPage() {
   const [searchDebounce, setSearchDebounce] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -84,14 +84,12 @@ export default function ContactsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    setDeleting(true);
     try {
       await api.deleteContact(id);
       toast({
         title: 'Contact deleted',
         description: 'The contact has been removed',
       });
-      setDeleteConfirm(null);
       fetchContacts();
     } catch (error) {
       toast({
@@ -99,8 +97,7 @@ export default function ContactsPage() {
         description: 'Failed to delete contact',
         variant: 'destructive',
       });
-    } finally {
-      setDeleting(false);
+      throw error; // Re-throw to keep modal open on error
     }
   };
 
@@ -144,31 +141,31 @@ export default function ContactsPage() {
         </div>
         {/* Mobile: icon-only buttons */}
         <div className="flex gap-2 sm:hidden">
-          <Button 
-            onClick={() => fetchContacts(true)} 
-            disabled={refreshing} 
+          <Button
+            onClick={() => fetchContacts(true)}
+            disabled={refreshing}
             variant="outline"
             size="icon"
             className="text-teal-600 border-teal-600 hover:bg-teal-50"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
-          <Button size="icon" onClick={handleCreate} className="bg-teal-600 hover:bg-teal-700">
+          <Button size="icon" onClick={handleCreate} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
             <Plus className="h-4 w-4" />
           </Button>
         </div>
         {/* Desktop: full buttons */}
         <div className="hidden sm:flex gap-2">
-          <Button 
-            onClick={() => fetchContacts(true)} 
-            disabled={refreshing} 
+          <Button
+            onClick={() => fetchContacts(true)}
+            disabled={refreshing}
             variant="outline"
             className="text-teal-600 border-teal-600 hover:bg-teal-50"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button onClick={handleCreate} className="bg-teal-600 hover:bg-teal-700">
+          <Button onClick={handleCreate} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
             <Plus className="h-4 w-4 mr-2" />
             New Contact
           </Button>
@@ -197,22 +194,18 @@ export default function ContactsPage() {
         </div>
       ) : contacts.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Users className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold text-slate-600 mb-2">
-              {search ? 'No contacts found' : 'No contacts yet'}
-            </h3>
-            <p className="text-muted-foreground text-center max-w-md mb-4">
-              {search 
+          <CardContent>
+            <EmptyState
+              icon={Users}
+              title={search ? 'No contacts found' : 'No contacts yet'}
+              description={search
                 ? 'Try adjusting your search terms'
                 : 'Add contacts to see them here and throughout call logs'}
-            </p>
-            {!search && (
-              <Button onClick={handleCreate} className="bg-teal-600 hover:bg-teal-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Contact
-              </Button>
-            )}
+              action={!search ? {
+                label: 'Add Your First Contact',
+                onClick: handleCreate,
+              } : undefined}
+            />
           </CardContent>
         </Card>
       ) : (
@@ -222,8 +215,8 @@ export default function ContactsPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                      <User className="h-6 w-6 text-slate-400" />
+                    <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                      <User className="h-6 w-6 text-teal-600" />
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-slate-600 truncate">{contact.name}</h3>
@@ -241,35 +234,11 @@ export default function ContactsPage() {
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
-                    {deleteConfirm === contact.id ? (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(contact.id)}
-                          disabled={deleting}
-                          className="h-8 text-xs"
-                        >
-                          {deleting ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Delete'}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteConfirm(null)}
-                          className="h-8 text-xs"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteConfirm(contact.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
+                    <DeleteButton
+                      onDelete={() => handleDelete(contact.id)}
+                      itemName={contact.name}
+                      title="Delete Contact"
+                    />
                   </div>
                 </div>
                 {contact.notes && (

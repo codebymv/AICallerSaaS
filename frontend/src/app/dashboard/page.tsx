@@ -149,7 +149,7 @@ export default function DashboardPage() {
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
           <Link href="/dashboard/agents/new">
-            <Button size="icon" className="bg-teal-600 hover:bg-teal-700">
+            <Button size="icon" className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
               <Plus className="h-4 w-4" />
             </Button>
           </Link>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
             Refresh
           </Button>
           <Link href="/dashboard/agents/new">
-            <Button className="bg-teal-600 hover:bg-teal-700">
+            <Button className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
               <Plus className="h-4 w-4 mr-2" />
               New Agent
             </Button>
@@ -226,7 +226,7 @@ export default function DashboardPage() {
                 <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground mb-4">No agents yet</p>
                 <Link href="/dashboard/agents/new">
-                  <Button size="sm" className="bg-teal-600 hover:bg-teal-700">Create your first agent</Button>
+                  <Button size="sm" className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">Create your first agent</Button>
                 </Link>
               </div>
             ) : (

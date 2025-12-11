@@ -13,6 +13,7 @@ import { formatDate, formatPhoneNumber, formatRelativeTime } from '@/lib/utils';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
 import { ContactModal } from '@/components/ContactModal';
 import { OutboundMessageDialog } from '@/components/OutboundMessageDialog';
+import { AgentSelector } from '@/components/AgentSelector';
 
 interface Agent {
   id: string;
@@ -27,6 +28,8 @@ interface Conversation {
   lastMessageAt: string;
   messageCount: number;
   agent: Agent | null;
+  agentName?: string; // Denormalized for when agent is deleted
+  agentVoice?: string;
   lastMessage: {
     id: string;
     body: string | null;
@@ -48,122 +51,6 @@ const getVoiceAvatar = (voiceId?: string): string | null => {
   return voice?.avatar || null;
 };
 
-// Agent Selector Component
-function AgentSelector({
-  agents,
-  selectedAgentId,
-  onSelect,
-}: {
-  agents: Agent[];
-  selectedAgentId: string;
-  onSelect: (agentId: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  
-  const selectedAgent = agents.find(a => a.id === selectedAgentId);
-  const selectedAvatar = selectedAgent ? getVoiceAvatar(selectedAgent.voice) : null;
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm border rounded-md bg-white hover:bg-slate-50 transition-colors justify-between"
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {selectedAgent ? (
-            <>
-              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                {selectedAvatar ? (
-                  <Image
-                    src={selectedAvatar}
-                    alt={selectedAgent.name}
-                    width={32}
-                    height={32}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Bot className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-              <span className="truncate">{selectedAgent.name}</span>
-            </>
-          ) : (
-            <>
-              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                <Bot className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <span className="text-muted-foreground">All Agents</span>
-            </>
-          )}
-        </div>
-        <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-white border rounded-md shadow-lg py-1 max-h-60 overflow-auto">
-          <button
-            type="button"
-            onClick={() => {
-              onSelect('');
-              setIsOpen(false);
-            }}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 text-left ${
-              !selectedAgentId ? 'bg-blue-50' : ''
-            }`}
-          >
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-              <Bot className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <span className="text-muted-foreground">All Agents</span>
-          </button>
-          {agents.map((agent) => {
-            const avatar = getVoiceAvatar(agent.voice);
-            return (
-              <button
-                key={agent.id}
-                type="button"
-                onClick={() => {
-                  onSelect(agent.id);
-                  setIsOpen(false);
-                }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-slate-50 text-left ${
-                  agent.id === selectedAgentId ? 'bg-blue-50' : ''
-                }`}
-              >
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {avatar ? (
-                    <Image
-                      src={avatar}
-                      alt={agent.name}
-                      width={32}
-                      height={32}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Bot className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-                <span className="truncate">{agent.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // Generic Dropdown Component
 function Dropdown({
@@ -177,7 +64,7 @@ function Dropdown({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   const selectedOption = options.find(o => o.value === value) || options[0];
 
   useEffect(() => {
@@ -211,9 +98,8 @@ function Dropdown({
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className={`w-full px-3 py-2 text-sm hover:bg-slate-50 text-left ${
-                option.value === value ? 'bg-blue-50' : ''
-              }`}
+              className={`w-full px-3 py-2 text-sm hover:bg-slate-50 text-left ${option.value === value ? 'bg-blue-50' : ''
+                }`}
             >
               <span className={option.value ? '' : 'text-muted-foreground'}>{option.label}</span>
             </button>
@@ -257,8 +143,8 @@ export default function MessagingPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [filter, setFilter] = useState({ 
-    search: '', 
+  const [filter, setFilter] = useState({
+    search: '',
     agentId: '',
     status: '',
     messageCount: '',
@@ -282,16 +168,16 @@ export default function MessagingPage() {
         startDate: filter.startDate || undefined,
         endDate: filter.endDate || undefined,
       });
-      
+
       const newConversations = response.data || [];
-      
+
       if (pageNum === 1) {
         setConversations(newConversations);
       } else {
         setConversations((prev) => [...prev, ...newConversations]);
       }
       setHasMore(response.meta?.hasMore || false);
-      
+
       // Fetch contacts for phone numbers in these conversations
       if (newConversations.length > 0) {
         const phoneNumbers = Array.from(new Set(newConversations.map((c: Conversation) => c.externalNumber)));
@@ -322,7 +208,7 @@ export default function MessagingPage() {
   useEffect(() => {
     fetchConversations(1);
   }, [filter.agentId, filter.status, filter.messageCount, filter.startDate, filter.endDate]);
-  
+
   // Helper to get contact name for a phone number
   const getContactName = (phone: string) => {
     const normalized = phone.replace(/\D/g, '');
@@ -384,37 +270,37 @@ export default function MessagingPage() {
         </div>
         {/* Mobile: icon-only buttons */}
         <div className="flex gap-2 sm:hidden">
-          <Button 
-            onClick={() => fetchConversations(1)} 
-            disabled={loading} 
+          <Button
+            onClick={() => fetchConversations(1)}
+            disabled={loading}
             variant="outline"
             size="icon"
             className="text-teal-600 border-teal-600 hover:bg-teal-50"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button 
+          <Button
             size="icon"
             onClick={() => setShowMessageDialog(true)}
-            className="bg-teal-600 hover:bg-teal-700"
+            className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700"
           >
             <MessageSquare className="h-4 w-4" />
           </Button>
         </div>
         {/* Desktop: full buttons */}
         <div className="hidden sm:flex gap-2">
-          <Button 
-            onClick={() => fetchConversations(1)} 
-            disabled={loading} 
+          <Button
+            onClick={() => fetchConversations(1)}
+            disabled={loading}
             variant="outline"
             className="text-teal-600 border-teal-600 hover:bg-teal-50"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button 
+          <Button
             onClick={() => setShowMessageDialog(true)}
-            className="bg-teal-600 hover:bg-teal-700"
+            className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700"
           >
             <MessageSquare className="h-4 w-4 mr-2" />
             Send Message
@@ -449,6 +335,8 @@ export default function MessagingPage() {
                 agents={agents}
                 selectedAgentId={filter.agentId}
                 onSelect={(agentId) => setFilter({ ...filter, agentId })}
+                size="sm"
+                emptyLabel="all"
               />
             </div>
 
@@ -561,7 +449,7 @@ export default function MessagingPage() {
                                 </div>
                               </>
                             )}
-                            <p className="text-xs text-muted-foreground">{conv.agent?.name || 'Unknown Agent'}</p>
+                            <p className="text-xs text-muted-foreground">{conv.agent?.name || conv.agentName || 'Deleted Agent'}</p>
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
@@ -571,7 +459,7 @@ export default function MessagingPage() {
                           </span>
                         </div>
                       </div>
-                      
+
                       {/* Last message preview */}
                       {lastMsg && (
                         <div className="flex items-start gap-2 pl-[52px]">
@@ -615,8 +503,8 @@ export default function MessagingPage() {
                     {conversations.map((conv) => {
                       const contactName = getContactName(conv.externalNumber);
                       const lastMsg = conv.lastMessage;
-                      const agentAvatar = conv.agent ? getVoiceAvatar(conv.agent.voice) : null;
-                      
+                      const agentAvatar = getVoiceAvatar(conv.agent?.voice || conv.agentVoice);
+
                       return (
                         <tr key={conv.id} className="border-b hover:bg-slate-50 transition-colors">
                           <td className="p-4">
@@ -654,26 +542,22 @@ export default function MessagingPage() {
                             </Link>
                           </td>
                           <td className="p-4">
-                            {conv.agent ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                  {agentAvatar ? (
-                                    <Image
-                                      src={agentAvatar}
-                                      alt={conv.agent.name}
-                                      width={32}
-                                      height={32}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <Bot className="h-4 w-4 text-muted-foreground" />
-                                  )}
-                                </div>
-                                <span className="text-sm text-slate-600">{conv.agent.name}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {agentAvatar ? (
+                                  <Image
+                                    src={agentAvatar}
+                                    alt={conv.agent?.name || conv.agentName || 'Deleted Agent'}
+                                    width={32}
+                                    height={32}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <Bot className="h-4 w-4 text-muted-foreground" />
+                                )}
                               </div>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">—</span>
-                            )}
+                              <span className="text-sm text-slate-600">{conv.agent?.name || conv.agentName || 'Deleted Agent'}</span>
+                            </div>
                           </td>
                           <td className="p-4 max-w-xs">
                             <Link href={`/dashboard/messaging/${conv.id}`}>
@@ -723,8 +607,8 @@ export default function MessagingPage() {
           {/* Load More */}
           {hasMore && (
             <div className="flex justify-center">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={loadMore}
                 className="text-teal-600 border-teal-600 hover:bg-teal-50"
               >

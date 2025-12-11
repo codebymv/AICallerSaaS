@@ -92,7 +92,7 @@ model User {
   contacts      Contact[]
   apiKeys       ApiKey[]
   usageMetrics  UsageMetric[]
-  calendarIntegration CalendarIntegration?
+  calendarIntegrations CalendarIntegration[]
   messages      Message[]
   conversations Conversation[]
   assets        Asset[]   // User's uploaded media assets
@@ -178,6 +178,14 @@ model Agent {
   webhookEvents   String[]  @default([])
   calendarEnabled Boolean   @default(false) // Enable calendar access for this agent
   
+  // Calendar Configuration (agent-centric)
+  calendarIntegrationId   String?   // Which calendar this agent uses
+  calendarIntegration     CalendarIntegration? @relation(fields: [calendarIntegrationId], references: [id], onDelete: SetNull)
+  calendarScopes          String[]  @default(["read_calendar", "create_events", "reschedule_events"])
+  defaultEventTypeId      String?   // Cal.com/Calendly event type ID (stored as string for flexibility)
+  defaultEventTypeName    String?   // Display name for the event type
+  defaultEventDuration    Int?      @default(30) // Google Calendar duration in minutes
+  
   // Status
   isActive        Boolean   @default(true)
   
@@ -201,6 +209,7 @@ model Agent {
   @@index([template])
   @@index([isActive])
   @@index([communicationChannel])
+  @@index([calendarIntegrationId])
 }
 
 // ============ PHONE NUMBERS ============
@@ -461,6 +470,10 @@ model Conversation {
   agentId         String?
   agent           Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
   
+  // Denormalized agent info (preserved when agent is deleted)
+  agentName       String?
+  agentVoice      String?
+  
   messages        Message[]
   
   createdAt       DateTime  @default(now())
@@ -476,8 +489,8 @@ model Conversation {
 
 model CalendarIntegration {
   id                    String    @id @default(cuid())
-  userId                String    @unique
-  provider              String    @default("calendly") // calendly, calcom
+  userId                String    // Multiple calendars allowed per user
+  provider              String    @default("calendly") // calendly, calcom, google
   
   // OAuth Tokens (encrypted) - used by Calendly
   accessToken           String
@@ -499,16 +512,25 @@ model CalendarIntegration {
   calcomEventTypeSlug   String?
   calcomEventTypeName   String?
   
+  // Google Calendar-specific
+  googleAccessToken     String?   // Encrypted
+  googleRefreshToken    String?   // Encrypted (critical - only issued once)
+  googleTokenExpiry     DateTime?
+  googleCalendarId      String?   // Primary calendar ID
+  googleUserEmail       String?
+  
   // Settings
   timezone              String    @default("America/New_York")
   isActive              Boolean   @default(true)
   
   // Relations
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agents                Agent[]   // Agents that use this calendar (reverse relation)
   
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   
+  @@unique([userId, provider]) // One of each provider type per user
   @@index([userId])
 }
 

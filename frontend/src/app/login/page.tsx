@@ -96,7 +96,7 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700 text-white" disabled={loading}>
+            <Button type="submit" className="w-full bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700 text-white" disabled={loading}>
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
             <p className="text-sm text-muted-foreground text-center">

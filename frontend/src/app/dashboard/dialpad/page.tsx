@@ -229,7 +229,7 @@ export default function DialpadPage() {
                 You need at least one active agent with Outbound or Hybrid mode to make calls.
               </p>
               <Link href="/dashboard/agents/new">
-                <Button className="bg-teal-600 hover:bg-teal-700">
+                <Button className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
                   <Plus className="h-4 w-4 mr-2" />
                   Create an Agent
                 </Button>
@@ -401,7 +401,7 @@ export default function DialpadPage() {
           <Button
             type="button"
             onClick={handleCall}
-            className="w-full h-14 text-lg bg-teal-600 hover:bg-teal-700"
+            className="w-full h-14 text-lg bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700"
             disabled={calling || digits.length < 10 || !selectedAgentId}
           >
             {calling ? (

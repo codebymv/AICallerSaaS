@@ -508,6 +508,18 @@ class ApiClient {
     return this.request<{
       connected: boolean;
       configured: boolean;
+      // New: array of all connected calendars
+      calendars?: Array<{
+        id: string;
+        provider: string;
+        email?: string;
+        username?: string;
+        eventTypeName?: string;
+        timezone?: string;
+        isActive?: boolean;
+      }>;
+      connectedProviders?: string[];
+      // Legacy: single calendar data
       provider?: string;
       email?: string;
       username?: string;
@@ -560,6 +572,23 @@ class ApiClient {
     }>('/api/calendar/calcom/connect', {
       method: 'POST',
       body: JSON.stringify({ apiKey }),
+    });
+  }
+
+  async getGoogleCalendarAuthUrl() {
+    return this.request<{
+      authUrl: string;
+    }>('/api/auth/google/calendar', {
+      method: 'GET',
+    });
+  }
+
+  async disconnectGoogleCalendar() {
+    return this.request<{
+      success: boolean;
+      message: string;
+    }>('/api/auth/google/disconnect', {
+      method: 'POST',
     });
   }
 
@@ -617,8 +646,13 @@ class ApiClient {
     }>(`/api/calendar/availability?date=${date}`);
   }
 
-  async disconnectCalendar() {
-    return this.request<{ disconnected: boolean }>('/api/calendar/disconnect', {
+  // Calendar agent assignment is now handled through agent create/update (agent-centric approach)
+
+  async disconnectCalendar(provider?: string) {
+    const url = provider 
+      ? `/api/calendar/disconnect?provider=${provider}`
+      : '/api/calendar/disconnect';
+    return this.request<{ disconnected: boolean; provider: string }>( url, {
       method: 'DELETE',
     });
   }

@@ -16,6 +16,7 @@ import { rateLimiter } from './middleware/rate-limiter';
 
 // Routes
 import authRoutes from './routes/auth.routes';
+import googleAuthRoutes from './routes/google-auth.routes';
 import agentRoutes from './routes/agents.routes';
 import callRoutes from './routes/calls.routes';
 import webhookRoutes from './routes/webhooks.routes';
@@ -150,6 +151,7 @@ export async function createServer() {
 
   // API Routes
   app.use('/api/auth', authRoutes);
+  app.use('/api/auth', googleAuthRoutes);
   app.use('/api/agents', agentRoutes);
   app.use('/api/calls', callRoutes);
   app.use('/api/contacts', contactRoutes);

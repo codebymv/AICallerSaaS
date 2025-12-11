@@ -109,13 +109,13 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-[60px] lg:top-0 bottom-0 left-0 z-40 w-64 bg-white/80 backdrop-blur-xl border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-[60px] lg:top-0 bottom-0 left-0 z-40 w-64 bg-slate-50/90 backdrop-blur-xl border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo - Teal background with inverted icon and text, matches selected tab */}
-          <div className="flex items-center gap-3 px-6 py-5 bg-teal-600">
+          {/* Logo - Subtle gradient header with inverted icon and text */}
+          <div className="flex items-center gap-3 px-6 py-5 bg-gradient-to-b from-[#0fa693] to-teal-600">
             <Image
               src="/logo-icon-transparent-inverted.png"
               alt="Gleam Icon"
@@ -146,14 +146,14 @@ export default function DashboardLayout({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
-                      ? 'bg-teal-600 text-white'
+                      ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
                       : 'text-slate-600 hover:bg-slate-100'
                   }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className={`h-5 w-5 transition-colors ${!isActive ? 'group-hover:text-teal-600' : ''}`} />
                   {item.label}
                 </Link>
               );
@@ -164,14 +164,14 @@ export default function DashboardLayout({
           <div className="px-4 pb-4">
             <Link
               href="/dashboard/settings"
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 pathname.startsWith('/dashboard/settings')
-                  ? 'bg-teal-600 text-white'
+                  ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
                   : 'text-slate-600 hover:bg-slate-100'
               }`}
               onClick={() => setMobileMenuOpen(false)}
             >
-              <Settings className="h-5 w-5" />
+              <Settings className={`h-5 w-5 transition-colors ${!pathname.startsWith('/dashboard/settings') ? 'group-hover:text-teal-600' : ''}`} />
               Settings
             </Link>
           </div>
@@ -191,7 +191,7 @@ export default function DashboardLayout({
             </div>
             <Button
               variant="ghost"
-              className="w-full justify-start mt-2 text-white hover:bg-white/10"
+              className="w-full justify-start mt-2 text-white/80 hover:bg-white/10 hover:text-white"
               onClick={handleLogout}
             >
               <LogOut className="h-4 w-4 mr-2" />

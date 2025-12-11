@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  AudioLines, 
-  Play, 
-  Pause, 
-  Volume2, 
-  ChevronDown, 
+import {
+  AudioLines,
+  Play,
+  Pause,
+  Volume2,
+  ChevronDown,
   ChevronUp,
   Check,
   Loader2,
@@ -20,90 +20,90 @@ import Image from 'next/image';
 
 // Voice data with ElevenLabs voice IDs and sample URLs
 const VOICES = [
-  { 
-    id: 'rachel', 
+  {
+    id: 'rachel',
     elevenLabsId: '21m00Tcm4TlvDq8ikWAM',
-    name: 'Rachel', 
+    name: 'Rachel',
     description: 'Calm, professional female voice',
     avatar: '/rachel.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/21m00Tcm4TlvDq8ikWAM/6edb9076-c3e4-420c-b6ab-11d43fe341c8.mp3'
   },
-  { 
-    id: 'drew', 
+  {
+    id: 'drew',
     elevenLabsId: '29vD33N1CtxCmqQRPOHJ',
-    name: 'Drew', 
+    name: 'Drew',
     description: 'Confident, articulate male voice',
     avatar: '/drew.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/29vD33N1CtxCmqQRPOHJ/8bef0b2e-9e39-43b8-8c89-53c2e39a9ab3.mp3'
   },
-  { 
-    id: 'clyde', 
+  {
+    id: 'clyde',
     elevenLabsId: '2EiwWnXFnvU5JabPnv8n',
-    name: 'Clyde', 
+    name: 'Clyde',
     description: 'Warm, friendly male voice',
     avatar: '/clyde.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/2EiwWnXFnvU5JabPnv8n/65e8b6b6-e4f8-47ee-83f2-7f7b2e3f8f90.mp3'
   },
-  { 
-    id: 'paul', 
+  {
+    id: 'paul',
     elevenLabsId: '5Q0t7uMcjvnagumLfvZi',
-    name: 'Paul', 
+    name: 'Paul',
     description: 'Clear, authoritative male voice',
     avatar: '/paul.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/5Q0t7uMcjvnagumLfvZi/6d2c6618-16cd-4e65-8b3a-4c2e2f9d0f6b.mp3'
   },
-  { 
-    id: 'domi', 
+  {
+    id: 'domi',
     elevenLabsId: 'AZnzlk1XvdvUeBnXmlld',
-    name: 'Domi', 
+    name: 'Domi',
     description: 'Energetic, youthful female voice',
     avatar: '/domi.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/AZnzlk1XvdvUeBnXmlld/25d7f5c8-5b6e-4b5e-8f52-4d1e2a9e7b5c.mp3'
   },
-  { 
-    id: 'dave', 
+  {
+    id: 'dave',
     elevenLabsId: 'CYw3kZ02Hs0563khs1Fj',
-    name: 'Dave', 
+    name: 'Dave',
     description: 'Conversational male voice',
     avatar: '/dave.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/CYw3kZ02Hs0563khs1Fj/7b7c4e5c-5e6b-4b5e-9f52-5e1e3b9e8c6d.mp3'
   },
-  { 
-    id: 'fin', 
+  {
+    id: 'fin',
     elevenLabsId: 'D38z5RcWu1voky8WS1ja',
-    name: 'Fin', 
+    name: 'Fin',
     description: 'Sophisticated Irish male voice',
     avatar: '/fin.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/D38z5RcWu1voky8WS1ja/8c7c5f5d-6e7b-5c6e-af63-6f2e4c9f9d7e.mp3'
   },
-  { 
-    id: 'sarah', 
+  {
+    id: 'sarah',
     elevenLabsId: 'EXAVITQu4vr4xnSDxMaL',
-    name: 'Sarah', 
+    name: 'Sarah',
     description: 'Soft, friendly female voice',
     avatar: '/sarah.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/EXAVITQu4vr4xnSDxMaL/01a3e33c-6e99-4ee6-8be2-96472b79fd31.mp3'
   },
-  { 
-    id: 'antoni', 
+  {
+    id: 'antoni',
     elevenLabsId: 'ErXwobaYiN019PkySvjV',
-    name: 'Antoni', 
+    name: 'Antoni',
     description: 'Warm, expressive male voice',
     avatar: '/antoni.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/ErXwobaYiN019PkySvjV/38d8f8c4-7f7d-6c7f-bf74-7g3f5d0g0f8f.mp3'
   },
-  { 
-    id: 'thomas', 
+  {
+    id: 'thomas',
     elevenLabsId: 'GBv7mTt0atIp3Br8iCZE',
-    name: 'Thomas', 
+    name: 'Thomas',
     description: 'Calm, reassuring male voice',
     avatar: '/thomas.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/GBv7mTt0atIp3Br8iCZE/49d9f9d5-8g8e-7d8g-cg85-8h4g6e1h1g9g.mp3'
   },
-  { 
-    id: 'charlie', 
+  {
+    id: 'charlie',
     elevenLabsId: 'IKne3meq5aSn9XLyUdCD',
-    name: 'Charlie', 
+    name: 'Charlie',
     description: 'Natural Australian male voice',
     avatar: '/charlie.png',
     sampleUrl: 'https://storage.googleapis.com/eleven-public-cdn/premade/voices/IKne3meq5aSn9XLyUdCD/5a0a0a0a-9h9f-8e9h-dh96-9i5h7f2i2h0h.mp3'
@@ -180,16 +180,16 @@ export default function VoicesPage() {
     }
 
     setPlayingVoice(voiceId);
-    
+
     try {
       const audio = new Audio(sampleUrl);
       audioRef.current = audio;
-      
+
       audio.onended = () => {
         setPlayingVoice(null);
         audioRef.current = null;
       };
-      
+
       audio.onerror = () => {
         setPlayingVoice(null);
         audioRef.current = null;
@@ -199,7 +199,7 @@ export default function VoicesPage() {
           variant: 'destructive',
         });
       };
-      
+
       await audio.play();
     } catch (error) {
       setPlayingVoice(null);
@@ -231,7 +231,7 @@ export default function VoicesPage() {
         preset: selectedPreset,
       };
       localStorage.setItem('voiceDefaults', JSON.stringify(voiceDefaults));
-      
+
       toast({
         title: 'Defaults saved!',
         description: `${VOICES.find(v => v.id === selectedVoice)?.name} will be the default voice for new agents`,
@@ -295,11 +295,10 @@ export default function VoicesPage() {
                 {VOICES.map((voice) => (
                   <div
                     key={voice.id}
-                    className={`relative p-4 border rounded-lg cursor-pointer transition-all hover:border-teal-400 ${
-                      selectedVoice === voice.id
-                        ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/20'
-                        : 'border-slate-200 hover:bg-slate-50'
-                    }`}
+                    className={`relative p-4 border rounded-lg cursor-pointer transition-all hover:border-teal-400 ${selectedVoice === voice.id
+                      ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/20'
+                      : 'border-slate-200 hover:bg-slate-50'
+                      }`}
                     onClick={() => setSelectedVoice(voice.id)}
                   >
                     {/* Selection indicator */}
@@ -310,7 +309,7 @@ export default function VoicesPage() {
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex-shrink-0">
                         <Image
@@ -326,7 +325,7 @@ export default function VoicesPage() {
                         <p className="text-xs text-muted-foreground truncate">{voice.description}</p>
                       </div>
                     </div>
-                    
+
                     {/* Play button */}
                     <button
                       type="button"
@@ -334,11 +333,10 @@ export default function VoicesPage() {
                         e.stopPropagation();
                         handlePlayVoice(voice.id, voice.sampleUrl);
                       }}
-                      className={`mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors border ${
-                        playingVoice === voice.id
-                          ? 'bg-teal-500 text-white border-teal-500'
-                          : 'border-teal-600 text-teal-600 bg-transparent hover:bg-teal-50'
-                      }`}
+                      className={`mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors border ${playingVoice === voice.id
+                        ? 'bg-teal-500 text-white border-teal-500'
+                        : 'border-teal-600 text-teal-600 bg-transparent hover:bg-teal-50'
+                        }`}
                     >
                       {playingVoice === voice.id ? (
                         <>
@@ -366,7 +364,7 @@ export default function VoicesPage() {
             <CardHeader>
               <CardTitle className="text-slate-600">Voice Style</CardTitle>
               <CardDescription>
-                {selectedVoice 
+                {selectedVoice
                   ? `Customize ${VOICES.find(v => v.id === selectedVoice)?.name}'s voice`
                   : 'Select a voice to customize'
                 }
@@ -382,11 +380,10 @@ export default function VoicesPage() {
                       key={key}
                       type="button"
                       onClick={() => setSelectedPreset(key)}
-                      className={`flex items-center justify-between p-3 border rounded-lg text-left transition-colors ${
-                        selectedPreset === key
-                          ? 'border-teal-500 bg-teal-50'
-                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                      }`}
+                      className={`flex items-center justify-between p-3 border rounded-lg text-left transition-colors ${selectedPreset === key
+                        ? 'border-teal-500 bg-teal-50'
+                        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                        }`}
                     >
                       <div>
                         <p className="font-medium text-slate-600">{preset.name}</p>
@@ -404,7 +401,7 @@ export default function VoicesPage() {
               <button
                 type="button"
                 onClick={() => setShowAdvanced(!showAdvanced)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-slate-600 transition-colors"
+                className="flex items-center gap-2 text-sm text-teal-600 hover:text-teal-700 transition-colors"
               >
                 <Sliders className="h-4 w-4" />
                 Advanced Settings
@@ -507,7 +504,7 @@ export default function VoicesPage() {
                     </p>
                   </div>
                 </div>
-                
+
                 {selectedVoice && (
                   <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-lg">
                     <div className="w-10 h-10 rounded-full overflow-hidden">
@@ -533,7 +530,7 @@ export default function VoicesPage() {
                 <Button
                   onClick={handleSaveDefaults}
                   disabled={!selectedVoice || saving}
-                  className="w-full bg-teal-600 hover:bg-teal-700"
+                  className="w-full bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700"
                 >
                   {saving ? (
                     <>
@@ -552,3 +549,4 @@ export default function VoicesPage() {
     </div>
   );
 }
+

@@ -8,6 +8,7 @@ import { OpenAIService, CALENDAR_TOOLS, ToolCall } from '../llm/openai.service';
 import { ElevenLabsService } from '../tts/elevenlabs.service';
 import { CalendlyService } from '../calendar/calendly.service';
 import { CalComService } from '../calendar/calcom.service';
+import { GoogleCalendarService } from '../calendar/google.service';
 import { MetricsTracker } from '../../utils/metrics';
 import { logger } from '../../utils/logger';
 import { Agent } from '@prisma/client';
@@ -15,7 +16,7 @@ import { getElevenLabsVoiceId } from '../../lib/constants';
 import { decrypt } from '../../utils/crypto';
 
 export interface CalendarIntegration {
-  provider: 'calendly' | 'calcom';
+  provider: 'calendly' | 'calcom' | 'google';
   // Calendly fields
   accessToken?: string;
   calendlyUserUri?: string | null;
@@ -24,6 +25,11 @@ export interface CalendarIntegration {
   calcomApiKey?: string;
   calcomEventTypeId?: number | null;
   calcomEventTypeName?: string | null;
+  // Google Calendar fields
+  googleAccessToken?: string;
+  googleRefreshToken?: string | null;
+  googleCalendarId?: string;
+  googleUserEmail?: string | null;
   // Common fields
   eventTypeName?: string | null;
   timezone: string;
@@ -53,6 +59,7 @@ export class VoicePipeline extends EventEmitter {
   private config: PipelineConfig;
   private calendlyService: CalendlyService | null = null;
   private calcomService: CalComService | null = null;
+  private googleService: GoogleCalendarService | null = null;
 
   private messages: ConversationMessage[] = [];
   private isProcessing = false;
@@ -61,7 +68,7 @@ export class VoicePipeline extends EventEmitter {
   private interruptionEnabled: boolean;
   private interrupted = false;
   private hasCalendarAccess = false;
-  private calendarProvider: 'calendly' | 'calcom' | null = null;
+  private calendarProvider: 'calendly' | 'calcom' | 'google' | null = null;
   
   // Performance: Limit conversation context sent to LLM (reduces latency & cost)
   private readonly MAX_CONTEXT_MESSAGES = 10; // Keep last 10 messages (~5 exchanges)
@@ -189,7 +196,7 @@ export class VoicePipeline extends EventEmitter {
           const finalTranscript = this.pendingTranscript.trim();
           if (finalTranscript && !this.isProcessing) {
             await this.processUserInput(finalTranscript);
-            this.pendingTranscript = '';
+        this.pendingTranscript = '';
           }
           this.utteranceTimeout = null;
         }, this.UTTERANCE_DELAY_MS * 2); // Double delay for incomplete phrases
@@ -641,6 +648,26 @@ BOOKING CONFIRMATION:
         case 'check_calendar_availability': {
           const { date } = toolCall.arguments;
           
+          // Check if agent has read_calendar scope
+          const calendarScopes = this.config.agent.calendarScopes || [];
+          if (!calendarScopes.includes('read_calendar')) {
+            logger.warn('[Pipeline] Agent does not have read_calendar scope');
+            return 'Calendar access is not enabled for this agent. Please collect preferred times and someone will follow up.';
+          }
+          
+          // Google Calendar provider
+          if (this.calendarProvider === 'google' && this.googleService) {
+            const endDate = date; // Check single day
+            const slots = await this.googleService.getAvailableSlots(date, endDate, 60);
+
+            if (slots.length === 0) {
+              return `No available time slots found for ${date}. You may want to suggest checking another date.`;
+            }
+
+            const formattedSlots = this.googleService.formatSlotsForVoice(slots);
+            return formattedSlots;
+          }
+          
           // Cal.com provider
           if (this.calendarProvider === 'calcom' && this.calcomService) {
             const eventTypeId = this.config.calendarIntegration?.calcomEventTypeId;
@@ -680,6 +707,65 @@ BOOKING CONFIRMATION:
 
         case 'book_appointment': {
           const { datetime, name, email, phone, notes } = toolCall.arguments;
+          
+          // Check if agent has create_events scope
+          const bookingScopes = this.config.agent.calendarScopes || [];
+          if (!bookingScopes.includes('create_events')) {
+            logger.warn('[Pipeline] Agent does not have create_events scope');
+            return `Thank you ${name}. I've collected your appointment request for ${new Date(datetime).toLocaleString('en-US', { 
+              timeZone: this.config.calendarIntegration?.timezone,
+              weekday: 'long',
+              month: 'long', 
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true 
+            })}. Someone from our team will confirm your booking shortly.`;
+          }
+          
+          // Google Calendar provider - DIRECT BOOKING!
+          if (this.calendarProvider === 'google' && this.googleService) {
+            // Email is optional for Google Calendar
+            const cleanedEmail = email
+              ? email
+                  .toLowerCase()
+                  .replace(/\s+at\s+/gi, '@')
+                  .replace(/\s+dot\s+/gi, '.')
+                  .replace(/\s/g, '')
+                  .trim()
+              : undefined;
+
+            try {
+              const startTime = new Date(datetime);
+              const endTime = new Date(startTime);
+              endTime.setHours(endTime.getHours() + 1); // Default 1 hour duration
+
+              const event = await this.googleService.createEvent({
+                summary: `Appointment with ${name}`,
+                start: startTime.toISOString(),
+                end: endTime.toISOString(),
+                attendeeEmail: cleanedEmail,
+                attendeeName: name,
+                description: notes || (phone ? `Phone: ${phone}` : undefined),
+                timeZone: this.config.calendarIntegration?.timezone,
+              });
+
+              logger.info('[Pipeline] Google Calendar event created:', event.id);
+              
+              return `Appointment successfully booked for ${name} on ${new Date(startTime).toLocaleString('en-US', {
+                timeZone: this.config.calendarIntegration?.timezone,
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true,
+              })}. ${cleanedEmail ? `A confirmation email has been sent to ${cleanedEmail}.` : ''} Event ID: ${event.id.substring(0, 8)}.`;
+            } catch (error: any) {
+              logger.error('[Pipeline] Google Calendar booking error:', error);
+              return `I encountered an issue booking the appointment. I've noted the details for ${name} at ${datetime}. Someone from our team will confirm the appointment shortly.`;
+            }
+          }
           
           // Cal.com provider - DIRECT BOOKING!
           if (this.calendarProvider === 'calcom' && this.calcomService) {
@@ -834,7 +920,7 @@ BOOKING CONFIRMATION:
       const elevenLabsVoiceId = getElevenLabsVoiceId(this.config.agent.voice);
       
       console.log('[Pipeline] Using voice:', this.config.agent.voice, '-> ElevenLabs ID:', elevenLabsVoiceId);
-
+      
       let playbackDurationMs: number;
 
       if (this.USE_STREAMING_TTS) {

@@ -103,7 +103,16 @@ export default function NewAgentPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [calendarConnected, setCalendarConnected] = useState(false);
-  const [calendarStatus, setCalendarStatus] = useState<{ provider?: string; eventTypeName?: string } | null>(null);
+  const [calendarStatus, setCalendarStatus] = useState<{ 
+    calendars?: Array<{ id: string; provider: string; email?: string; username?: string }>;
+    connectedProviders?: string[];
+    provider?: string; 
+    eventTypeName?: string 
+  } | null>(null);
+  
+  // Event types state for calendar configuration
+  const [eventTypes, setEventTypes] = useState<Array<{ id: string; name: string; duration: number }>>([]);
+  const [loadingEventTypes, setLoadingEventTypes] = useState(false);
   
   // Phone number state
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
@@ -128,6 +137,12 @@ export default function NewAgentPage() {
    callWindowStart: string;
    callWindowEnd: string;
    calendarEnabled: boolean;
+   // Calendar configuration (agent-centric)
+   calendarIntegrationId: string;
+   calendarScopes: string[];
+   defaultEventTypeId: string;
+   defaultEventTypeName: string;
+   defaultEventDuration: number;
    callPurposeType: CallPurposeType;
    callPurpose: string;
    // Messaging-specific fields
@@ -151,6 +166,12 @@ export default function NewAgentPage() {
     callWindowStart: '',
     callWindowEnd: '',
     calendarEnabled: false,
+    // Calendar configuration defaults (all scopes enabled by default)
+    calendarIntegrationId: '',
+    calendarScopes: ['read_calendar', 'create_events', 'reschedule_events'],
+    defaultEventTypeId: '',
+    defaultEventTypeName: '',
+    defaultEventDuration: 30,
     callPurposeType: 'SCHEDULE_APPOINTMENTS',
     callPurpose: CALL_PURPOSES.SCHEDULE_APPOINTMENTS.value,
     // Messaging defaults
@@ -192,13 +213,18 @@ export default function NewAgentPage() {
     const checkCalendar = async () => {
       try {
         const response = await api.getCalendarStatus();
-        setCalendarConnected(response.data?.connected || false);
+        const calendars = response.data?.calendars || [];
+        setCalendarConnected(calendars.length > 0);
         setCalendarStatus(response.data || null);
-        // Update system prompt with calendar awareness if connected
-        if (response.data?.connected && formData.template === 'mode-default') {
+        
+        // Set default calendar integration if calendars are connected
+        if (calendars.length > 0) {
           setFormData(prev => ({
             ...prev,
-            systemPrompt: getSystemPromptForMode(prev.mode, true)
+            calendarIntegrationId: calendars[0].id, // Default to first calendar
+            systemPrompt: prev.template === 'mode-default' 
+              ? getSystemPromptForMode(prev.mode, true) 
+              : prev.systemPrompt
           }));
         }
       } catch {
@@ -235,6 +261,58 @@ export default function NewAgentPage() {
     fetchPhoneNumbers();
     fetchBusinessProfile();
   }, []);
+
+  // Fetch event types when a calendar is selected
+  const fetchEventTypes = async (calendarId: string) => {
+    if (!calendarId || !calendarStatus?.calendars) return;
+    
+    const calendar = calendarStatus.calendars.find(c => c.id === calendarId);
+    if (!calendar) return;
+    
+    setLoadingEventTypes(true);
+    try {
+      let types: Array<{ id: string; name: string; duration: number }> = [];
+      
+      if (calendar.provider === 'calcom') {
+        const response = await api.getCalcomEventTypes();
+        types = (response.data || []).map((et: any) => ({
+          id: String(et.id),
+          name: et.title,
+          duration: et.duration,
+        }));
+      } else if (calendar.provider === 'calendly') {
+        const response = await api.getCalendarEventTypes();
+        types = (response.data || []).map((et: any) => ({
+          id: et.uri,
+          name: et.name,
+          duration: et.duration,
+        }));
+      }
+      // Google Calendar doesn't have event types - uses duration instead
+      
+      setEventTypes(types);
+      
+      // Auto-select first event type if available
+      if (types.length > 0 && !formData.defaultEventTypeId) {
+        setFormData(prev => ({
+          ...prev,
+          defaultEventTypeId: types[0].id,
+          defaultEventTypeName: types[0].name,
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch event types:', error);
+    } finally {
+      setLoadingEventTypes(false);
+    }
+  };
+
+  // Fetch event types when calendar selection changes
+  useEffect(() => {
+    if (formData.calendarIntegrationId && formData.calendarEnabled) {
+      fetchEventTypes(formData.calendarIntegrationId);
+    }
+  }, [formData.calendarIntegrationId, formData.calendarEnabled]);
 
   // Fetch business profile
   const fetchBusinessProfile = async () => {
@@ -339,7 +417,13 @@ export default function NewAgentPage() {
         retryAttempts: formData.retryAttempts,
         callWindowStart: formData.callWindowStart || undefined,
         callWindowEnd: formData.callWindowEnd || undefined,
+        // Calendar configuration (agent-centric)
         calendarEnabled: formData.calendarEnabled,
+        calendarIntegrationId: formData.calendarEnabled ? formData.calendarIntegrationId || undefined : undefined,
+        calendarScopes: formData.calendarEnabled ? formData.calendarScopes : undefined,
+        defaultEventTypeId: formData.calendarEnabled ? formData.defaultEventTypeId || undefined : undefined,
+        defaultEventTypeName: formData.calendarEnabled ? formData.defaultEventTypeName || undefined : undefined,
+        defaultEventDuration: formData.calendarEnabled ? formData.defaultEventDuration : undefined,
         personaName: includeVoice ? (ELEVENLABS_VOICES.find(v => v.id === formData.voiceId)?.name || undefined) : undefined,
         callPurpose: formData.callPurpose || undefined,
         // Messaging-specific fields
@@ -418,7 +502,7 @@ export default function NewAgentPage() {
               ))}
             </div>
             <div className="flex justify-end">
-              <Button onClick={() => setStep(2)} className="bg-teal-600 hover:bg-teal-700">Continue</Button>
+              <Button onClick={() => setStep(2)} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">Continue</Button>
             </div>
           </CardContent>
         </Card>
@@ -723,7 +807,7 @@ export default function NewAgentPage() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              <Button onClick={() => setStep(3)} disabled={!formData.name.trim()} className="bg-teal-600 hover:bg-teal-700">Continue</Button>
+              <Button onClick={() => setStep(3)} disabled={!formData.name.trim()} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">Continue</Button>
             </div>
           </CardContent>
         </Card>
@@ -850,38 +934,184 @@ export default function NewAgentPage() {
                 
                 {/* Calendar Tool */}
                 {calendarConnected && (
-                  <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={formData.calendarEnabled}
-                      onChange={(e) => {
-                        const enabled = e.target.checked;
-                        setFormData(prev => ({
-                          ...prev,
-                          calendarEnabled: enabled,
-                          // Update system prompt if using mode-default template
-                          systemPrompt: prev.template === 'mode-default' 
-                            ? getSystemPromptForMode(prev.mode, enabled) 
-                            : prev.systemPrompt
-                        }));
-                      }}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
-                    />
-                    <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-slate-600">Calendar</span>
-                        {calendarStatus?.provider && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
-                            {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
-                          </span>
-                        )}
+                  <div className="space-y-3">
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formData.calendarEnabled}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          setFormData(prev => ({
+                            ...prev,
+                            calendarEnabled: enabled,
+                            // Update system prompt if using mode-default template
+                            systemPrompt: prev.template === 'mode-default' 
+                              ? getSystemPromptForMode(prev.mode, enabled) 
+                              : prev.systemPrompt
+                          }));
+                        }}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                      />
+                      <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-slate-600">Calendar Tool</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Check availability and book appointments
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Check your availability and book appointments
-                      </p>
-                    </div>
-                  </label>
+                    </label>
+                    
+                    {/* Expanded Calendar Configuration - only when enabled */}
+                    {formData.calendarEnabled && (
+                      <div className="ml-7 pl-4 border-l-2 border-teal-200 space-y-4">
+                        {/* Calendar Selector */}
+                        {calendarStatus?.calendars && calendarStatus.calendars.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground text-xs">Calendar</Label>
+                            <select
+                              className="w-full px-3 py-2 text-sm border rounded-md bg-white"
+                              value={formData.calendarIntegrationId}
+                              onChange={(e) => {
+                                const calId = e.target.value;
+                                setFormData(prev => ({
+                                  ...prev,
+                                  calendarIntegrationId: calId,
+                                  // Reset event type when calendar changes
+                                  defaultEventTypeId: '',
+                                  defaultEventTypeName: '',
+                                }));
+                              }}
+                            >
+                              {calendarStatus.calendars.map((cal) => (
+                                <option key={cal.id} value={cal.id}>
+                                  {cal.provider === 'google' ? 'Google Calendar' :
+                                   cal.provider === 'calcom' ? 'Cal.com' : 'Calendly'} - {cal.email || cal.username || 'Connected'}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                        
+                        {/* Scopes Checkboxes */}
+                        <div className="space-y-2">
+                          <Label className="text-muted-foreground text-xs">Permissions</Label>
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={formData.calendarScopes.includes('read_calendar')}
+                                onChange={(e) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    calendarScopes: e.target.checked
+                                      ? [...prev.calendarScopes, 'read_calendar']
+                                      : prev.calendarScopes.filter(s => s !== 'read_calendar')
+                                  }));
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 accent-teal-600"
+                              />
+                              <span className="text-slate-600">Read Calendar</span>
+                              <span className="text-xs text-muted-foreground">(check availability)</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={formData.calendarScopes.includes('create_events')}
+                                onChange={(e) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    calendarScopes: e.target.checked
+                                      ? [...prev.calendarScopes, 'create_events']
+                                      : prev.calendarScopes.filter(s => s !== 'create_events')
+                                  }));
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 accent-teal-600"
+                              />
+                              <span className="text-slate-600">Create Events</span>
+                              <span className="text-xs text-muted-foreground">(book appointments)</span>
+                            </label>
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={formData.calendarScopes.includes('reschedule_events')}
+                                onChange={(e) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    calendarScopes: e.target.checked
+                                      ? [...prev.calendarScopes, 'reschedule_events']
+                                      : prev.calendarScopes.filter(s => s !== 'reschedule_events')
+                                  }));
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 accent-teal-600"
+                              />
+                              <span className="text-slate-600">Reschedule Events</span>
+                              <span className="text-xs text-muted-foreground">(modify bookings)</span>
+                            </label>
+                          </div>
+                        </div>
+                        
+                        {/* Event Type Selector - for Cal.com/Calendly */}
+                        {(() => {
+                          const selectedCal = calendarStatus?.calendars?.find(c => c.id === formData.calendarIntegrationId);
+                          if (selectedCal?.provider === 'google') {
+                            // Duration selector for Google Calendar
+                            return (
+                              <div className="space-y-2">
+                                <Label className="text-muted-foreground text-xs">Default Duration</Label>
+                                <select
+                                  className="w-full px-3 py-2 text-sm border rounded-md bg-white"
+                                  value={formData.defaultEventDuration}
+                                  onChange={(e) => setFormData(prev => ({
+                                    ...prev,
+                                    defaultEventDuration: parseInt(e.target.value)
+                                  }))}
+                                >
+                                  <option value={15}>15 minutes</option>
+                                  <option value={30}>30 minutes</option>
+                                  <option value={45}>45 minutes</option>
+                                  <option value={60}>60 minutes</option>
+                                  <option value={90}>90 minutes</option>
+                                </select>
+                              </div>
+                            );
+                          } else if (eventTypes.length > 0) {
+                            // Event type selector for Cal.com/Calendly
+                            return (
+                              <div className="space-y-2">
+                                <Label className="text-muted-foreground text-xs">Default Event Type</Label>
+                                <select
+                                  className="w-full px-3 py-2 text-sm border rounded-md bg-white"
+                                  value={formData.defaultEventTypeId}
+                                  onChange={(e) => {
+                                    const eventType = eventTypes.find(et => et.id === e.target.value);
+                                    setFormData(prev => ({
+                                      ...prev,
+                                      defaultEventTypeId: e.target.value,
+                                      defaultEventTypeName: eventType?.name || '',
+                                    }));
+                                  }}
+                                  disabled={loadingEventTypes}
+                                >
+                                  {loadingEventTypes ? (
+                                    <option>Loading...</option>
+                                  ) : (
+                                    eventTypes.map((et) => (
+                                      <option key={et.id} value={et.id}>
+                                        {et.name} ({et.duration} min)
+                                      </option>
+                                    ))
+                                  )}
+                                </select>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Media Tools - only for messaging-capable channels */}
@@ -947,7 +1177,7 @@ export default function NewAgentPage() {
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
-              <Button onClick={handleSubmit} disabled={loading} className="bg-teal-600 hover:bg-teal-700">
+              <Button onClick={handleSubmit} disabled={loading} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
                 {loading ? 'Creating...' : 'Create Agent'}
               </Button>
             </div>

@@ -38,6 +38,11 @@ const configSchema = z.object({
   stripeSecretKey: z.string().optional(),
   stripeWebhookSecret: z.string().optional(),
   
+  // Google OAuth
+  googleClientId: z.string().optional(),
+  googleClientSecret: z.string().optional(),
+  googleRedirectUri: z.string().optional(),
+  
   // App URL
   appUrl: z.string().default('http://localhost:3000'),
   apiUrl: z.string().default('http://localhost:3001'),
@@ -51,7 +56,16 @@ function loadConfig() {
   console.log('CORS_ORIGIN:', process.env.CORS_ORIGIN);
   console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'SET' : 'MISSING');
   console.log('JWT_SECRET:', process.env.JWT_SECRET ? `SET (${process.env.JWT_SECRET.length} chars)` : 'MISSING');
+  console.log('GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'SET' : 'MISSING');
+  console.log('GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'SET' : 'MISSING');
+  console.log('GOOGLE_REDIRECT_URI:', process.env.GOOGLE_REDIRECT_URI ? process.env.GOOGLE_REDIRECT_URI : 'NOT SET');
   console.log('TWILIO_ACCOUNT_SID:', process.env.TWILIO_ACCOUNT_SID ? 'SET' : 'MISSING');
+  console.log('DEBUG: Actual values being passed to Zod:', {
+    googleClientId: process.env.GOOGLE_CLIENT_ID,
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ? '[REDACTED]' : undefined,
+    googleRedirectUri: process.env.GOOGLE_REDIRECT_URI,
+  });
+  
   console.log('DEEPGRAM_API_KEY:', process.env.DEEPGRAM_API_KEY ? 'SET' : 'MISSING');
   console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'SET' : 'MISSING');
   console.log('ELEVENLABS_API_KEY:', process.env.ELEVENLABS_API_KEY ? 'SET' : 'MISSING');
@@ -75,7 +89,9 @@ function loadConfig() {
     deepgramApiKey: process.env.DEEPGRAM_API_KEY,
     openaiApiKey: process.env.OPENAI_API_KEY,
     elevenlabsApiKey: process.env.ELEVENLABS_API_KEY,
-    
+    googleClientId: process.env.GOOGLE_CLIENT_ID || undefined,
+    googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || undefined,
+    googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || undefined,
     stripeSecretKey: process.env.STRIPE_SECRET_KEY,
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     
@@ -90,6 +106,11 @@ function loadConfig() {
     process.exit(1);
   }
 
+  console.log('DEBUG: Config object after parsing:', {
+    googleClientId: result.data.googleClientId ? 'SET' : 'MISSING',
+    googleClientSecret: result.data.googleClientSecret ? 'SET' : 'MISSING',
+    googleRedirectUri: result.data.googleRedirectUri || 'MISSING',
+  });
   console.log('✅ Configuration loaded successfully');
   return result.data;
 }

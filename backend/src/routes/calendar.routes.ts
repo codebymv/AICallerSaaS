@@ -9,6 +9,7 @@ import { createError } from '../middleware/error-handler';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { CalendlyService } from '../services/calendar/calendly.service';
 import { CalComService } from '../services/calendar/calcom.service';
+import { GoogleCalendarService } from '../services/calendar/google.service';
 import { encrypt, decrypt } from '../utils/crypto';
 import { logger } from '../utils/logger';
 import crypto from 'crypto';
@@ -18,10 +19,10 @@ const router = Router();
 // Apply auth to all routes
 router.use(authenticate);
 
-// GET /api/calendar/status - Get calendar integration status
+// GET /api/calendar/status - Get ALL calendar integrations status
 router.get('/status', async (req: AuthRequest, res, next) => {
   try {
-    const integration = await prisma.$queryRaw<Array<{
+    const integrations = await prisma.$queryRaw<Array<{
       id: string;
       provider: string;
       calendlyUserEmail: string | null;
@@ -29,52 +30,61 @@ router.get('/status', async (req: AuthRequest, res, next) => {
       calcomUsername: string | null;
       calcomUserEmail: string | null;
       calcomEventTypeName: string | null;
+      googleUserEmail: string | null;
+      googleCalendarId: string | null;
       timezone: string;
       isActive: boolean;
       expiresAt: Date | null;
     }>>`
       SELECT id, provider, "calendlyUserEmail", "calendlyEventTypeName", 
              "calcomUsername", "calcomUserEmail", "calcomEventTypeName",
+             "googleUserEmail", "googleCalendarId",
              timezone, "isActive", "expiresAt"
       FROM "CalendarIntegration"
       WHERE "userId" = ${req.user!.id}
-      LIMIT 1;
+      ORDER BY "createdAt" ASC;
     `;
 
-    if (integration.length === 0) {
-      return res.json({
-        success: true,
-        data: {
-          connected: false,
-          configured: true,
-        },
-      });
-    }
-
-    const record = integration[0];
-    
-    // Return provider-specific data
-    const providerData = record.provider === 'calcom' 
-      ? {
-          email: record.calcomUserEmail,
-          username: record.calcomUsername,
-          eventTypeName: record.calcomEventTypeName,
-        }
-      : {
-          email: record.calendlyUserEmail,
-          eventTypeName: record.calendlyEventTypeName,
-        };
-    
-    res.json({
-      success: true,
-      data: {
-        connected: true,
-        configured: true,
+    // Transform to a list of connected calendars
+    const calendars = integrations.map(record => {
+      const providerData = record.provider === 'google'
+        ? {
+            email: record.googleUserEmail,
+            calendarId: record.googleCalendarId,
+          }
+        : record.provider === 'calcom' 
+        ? {
+            email: record.calcomUserEmail,
+            username: record.calcomUsername,
+            eventTypeName: record.calcomEventTypeName,
+          }
+        : {
+            email: record.calendlyUserEmail,
+            eventTypeName: record.calendlyEventTypeName,
+          };
+      
+      return {
+        id: record.id,
         provider: record.provider,
         ...providerData,
         timezone: record.timezone,
         isActive: record.isActive,
-        tokenExpired: false,
+      };
+    });
+
+    // Also return backwards-compatible single calendar data for existing frontend
+    const primaryCalendar = calendars[0];
+    
+    res.json({
+      success: true,
+      data: {
+        // New: array of all connected calendars
+        calendars,
+        connectedProviders: calendars.map(c => c.provider),
+        // Legacy compatibility: single calendar data
+        connected: calendars.length > 0,
+        configured: true,
+        ...(primaryCalendar || {}),
       },
     });
   } catch (error) {
@@ -97,13 +107,15 @@ router.post('/calendly/connect', async (req: AuthRequest, res, next) => {
     // Encrypt the token for storage
     const encryptedToken = encrypt(personalAccessToken);
 
-    // Check if integration already exists
+    // Check if Calendly integration already exists for this user
     const existing = await prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM "CalendarIntegration" WHERE "userId" = ${req.user!.id} LIMIT 1;
+      SELECT id FROM "CalendarIntegration" 
+      WHERE "userId" = ${req.user!.id} AND "provider" = 'calendly' 
+      LIMIT 1;
     `;
 
     if (existing.length > 0) {
-      // Update existing
+      // Update existing Calendly integration
       await prisma.$executeRaw`
         UPDATE "CalendarIntegration"
         SET 
@@ -115,10 +127,10 @@ router.post('/calendly/connect', async (req: AuthRequest, res, next) => {
           "timezone" = ${user.timezone},
           "isActive" = true,
           "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "userId" = ${req.user!.id};
+        WHERE "userId" = ${req.user!.id} AND "provider" = 'calendly';
       `;
     } else {
-      // Create new
+      // Create new Calendly integration (doesn't affect other providers)
       const id = crypto.randomUUID();
       await prisma.$executeRaw`
         INSERT INTO "CalendarIntegration" (
@@ -137,6 +149,7 @@ router.post('/calendly/connect', async (req: AuthRequest, res, next) => {
       success: true,
       data: {
         connected: true,
+        provider: 'calendly',
         email: user.email,
         timezone: user.timezone,
       },
@@ -281,18 +294,29 @@ router.get('/availability', async (req: AuthRequest, res, next) => {
   }
 });
 
-// DELETE /api/calendar/disconnect - Disconnect calendar integration
+// DELETE /api/calendar/disconnect - Disconnect a specific calendar provider
 router.delete('/disconnect', async (req: AuthRequest, res, next) => {
   try {
-    await prisma.$executeRaw`
-      DELETE FROM "CalendarIntegration" WHERE "userId" = ${req.user!.id};
-    `;
+    const { provider } = req.query;
 
-    logger.info('[Calendar] Disconnected for user:', req.user!.id);
+    if (provider && typeof provider === 'string') {
+      // Disconnect specific provider
+      await prisma.$executeRaw`
+        DELETE FROM "CalendarIntegration" 
+        WHERE "userId" = ${req.user!.id} AND "provider" = ${provider};
+      `;
+      logger.info(`[Calendar] Disconnected ${provider} for user:`, req.user!.id);
+    } else {
+      // Legacy: disconnect all (for backwards compatibility)
+      await prisma.$executeRaw`
+        DELETE FROM "CalendarIntegration" WHERE "userId" = ${req.user!.id};
+      `;
+      logger.info('[Calendar] Disconnected all calendars for user:', req.user!.id);
+    }
 
     res.json({
       success: true,
-      data: { disconnected: true },
+      data: { disconnected: true, provider: provider || 'all' },
     });
   } catch (error) {
     next(error);
@@ -318,17 +342,18 @@ router.post('/calcom/connect', async (req: AuthRequest, res, next) => {
     // Encrypt the API key for storage
     const encryptedApiKey = encrypt(apiKey);
 
-    // Check if integration already exists
+    // Check if Cal.com integration already exists for this user
     const existing = await prisma.$queryRaw<Array<{ id: string }>>`
-      SELECT id FROM "CalendarIntegration" WHERE "userId" = ${req.user!.id} LIMIT 1;
+      SELECT id FROM "CalendarIntegration" 
+      WHERE "userId" = ${req.user!.id} AND "provider" = 'calcom'
+      LIMIT 1;
     `;
 
     if (existing.length > 0) {
-      // Update existing - switch to Cal.com
+      // Update existing Cal.com integration
       await prisma.$executeRaw`
         UPDATE "CalendarIntegration"
         SET 
-          "provider" = 'calcom',
           "calcomApiKey" = ${encryptedApiKey},
           "calcomUserId" = ${user.id},
           "calcomUsername" = ${user.username},
@@ -336,16 +361,11 @@ router.post('/calcom/connect', async (req: AuthRequest, res, next) => {
           "timezone" = ${user.timeZone},
           "isActive" = true,
           "updatedAt" = CURRENT_TIMESTAMP,
-          -- Clear Calendly fields when switching
-          "accessToken" = ${encryptedApiKey},
-          "calendlyUserUri" = NULL,
-          "calendlyUserEmail" = NULL,
-          "calendlyEventTypeUri" = NULL,
-          "calendlyEventTypeName" = NULL
-        WHERE "userId" = ${req.user!.id};
+          "accessToken" = ${encryptedApiKey}
+        WHERE "userId" = ${req.user!.id} AND "provider" = 'calcom';
       `;
     } else {
-      // Create new
+      // Create new Cal.com integration (doesn't affect other providers)
       const id = crypto.randomUUID();
       await prisma.$executeRaw`
         INSERT INTO "CalendarIntegration" (
@@ -593,7 +613,138 @@ async function getCalComIntegration(userId: string): Promise<{
   };
 }
 
+// ============================================
+// Google Calendar Routes
+// ============================================
+
+// GET /api/calendar/google/calendars - Get user's Google calendars
+router.get('/google/calendars', async (req: AuthRequest, res, next) => {
+  try {
+    const integration = await getGoogleIntegration(req.user!.id);
+    
+    if (!integration) {
+      throw createError('Google Calendar not connected', 400, 'GOOGLE_NOT_CONNECTED');
+    }
+
+    const googleService = new GoogleCalendarService(
+      decrypt(integration.googleAccessToken),
+      integration.googleRefreshToken ? decrypt(integration.googleRefreshToken) : null,
+      integration.googleCalendarId,
+      integration.timezone
+    );
+
+    const calendars = await googleService.getCalendars();
+
+    res.json({
+      success: true,
+      data: calendars.map(cal => ({
+        id: cal.id,
+        summary: cal.summary,
+        primary: cal.primary,
+        timeZone: cal.timeZone,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/calendar/google/availability - Get Google Calendar available slots
+router.get('/google/availability', async (req: AuthRequest, res, next) => {
+  try {
+    const { date, endDate, duration } = req.query;
+
+    if (!date || typeof date !== 'string') {
+      throw createError('Date is required (YYYY-MM-DD format)', 400, 'MISSING_DATE');
+    }
+
+    const integration = await getGoogleIntegration(req.user!.id);
+    
+    if (!integration) {
+      throw createError('Google Calendar not connected', 400, 'GOOGLE_NOT_CONNECTED');
+    }
+
+    const googleService = new GoogleCalendarService(
+      decrypt(integration.googleAccessToken),
+      integration.googleRefreshToken ? decrypt(integration.googleRefreshToken) : null,
+      integration.googleCalendarId,
+      integration.timezone
+    );
+
+    const slots = await googleService.getAvailableSlots(
+      date,
+      typeof endDate === 'string' ? endDate : date,
+      duration ? parseInt(duration as string) : 60
+    );
+
+    // Format for response
+    const formattedSlots = slots.map(slot => ({
+      startTime: slot.start,
+      formatted: new Date(slot.start).toLocaleString('en-US', {
+        timeZone: integration.timezone,
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      }),
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        date,
+        timezone: integration.timezone,
+        slots: formattedSlots,
+        voiceFormat: googleService.formatSlotsForVoice(slots),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Helper function to get active Google Calendar integration
+async function getGoogleIntegration(userId: string): Promise<{
+  googleAccessToken: string;
+  googleRefreshToken: string | null;
+  googleCalendarId: string;
+  googleUserEmail: string | null;
+  timezone: string;
+} | null> {
+  const integration = await prisma.$queryRaw<Array<{
+    id: string;
+    googleAccessToken: string;
+    googleRefreshToken: string | null;
+    googleCalendarId: string;
+    googleUserEmail: string | null;
+    timezone: string;
+    isActive: boolean;
+  }>>`
+    SELECT id, "googleAccessToken", "googleRefreshToken", "googleCalendarId", 
+           "googleUserEmail", timezone, "isActive"
+    FROM "CalendarIntegration"
+    WHERE "userId" = ${userId} AND "isActive" = true AND "provider" = 'google'
+    LIMIT 1;
+  `;
+
+  if (integration.length === 0) {
+    return null;
+  }
+
+  const record = integration[0];
+
+  return {
+    googleAccessToken: record.googleAccessToken,
+    googleRefreshToken: record.googleRefreshToken,
+    googleCalendarId: record.googleCalendarId,
+    googleUserEmail: record.googleUserEmail,
+    timezone: record.timezone,
+  };
+}
+
 // Export helpers for use in voice pipeline
-export { getActiveIntegration, getCalComIntegration };
+export { getActiveIntegration, getCalComIntegration, getGoogleIntegration };
 
 export default router;

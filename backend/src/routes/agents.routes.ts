@@ -116,6 +116,19 @@ router.post('/', async (req: AuthRequest, res, next) => {
     const voiceId = data.voiceId || (voices.length > 0 ? voices[0].id : 'rachel');
     const llmModel = data.llmModel || 'gpt-4-turbo';
 
+    // Validate calendar integration belongs to user if provided
+    if (data.calendarIntegrationId) {
+      const calendarBelongsToUser = await prisma.calendarIntegration.findFirst({
+        where: {
+          id: data.calendarIntegrationId,
+          userId: req.user!.id,
+        },
+      });
+      if (!calendarBelongsToUser) {
+        throw createError('Calendar integration not found', 404, 'CALENDAR_NOT_FOUND');
+      }
+    }
+
     const agent = await prisma.agent.create({
       data: {
         userId: req.user!.id,
@@ -136,7 +149,13 @@ router.post('/', async (req: AuthRequest, res, next) => {
         retryAttempts: data.retryAttempts || 0,
         callWindowStart: data.callWindowStart,
         callWindowEnd: data.callWindowEnd,
+        // Calendar configuration (agent-centric)
         calendarEnabled: data.calendarEnabled ?? false,
+        calendarIntegrationId: data.calendarIntegrationId || null,
+        calendarScopes: data.calendarScopes || ['read_calendar', 'create_events', 'reschedule_events'],
+        defaultEventTypeId: data.defaultEventTypeId || null,
+        defaultEventTypeName: data.defaultEventTypeName || null,
+        defaultEventDuration: data.defaultEventDuration || 30,
         personaName: data.personaName,
         callPurpose: data.callPurpose,
         // Communication channel
@@ -177,6 +196,19 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
       throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
     }
 
+    // Validate calendar integration belongs to user if provided
+    if (data.calendarIntegrationId) {
+      const calendarBelongsToUser = await prisma.calendarIntegration.findFirst({
+        where: {
+          id: data.calendarIntegrationId,
+          userId: req.user!.id,
+        },
+      });
+      if (!calendarBelongsToUser) {
+        throw createError('Calendar integration not found', 404, 'CALENDAR_NOT_FOUND');
+      }
+    }
+
     const agent = await prisma.agent.update({
       where: { id: req.params.id },
       data: {
@@ -198,7 +230,13 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
         retryAttempts: data.retryAttempts,
         callWindowStart: data.callWindowStart,
         callWindowEnd: data.callWindowEnd,
+        // Calendar configuration (agent-centric)
         calendarEnabled: data.calendarEnabled,
+        calendarIntegrationId: data.calendarIntegrationId,
+        calendarScopes: data.calendarScopes,
+        defaultEventTypeId: data.defaultEventTypeId,
+        defaultEventTypeName: data.defaultEventTypeName,
+        defaultEventDuration: data.defaultEventDuration,
         personaName: data.personaName,
         callPurpose: data.callPurpose,
         // Communication channel
@@ -565,12 +603,16 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
         lastMessageAt: new Date(),
         messageCount: { increment: 1 },
         agentId: agent.id, // Update to current agent
+        agentName: agent.name, // Denormalized for when agent is deleted
+        agentVoice: agent.voice,
       },
       create: {
         userId: req.user!.id,
         externalNumber: data.phoneNumber,
         twilioNumber: phoneNumber.phoneNumber,
         agentId: agent.id,
+        agentName: agent.name, // Denormalized for when agent is deleted
+        agentVoice: agent.voice,
         lastMessageAt: new Date(),
         messageCount: 1,
       },

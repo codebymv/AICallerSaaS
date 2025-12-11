@@ -182,54 +182,82 @@ async function handleStreamStart(
     voice: agent.voice,
   });
 
-  // Fetch calendar integration for this user (supports both Calendly and Cal.com)
+  // Fetch calendar integration using agent's calendarIntegrationId (agent-centric approach)
   let calendarIntegration = null;
   try {
-    const calIntegration = await prisma.$queryRaw<Array<{
-      provider: string;
-      accessToken: string;
-      calendlyUserUri: string | null;
-      calendlyEventTypeUri: string | null;
-      calendlyEventTypeName: string | null;
-      calcomApiKey: string | null;
-      calcomEventTypeId: number | null;
-      calcomEventTypeName: string | null;
-      timezone: string;
-      isActive: boolean;
-    }>>`
-      SELECT provider, "accessToken", "calendlyUserUri", "calendlyEventTypeUri", "calendlyEventTypeName",
-             "calcomApiKey", "calcomEventTypeId", "calcomEventTypeName", timezone, "isActive"
-      FROM "CalendarIntegration"
-      WHERE "userId" = ${agent.userId} AND "isActive" = true
-      LIMIT 1;
-    `;
-    
-    if (calIntegration.length > 0) {
-      const integration = calIntegration[0];
+    // Only fetch if agent has calendar enabled AND has a calendar integration assigned
+    if (agent.calendarEnabled && agent.calendarIntegrationId) {
+      const calIntegration = await prisma.$queryRaw<Array<{
+        provider: string;
+        accessToken: string;
+        calendlyUserUri: string | null;
+        calendlyEventTypeUri: string | null;
+        calendlyEventTypeName: string | null;
+        calcomApiKey: string | null;
+        calcomEventTypeId: number | null;
+        calcomEventTypeName: string | null;
+        googleAccessToken: string | null;
+        googleRefreshToken: string | null;
+        googleCalendarId: string | null;
+        googleUserEmail: string | null;
+        timezone: string;
+        isActive: boolean;
+      }>>`
+        SELECT provider, "accessToken", "calendlyUserUri", "calendlyEventTypeUri", "calendlyEventTypeName",
+               "calcomApiKey", "calcomEventTypeId", "calcomEventTypeName",
+               "googleAccessToken", "googleRefreshToken", "googleCalendarId", "googleUserEmail",
+               timezone, "isActive"
+        FROM "CalendarIntegration"
+        WHERE "id" = ${agent.calendarIntegrationId} AND "isActive" = true
+        LIMIT 1;
+      `;
       
-      if (integration.provider === 'calcom' && integration.calcomApiKey && integration.calcomEventTypeId) {
-        // Cal.com integration
-        calendarIntegration = {
-          provider: 'calcom' as const,
-          calcomApiKey: integration.calcomApiKey,
-          calcomEventTypeId: integration.calcomEventTypeId,
-          calcomEventTypeName: integration.calcomEventTypeName,
-          eventTypeName: integration.calcomEventTypeName,
-          timezone: integration.timezone,
-        };
-        console.log('[MediaStream] Cal.com integration found for user');
-      } else if (integration.calendlyEventTypeUri) {
-        // Calendly integration
-        calendarIntegration = {
-          provider: 'calendly' as const,
-          accessToken: integration.accessToken,
-          calendlyUserUri: integration.calendlyUserUri,
-          calendlyEventTypeUri: integration.calendlyEventTypeUri,
-          eventTypeName: integration.calendlyEventTypeName,
-          timezone: integration.timezone,
-        };
-        console.log('[MediaStream] Calendly integration found for user');
+      if (calIntegration.length > 0) {
+        const integration = calIntegration[0];
+        
+        // Use agent's defaultEventTypeId/defaultEventTypeName if set, otherwise fall back to integration values
+        const eventTypeId = agent.defaultEventTypeId ? parseInt(agent.defaultEventTypeId) : integration.calcomEventTypeId;
+        const eventTypeName = agent.defaultEventTypeName || integration.calcomEventTypeName || integration.calendlyEventTypeName;
+        
+        if (integration.provider === 'google' && integration.googleAccessToken) {
+          // Google Calendar integration
+          calendarIntegration = {
+            provider: 'google' as const,
+            googleAccessToken: integration.googleAccessToken,
+            googleRefreshToken: integration.googleRefreshToken,
+            googleCalendarId: integration.googleCalendarId || 'primary',
+            googleUserEmail: integration.googleUserEmail,
+            timezone: integration.timezone,
+            // Agent-specific duration for Google Calendar
+            defaultDuration: agent.defaultEventDuration || 30,
+          };
+          console.log('[MediaStream] Google Calendar integration found for agent:', agent.name);
+        } else if (integration.provider === 'calcom' && integration.calcomApiKey) {
+          // Cal.com integration - use agent's event type if set
+          calendarIntegration = {
+            provider: 'calcom' as const,
+            calcomApiKey: integration.calcomApiKey,
+            calcomEventTypeId: eventTypeId,
+            calcomEventTypeName: eventTypeName,
+            eventTypeName: eventTypeName,
+            timezone: integration.timezone,
+          };
+          console.log('[MediaStream] Cal.com integration found for agent:', agent.name);
+        } else if (integration.calendlyEventTypeUri || agent.defaultEventTypeId) {
+          // Calendly integration - use agent's event type if set
+          calendarIntegration = {
+            provider: 'calendly' as const,
+            accessToken: integration.accessToken,
+            calendlyUserUri: integration.calendlyUserUri,
+            calendlyEventTypeUri: agent.defaultEventTypeId || integration.calendlyEventTypeUri,
+            eventTypeName: eventTypeName,
+            timezone: integration.timezone,
+          };
+          console.log('[MediaStream] Calendly integration found for agent:', agent.name);
+        }
       }
+    } else if (agent.calendarEnabled && !agent.calendarIntegrationId) {
+      console.log('[MediaStream] Agent has calendar enabled but no calendar integration assigned');
     }
   } catch (error) {
     logger.warn('[MediaStream] Could not fetch calendar integration:', error);

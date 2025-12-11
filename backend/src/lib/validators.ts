@@ -35,8 +35,13 @@ export const createAgentSchema = z.object({
   retryAttempts: z.number().min(0).max(5).default(0),
   callWindowStart: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format').optional(),
   callWindowEnd: z.string().regex(/^\d{2}:\d{2}$/, 'Time must be in HH:MM format').optional(),
-  // Calendar integration
+  // Calendar integration (agent-centric)
   calendarEnabled: z.boolean().default(false),
+  calendarIntegrationId: z.string().optional(),
+  calendarScopes: z.array(z.enum(['read_calendar', 'create_events', 'reschedule_events'])).default(['read_calendar', 'create_events', 'reschedule_events']),
+  defaultEventTypeId: z.string().optional(),
+  defaultEventTypeName: z.string().optional(),
+  defaultEventDuration: z.number().min(5).max(480).default(30),
   // Business context
   personaName: z.string().max(100).optional(),
   callPurpose: z.string().max(500).optional(),
