@@ -43,6 +43,12 @@ const configSchema = z.object({
   googleClientSecret: z.string().optional(),
   googleRedirectUri: z.string().optional(),
   
+  // AWS S3
+  awsAccessKeyId: z.string().optional(),
+  awsSecretAccessKey: z.string().optional(),
+  awsRegion: z.string().default('us-east-1'),
+  awsS3Bucket: z.string().optional(),
+  
   // App URL
   appUrl: z.string().default('http://localhost:3000'),
   apiUrl: z.string().default('http://localhost:3001'),
@@ -94,6 +100,11 @@ function loadConfig() {
     googleRedirectUri: process.env.GOOGLE_REDIRECT_URI || undefined,
     stripeSecretKey: process.env.STRIPE_SECRET_KEY,
     stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    
+    awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    awsRegion: process.env.AWS_REGION,
+    awsS3Bucket: process.env.AWS_S3_BUCKET,
     
     appUrl: process.env.APP_URL,
     apiUrl: process.env.API_URL,

@@ -75,6 +75,30 @@ class ApiClient {
     return data;
   }
 
+  // Fetch blob (for audio/video files)
+  async fetchBlob(endpoint: string): Promise<Blob> {
+    const headers: Record<string, string> = {};
+
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(
+        errorData.error?.message || 'Failed to fetch resource',
+        errorData.error?.code || 'FETCH_ERROR',
+        response.status
+      );
+    }
+
+    return response.blob();
+  }
+
   // Auth endpoints
   async login(email: string, password: string) {
     const response = await this.request<{ user: any; token: string }>(
@@ -485,6 +509,19 @@ class ApiClient {
       businessDescription: string | null;
       isComplete: boolean;
     }>('/api/settings/business-profile');
+  }
+
+  // Storage (S3) endpoints
+  async getStorageStatus() {
+    return this.request<{
+      configured: boolean;
+      bucket?: string;
+      region?: string;
+      stats: {
+        twilioRecordings: number;
+        s3Recordings: number;
+      };
+    }>('/api/settings/storage');
   }
 
   async updateBusinessProfile(data: {

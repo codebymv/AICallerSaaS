@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, Bot, ChevronDown, Trash2 } from 'lucide-react';
+import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, Bot, ChevronDown, Trash2, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -147,6 +147,15 @@ export default function SettingsPage() {
   const [businessProfileLoading, setBusinessProfileLoading] = useState(true);
   const [businessProfileSaving, setBusinessProfileSaving] = useState(false);
   const [showBusinessProfileHelp, setShowBusinessProfileHelp] = useState(false);
+
+  // Storage (S3) state
+  const [storageStatus, setStorageStatus] = useState<{
+    configured: boolean;
+    bucket?: string;
+    region?: string;
+    stats: { twilioRecordings: number; s3Recordings: number };
+  } | null>(null);
+  const [storageLoading, setStorageLoading] = useState(true);
   const [businessProfileForm, setBusinessProfileForm] = useState({
     organizationName: '',
     industry: '',
@@ -160,6 +169,7 @@ export default function SettingsPage() {
     fetchPhoneNumbersAndAgents();
     fetchCalendarStatus();
     fetchBusinessProfile();
+    fetchStorageStatus();
 
     // Handle OAuth callback success/error
     const success = searchParams.get('success');
@@ -200,6 +210,19 @@ export default function SettingsPage() {
       console.error('Failed to fetch business profile:', error);
     } finally {
       setBusinessProfileLoading(false);
+    }
+  };
+
+  const fetchStorageStatus = async () => {
+    setStorageLoading(true);
+    try {
+      const response = await api.getStorageStatus();
+      setStorageStatus(response.data || null);
+    } catch (error) {
+      console.error('Failed to fetch storage status:', error);
+      setStorageStatus(null);
+    } finally {
+      setStorageLoading(false);
     }
   };
 
@@ -1360,15 +1383,102 @@ export default function SettingsPage() {
       {/* Preferences Tab */}
       {settingsTab === 'preferences' && (
         <div className="space-y-6">
+          {/* Storage Settings */}
           <Card>
             <CardHeader className="pb-4">
-              <CardTitle className="text-lg text-slate-600">Preferences</CardTitle>
-              <CardDescription>Configure your account preferences</CardDescription>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg text-slate-600">Call Recording Storage</CardTitle>
+                {storageStatus?.configured && (
+                  <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-700 rounded-full">
+                    S3 Active
+                  </span>
+                )}
+              </div>
+              <CardDescription>
+                Configure where call recordings are stored
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Settings className="h-12 w-12 text-slate-300 mb-4" />
-                <p className="text-muted-foreground">Preference settings coming soon</p>
+              {storageLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+                </div>
+              ) : storageStatus?.configured ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                      <span className="font-medium text-green-800">AWS S3 Connected</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Bucket:</span>
+                        <p className="font-mono text-slate-600">{storageStatus.bucket}</p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Region:</span>
+                        <p className="font-mono text-slate-600">{storageStatus.region}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Recording Stats */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-lg">
+                      <p className="text-2xl font-bold text-slate-600">{storageStatus.stats.s3Recordings}</p>
+                      <p className="text-sm text-muted-foreground">S3 Recordings</p>
+                    </div>
+                    <div className="p-4 bg-slate-50 rounded-lg">
+                      <p className="text-2xl font-bold text-slate-600">{storageStatus.stats.twilioRecordings}</p>
+                      <p className="text-sm text-muted-foreground">Twilio Recordings</p>
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    New call recordings are automatically uploaded to S3. Existing Twilio recordings remain accessible.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-5 w-5 text-amber-600" />
+                      <span className="font-medium text-amber-800">S3 Not Configured</span>
+                    </div>
+                    <p className="text-sm text-amber-700">
+                      Call recordings are currently stored on Twilio's servers. To enable S3 storage, configure the following environment variables on your server:
+                    </p>
+                  </div>
+                  
+                  <div className="bg-slate-100 rounded-lg p-4 font-mono text-sm">
+                    <p className="text-slate-500"># AWS S3 Configuration</p>
+                    <p>AWS_ACCESS_KEY_ID=your_access_key</p>
+                    <p>AWS_SECRET_ACCESS_KEY=your_secret_key</p>
+                    <p>AWS_REGION=us-east-1</p>
+                    <p>AWS_S3_BUCKET=your-bucket-name</p>
+                  </div>
+                  
+                  {storageStatus?.stats && (
+                    <div className="p-4 bg-slate-50 rounded-lg">
+                      <p className="text-2xl font-bold text-slate-600">{storageStatus.stats.twilioRecordings}</p>
+                      <p className="text-sm text-muted-foreground">Recordings on Twilio</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* More Preferences Coming Soon */}
+          <Card>
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg text-slate-600">More Settings</CardTitle>
+              <CardDescription>Additional preferences coming soon</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <Settings className="h-10 w-10 text-slate-300 mb-3" />
+                <p className="text-sm text-muted-foreground">More preference options will be added here</p>
               </div>
             </CardContent>
           </Card>

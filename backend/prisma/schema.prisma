@@ -283,6 +283,10 @@ model Call {
   transcript      Json?
   recordingUrl    String?
   
+  // S3 Storage
+  recordingStorageKey    String?   // S3 object key for recording
+  recordingStorageProvider String? // "s3", "twilio" (default is Twilio-hosted)
+  
   // Cost & Usage
   costUsd         Decimal?  @db.Decimal(10, 4)
   minutesUsed     Decimal?  @db.Decimal(10, 2)

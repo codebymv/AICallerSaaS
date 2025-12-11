@@ -136,6 +136,7 @@ export default function CallDetailPage() {
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
   const [fullAgent, setFullAgent] = useState<any>(null);
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
 
   const callId = params.id as string;
 
@@ -161,6 +162,37 @@ export default function CallDetailPage() {
       fetchCall();
     }
   }, [callId]);
+
+  // Fetch recording as blob and create blob URL for audio element
+  useEffect(() => {
+    if (!call?.recordingUrl) {
+      setRecordingUrl(null);
+      return;
+    }
+
+    let blobUrl: string | null = null;
+
+    const fetchRecording = async () => {
+      try {
+        // Fetch recording with authentication using the API client
+        const blob = await api.fetchBlob(`/api/calls/${callId}/recording`);
+        blobUrl = URL.createObjectURL(blob);
+        setRecordingUrl(blobUrl);
+      } catch (error) {
+        console.error('Failed to load recording:', error);
+        setRecordingUrl(null);
+      }
+    };
+
+    fetchRecording();
+
+    // Cleanup: revoke blob URL when component unmounts or call changes
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [call?.recordingUrl, callId]);
 
   const fetchCall = async () => {
     try {
@@ -485,6 +517,23 @@ export default function CallDetailPage() {
                 <p className="text-sm">Agent information unavailable</p>
               </div>
             )}
+
+            {/* Recording Audio Bar */}
+            {call.recordingUrl && (
+              <div className="mt-4 pt-4 border-t">
+                {recordingUrl ? (
+                  <audio controls className="w-full" key={recordingUrl}>
+                    <source src={recordingUrl} type="audio/mpeg" />
+                    Your browser does not support the audio element.
+                  </audio>
+                ) : (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-teal-600" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading recording...</span>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -535,21 +584,6 @@ export default function CallDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm">{call.summary}</p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Recording Card */}
-      {call.recordingUrl && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg text-slate-600">Recording</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <audio controls className="w-full">
-              <source src={`${process.env.NEXT_PUBLIC_API_URL}/api/calls/${call.id}/recording`} type="audio/mpeg" />
-              Your browser does not support the audio element.
-            </audio>
           </CardContent>
         </Card>
       )}

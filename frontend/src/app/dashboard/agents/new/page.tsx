@@ -121,6 +121,8 @@ export default function NewAgentPage() {
   const [twilioConfigured, setTwilioConfigured] = useState(false);
   const [phoneDropdownOpen, setPhoneDropdownOpen] = useState(false);
   const phoneDropdownRef = useRef<HTMLDivElement>(null);
+  const [organizationDropdownOpen, setOrganizationDropdownOpen] = useState(false);
+  const organizationDropdownRef = useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState<{
    name: string;
@@ -314,6 +316,23 @@ export default function NewAgentPage() {
     }
   }, [formData.calendarIntegrationId, formData.calendarEnabled]);
 
+  // Handle clicks outside dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (phoneDropdownRef.current && !phoneDropdownRef.current.contains(event.target as Node)) {
+        setPhoneDropdownOpen(false);
+      }
+      if (organizationDropdownRef.current && !organizationDropdownRef.current.contains(event.target as Node)) {
+        setOrganizationDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   // Fetch business profile
   const fetchBusinessProfile = async () => {
     try {
@@ -476,7 +495,7 @@ export default function NewAgentPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-slate-600">Choose a Template</CardTitle>
-            <CardDescription>Start with a pre-built template or create from scratch</CardDescription>
+            {/* <CardDescription>Start with a pre-built template or create from scratch</CardDescription> */}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -501,7 +520,11 @@ export default function NewAgentPage() {
                 </button>
               ))}
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-between">
+              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/agents')} className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
               <Button onClick={() => setStep(2)} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">Continue</Button>
             </div>
           </CardContent>
@@ -526,34 +549,60 @@ export default function NewAgentPage() {
               />
             </div>
 
-            {/* Organization */}
+            {/* Organization Selection */}
             <div className="space-y-2">
               <Label className="text-muted-foreground">Organization *</Label>
               {businessProfile?.organizationName ? (
-                  <div className="p-4 border rounded-lg border-teal-500 bg-teal-50">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
-                        <Building2 className="h-3 w-3 text-teal-600" />
-                      </span>
-                      <h3 className="font-semibold text-sm text-muted-foreground">{businessProfile.organizationName}</h3>
-                      {businessProfile.industry && (
-                        <span className="text-xs text-muted-foreground ml-auto">{businessProfile.industry}</span>
-                      )}
+                <div className="relative" ref={organizationDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setOrganizationDropdownOpen(!organizationDropdownOpen)}
+                    className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full justify-between transition-colors border-teal-500 bg-teal-50"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                        <Building2 className="h-4 w-4 text-teal-600" />
+                      </div>
+                      <span className="font-medium text-slate-600">{businessProfile.organizationName}</span>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${organizationDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {organizationDropdownOpen && (
+                    <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg py-1">
+                      <div className="px-3 py-2 text-sm text-slate-600">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-teal-600" />
+                          <span className="font-medium">{businessProfile.organizationName}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                            From Organization Profile
+                        </p>
+                        <Link
+                          href="/dashboard/settings?tab=preferences"
+                          className="inline-flex items-center gap-1 mt-2 text-xs text-teal-600 hover:underline"
+                          onClick={() => setOrganizationDropdownOpen(false)}
+                        >
+                          <Settings className="h-3 w-3" />
+                          Update in Settings
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link href="/dashboard/settings?tab=preferences" className="block">
+                  <div className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full border-amber-300 bg-amber-50 hover:border-amber-400 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <span className="font-medium text-amber-800">Not configured</span>
+                      <p className="text-xs text-amber-700 mt-0.5">Click to set up your organization profile in Settings</p>
                     </div>
                   </div>
-                ) : (
-                  <Link href="/dashboard/settings?tab=preferences" className="block">
-                    <div className="p-4 border rounded-lg border-amber-300 bg-amber-50 hover:border-amber-400 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-amber-100">
-                          <AlertCircle className="h-3 w-3 text-amber-600" />
-                        </span>
-                        <h3 className="font-semibold text-sm text-amber-800">Not configured</h3>
-                      </div>
-                      <p className="text-xs text-amber-700">Click to set up your organization profile in Settings</p>
-                    </div>
-                  </Link>
-                )}
+                </Link>
+              )}
             </div>
 
             {/* Phone Number Selection */}
@@ -670,6 +719,18 @@ export default function NewAgentPage() {
                             </button>
                           );
                         })}
+                        
+                        {/* Settings link */}
+                        <div className="border-t mt-1 pt-1">
+                          <Link
+                            href="/dashboard/settings"
+                            className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                            onClick={() => setPhoneDropdownOpen(false)}
+                          >
+                            <Settings className="h-4 w-4 text-teal-600" />
+                            <span className="text-xs text-teal-600 hover:underline">Manage Phone Numbers</span>
+                          </Link>
+                        </div>
                       </div>
                     )}
                   </div>

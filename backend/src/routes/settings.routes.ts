@@ -10,6 +10,7 @@ import { ERROR_CODES } from '../lib/constants';
 import { encrypt, decrypt, maskSecret } from '../utils/crypto';
 import { TwilioService } from '../services/twilio.service';
 import { logger } from '../utils/logger';
+import { getStorageStatus } from '../services/storage.service';
 
 const router = Router();
 
@@ -241,6 +242,46 @@ router.put('/business-profile', async (req: AuthRequest, res, next) => {
         industry: updatedUser.industry,
         businessDescription: updatedUser.businessDescription,
         isComplete: updatedUser.businessProfileComplete,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/settings/storage - Get S3 storage configuration status
+router.get('/storage', async (req: AuthRequest, res, next) => {
+  try {
+    const status = getStorageStatus();
+    
+    // Get recording stats
+    const recordingStats = await prisma.call.groupBy({
+      by: ['recordingStorageProvider'],
+      where: {
+        userId: req.user!.id,
+        recordingUrl: { not: null },
+      },
+      _count: { id: true },
+    });
+    
+    const stats = {
+      twilioRecordings: 0,
+      s3Recordings: 0,
+    };
+    
+    recordingStats.forEach(stat => {
+      if (stat.recordingStorageProvider === 's3') {
+        stats.s3Recordings = stat._count.id;
+      } else {
+        stats.twilioRecordings = stat._count.id;
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...status,
+        stats,
       },
     });
   } catch (error) {

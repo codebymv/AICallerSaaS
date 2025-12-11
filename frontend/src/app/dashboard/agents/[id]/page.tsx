@@ -10,12 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode, BusinessContext, COMMUNICATION_CHANNELS, CommunicationChannel, supportsVoice, supportsMessaging, getModeDescription, MEDIA_TOOLS } from '@/lib/constants';
+import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode, BusinessContext, COMMUNICATION_CHANNELS, CommunicationChannel, supportsVoice, supportsMessaging, getModeDescription, MEDIA_TOOLS, CALL_PURPOSES, CallPurposeType } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
 import { OutboundMessageDialog } from '@/components/OutboundMessageDialog';
 import { DeleteButton } from '@/components/DeleteButton';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2, MessageSquare, Layers, Image as ImageIcon, FileText, Video } from 'lucide-react';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2, MessageSquare, Layers, Image as ImageIcon, FileText, Video, HelpCircle, ClipboardList, Bell, Edit } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -114,6 +114,39 @@ const getChannelIcon = (channel: string) => {
   }
 };
 
+const getCallPurposeIcon = (purposeType: string) => {
+  const className = 'h-3 w-3 text-teal-600';
+  switch (purposeType) {
+    case 'SCHEDULE_APPOINTMENTS':
+      return <Calendar className={className} />;
+    case 'ANSWER_SUPPORT':
+      return <HelpCircle className={className} />;
+    case 'COLLECT_INFO':
+      return <ClipboardList className={className} />;
+    case 'SEND_REMINDERS':
+      return <Bell className={className} />;
+    case 'GENERAL_INQUIRIES':
+      return <MessageSquare className={className} />;
+    case 'CUSTOM':
+      return <Edit className={className} />;
+    default:
+      return null;
+  }
+};
+
+// Helper function to determine callPurposeType from callPurpose string
+const getCallPurposeTypeFromString = (purpose: string): CallPurposeType => {
+  if (!purpose) return 'CUSTOM';
+  
+  for (const [key, purposeData] of Object.entries(CALL_PURPOSES)) {
+    if (purposeData.value && purpose.trim() === purposeData.value.trim()) {
+      return key as CallPurposeType;
+    }
+  }
+  
+  return 'CUSTOM';
+};
+
 export default function AgentDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -146,6 +179,7 @@ export default function AgentDetailPage() {
   const [eventTypes, setEventTypes] = useState<Array<{ id: string; name: string; duration: number }>>([]);
   const [loadingEventTypes, setLoadingEventTypes] = useState(false);
   const [callPurpose, setCallPurpose] = useState('');
+  const [callPurposeType, setCallPurposeType] = useState<CallPurposeType>('CUSTOM');
 
   // Communication channel and media tools state
   const [communicationChannel, setCommunicationChannel] = useState<CommunicationChannel>('VOICE_ONLY');
@@ -168,6 +202,8 @@ export default function AgentDetailPage() {
   const [phoneDropdownOpen, setPhoneDropdownOpen] = useState(false);
   const [savingPhoneNumber, setSavingPhoneNumber] = useState(false);
   const phoneDropdownRef = useRef<HTMLDivElement>(null);
+  const [organizationDropdownOpen, setOrganizationDropdownOpen] = useState(false);
+  const organizationDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchAgent();
@@ -186,11 +222,14 @@ export default function AgentDetailPage() {
     }
   };
 
-  // Handle click outside for phone dropdown
+  // Handle click outside for dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (phoneDropdownRef.current && !phoneDropdownRef.current.contains(event.target as Node)) {
         setPhoneDropdownOpen(false);
+      }
+      if (organizationDropdownRef.current && !organizationDropdownRef.current.contains(event.target as Node)) {
+        setOrganizationDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -331,7 +370,9 @@ export default function AgentDetailPage() {
         setDefaultEventTypeId(response.data.defaultEventTypeId || '');
         setDefaultEventTypeName(response.data.defaultEventTypeName || '');
         setDefaultEventDuration(response.data.defaultEventDuration || 30);
-        setCallPurpose(response.data.callPurpose || '');
+        const loadedCallPurpose = response.data.callPurpose || '';
+        setCallPurpose(loadedCallPurpose);
+        setCallPurposeType(getCallPurposeTypeFromString(loadedCallPurpose));
         setCommunicationChannel(response.data.communicationChannel || 'VOICE_ONLY');
         setImageToolEnabled(response.data.imageToolEnabled || false);
         setDocumentToolEnabled(response.data.documentToolEnabled || false);
@@ -635,7 +676,7 @@ export default function AgentDetailPage() {
           {editing ? (
             <>
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-muted-foreground">Agent Name</Label>
+                <Label htmlFor="name" className="text-muted-foreground">Agent Name *</Label>
                 <Input
                   id="name"
                   value={name}
@@ -643,28 +684,57 @@ export default function AgentDetailPage() {
                 />
               </div>
 
-              {/* Organization */}
+              {/* Organization Selection */}
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Organization</Label>
+                <Label className="text-muted-foreground">Organization *</Label>
                 {businessProfile?.organizationName ? (
-                  <div className="p-4 border rounded-lg border-teal-500 bg-teal-50">
-                    <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
-                        <Building2 className="h-3 w-3 text-teal-600" />
-                      </span>
-                      <h3 className="font-semibold text-sm text-muted-foreground">{businessProfile.organizationName}</h3>
-                    </div>
+                  <div className="relative" ref={organizationDropdownRef}>
+                    <button
+                      type="button"
+                      onClick={() => setOrganizationDropdownOpen(!organizationDropdownOpen)}
+                      className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full justify-between transition-colors border-teal-500 bg-teal-50"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                          <Building2 className="h-4 w-4 text-teal-600" />
+                        </div>
+                        <span className="font-medium text-slate-600">{businessProfile.organizationName}</span>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${organizationDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {organizationDropdownOpen && (
+                      <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg py-1">
+                        <div className="px-3 py-2 text-sm text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4 text-teal-600" />
+                            <span className="font-medium">{businessProfile.organizationName}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            From Organization Profile
+                          </p>
+                          <Link
+                            href="/dashboard/settings?tab=preferences"
+                            className="inline-flex items-center gap-1 mt-2 text-xs text-teal-600 hover:underline"
+                            onClick={() => setOrganizationDropdownOpen(false)}
+                          >
+                            <Settings className="h-3 w-3" />
+                            Update in Settings
+                          </Link>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <Link href="/dashboard/settings?tab=preferences" className="block">
-                    <div className="p-4 border rounded-lg border-amber-300 bg-amber-50 hover:border-amber-400 transition-colors cursor-pointer">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-amber-100">
-                          <AlertCircle className="h-3 w-3 text-amber-600" />
-                        </span>
-                        <h3 className="font-semibold text-sm text-amber-800">Not configured</h3>
+                    <div className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full border-amber-300 bg-amber-50 hover:border-amber-400 transition-colors">
+                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
                       </div>
-                      <p className="text-xs text-amber-700">Click to set up your organization profile in Settings</p>
+                      <div className="flex-1 text-left">
+                        <span className="font-medium text-amber-800">Not configured</span>
+                        <p className="text-xs text-amber-700 mt-0.5">Click to set up your organization profile in Settings</p>
+                      </div>
                     </div>
                   </Link>
                 )}
@@ -672,7 +742,7 @@ export default function AgentDetailPage() {
 
               {/* Phone Number Assignment */}
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Phone Number</Label>
+                <Label className="text-muted-foreground">Phone Number *</Label>
 
                 {phoneNumbersLoading ? (
                   <div className="text-sm text-muted-foreground">Loading phone numbers...</div>
@@ -795,6 +865,18 @@ export default function AgentDetailPage() {
                               </button>
                             );
                           })}
+                          
+                          {/* Settings link */}
+                          <div className="border-t mt-1 pt-1">
+                            <Link
+                              href="/dashboard/settings"
+                              className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                              onClick={() => setPhoneDropdownOpen(false)}
+                            >
+                              <Settings className="h-4 w-4 text-teal-600" />
+                              <span className="text-xs text-teal-600 hover:underline">Manage Phone Numbers</span>
+                            </Link>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -804,7 +886,7 @@ export default function AgentDetailPage() {
 
               {/* Communication Channel */}
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Communication Channel</Label>
+                <Label className="text-muted-foreground">Communication Channel *</Label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   {Object.entries(COMMUNICATION_CHANNELS).map(([key, channel]) => {
                     const isSelected = communicationChannel === key;
@@ -830,14 +912,15 @@ export default function AgentDetailPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Agent Mode</Label>
-                <div className="grid grid-cols-3 gap-2">
+                <Label className="text-muted-foreground">Agent Mode *</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   {Object.entries(AGENT_MODES).map(([key, modeData]) => (
                     <button
                       key={key}
                       type="button"
-                      className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${mode === key ? 'border-teal-500 bg-teal-50' : ''
-                        }`}
+                      className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
+                        mode === key ? 'border-teal-500 bg-teal-50' : ''
+                      }`}
                       onClick={() => setMode(key as AgentMode)}
                     >
                       <div className="flex items-center gap-2 mb-1">
@@ -854,22 +937,56 @@ export default function AgentDetailPage() {
 
               {/* Call Purpose */}
               <div className="space-y-2">
-                <Label htmlFor="callPurpose" className="text-muted-foreground">Call Purpose</Label>
-                <Input
-                  id="callPurpose"
-                  value={callPurpose}
-                  onChange={(e) => setCallPurpose(e.target.value)}
-                  placeholder="e.g., Schedule appointments, Answer support questions"
-                />
+                <Label className="text-muted-foreground">Call Purpose *</Label>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {Object.entries(CALL_PURPOSES).map(([key, purpose]) => {
+                    const isSelected = callPurposeType === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => {
+                          const newPurpose = key === 'CUSTOM' ? '' : purpose.value;
+                          setCallPurposeType(key as CallPurposeType);
+                          setCallPurpose(newPurpose);
+                        }}
+                        className={`p-3 border rounded-lg text-left hover:border-teal-400 transition-colors ${
+                          isSelected ? 'border-teal-500 bg-teal-50' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                            {getCallPurposeIcon(key)}
+                          </span>
+                          <h3 className="font-semibold text-xs text-slate-600">{purpose.label}</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{purpose.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {/* Custom input field - shows when Custom is selected */}
+                {callPurposeType === 'CUSTOM' && (
+                  <Input
+                    id="callPurpose"
+                    placeholder="Enter your custom call purpose..."
+                    value={callPurpose}
+                    onChange={(e) => setCallPurpose(e.target.value)}
+                  />
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="voice" className="text-muted-foreground">Voice</Label>
-                <VoiceSelector
-                  value={voiceId}
-                  onChange={setVoiceId}
-                />
-              </div>
+              {/* Voice selector - only show for voice-capable channels */}
+              {supportsVoice(communicationChannel) && (
+                <div className="space-y-2">
+                  <Label htmlFor="voice" className="text-muted-foreground">Voice *</Label>
+                  <VoiceSelector
+                    value={voiceId}
+                    onChange={setVoiceId}
+                  />
+                </div>
+              )}
 
               {(mode === 'INBOUND' || mode === 'HYBRID') && (
                 <div className="space-y-2">
@@ -924,7 +1041,7 @@ export default function AgentDetailPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="systemPrompt" className="text-muted-foreground">System Prompt</Label>
+                <Label htmlFor="systemPrompt" className="text-muted-foreground">System Prompt *</Label>
                 <textarea
                   id="systemPrompt"
                   value={systemPrompt}

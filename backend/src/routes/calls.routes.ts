@@ -10,6 +10,8 @@ import { initiateCallSchema, callFilterSchema, paginationSchema } from '../lib/v
 import { ERROR_CODES } from '../lib/constants';
 import { TwilioService } from '../services/twilio.service';
 import { config } from '../config';
+import { getPresignedUrl, getFromS3 } from '../services/storage.service';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -77,7 +79,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
   }
 });
 
-// GET /api/calls/:id/recording - Proxy call recording
+// GET /api/calls/:id/recording - Proxy call recording (from S3 or Twilio)
 router.get('/:id/recording', async (req: AuthRequest, res, next) => {
   try {
     const call = await prisma.call.findFirst({
@@ -85,18 +87,71 @@ router.get('/:id/recording', async (req: AuthRequest, res, next) => {
         id: req.params.id,
         userId: req.user!.id,
       },
+      select: {
+        recordingUrl: true,
+        recordingStorageKey: true,
+        recordingStorageProvider: true,
+      },
     });
 
     if (!call) {
       throw createError('Call not found', 404, ERROR_CODES.CALL_NOT_FOUND);
     }
 
-    if (!call.recordingUrl) {
+    if (!call.recordingUrl && !call.recordingStorageKey) {
       throw createError('Recording not available', 404, ERROR_CODES.CALL_NOT_FOUND);
     }
 
-    // Fetch recording from Twilio with authentication
-    const response = await fetch(call.recordingUrl, {
+    // If recording is stored in S3, proxy it through our backend
+    if (call.recordingStorageKey && call.recordingStorageProvider === 's3') {
+      try {
+        // Stream from S3 to avoid CORS/auth issues with audio element
+        const { body, contentType } = await getFromS3(call.recordingStorageKey);
+        
+        // Support HTTP range requests for audio seeking
+        const range = req.headers.range;
+        const fileSize = body.length;
+        
+        if (range) {
+          // Parse range header (e.g., "bytes=0-1023")
+          const parts = range.replace(/bytes=/, '').split('-');
+          const start = parseInt(parts[0], 10);
+          const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+          const chunkSize = end - start + 1;
+          const chunk = body.slice(start, end + 1);
+          
+          res.writeHead(206, {
+            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Content-Length': chunkSize,
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=3600',
+          });
+          res.end(chunk);
+        } else {
+          // Full file response
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Length', fileSize);
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.setHeader('Accept-Ranges', 'bytes');
+          res.send(body);
+        }
+        return;
+      } catch (s3Error) {
+        // S3 failed, fall back to Twilio URL if available
+        logger.error('[Calls] S3 retrieval failed, falling back to Twilio', { error: s3Error });
+        if (!call.recordingUrl) {
+          throw createError('Failed to retrieve recording', 500);
+        }
+      }
+    }
+
+    // Fallback: Fetch recording from Twilio with authentication
+    const twilioUrl = call.recordingUrl!.endsWith('.mp3') 
+      ? call.recordingUrl 
+      : `${call.recordingUrl}.mp3`;
+      
+    const response = await fetch(twilioUrl, {
       headers: {
         'Authorization': 'Basic ' + Buffer.from(`${config.twilioAccountSid}:${config.twilioAuthToken}`).toString('base64'),
       },

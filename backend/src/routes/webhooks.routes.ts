@@ -7,6 +7,11 @@ import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 import { TwilioMediaEvent } from '../lib/types';
+import { 
+  isS3Configured, 
+  uploadFromUrl, 
+  generateRecordingKey 
+} from '../services/storage.service';
 
 const router = Router();
 
@@ -203,12 +208,72 @@ router.post('/twilio/recording', async (req, res) => {
 
     logger.info('[Webhook] Recording completed', { callSid: CallSid, recordingSid: RecordingSid });
 
-    await prisma.call.update({
+    // First, get the call to find the userId
+    const call = await prisma.call.findUnique({
       where: { callSid: CallSid },
-      data: {
-        recordingUrl: RecordingUrl,
-      },
+      select: { userId: true },
     });
+
+    if (!call) {
+      logger.warn('[Webhook] Recording received for unknown call', { callSid: CallSid });
+      res.status(200).send('OK'); // Acknowledge to Twilio
+      return;
+    }
+
+    // Check if S3 is configured - if so, upload the recording to S3
+    if (isS3Configured()) {
+      try {
+        const storageKey = generateRecordingKey(call.userId, CallSid);
+        const twilioAuth = 'Basic ' + Buffer.from(`${config.twilioAccountSid}:${config.twilioAuthToken}`).toString('base64');
+        
+        // The RecordingUrl from Twilio doesn't include the format, append .mp3
+        const recordingUrlWithFormat = `${RecordingUrl}.mp3`;
+        
+        logger.info('[Webhook] Uploading recording to S3', { callSid: CallSid, storageKey });
+        
+        const result = await uploadFromUrl(
+          recordingUrlWithFormat,
+          storageKey,
+          'audio/mpeg',
+          twilioAuth
+        );
+        
+        // Update call with S3 storage info
+        await prisma.call.update({
+          where: { callSid: CallSid },
+          data: {
+            recordingUrl: RecordingUrl, // Keep Twilio URL as backup
+            recordingStorageKey: result.key,
+            recordingStorageProvider: 's3',
+          },
+        });
+        
+        logger.info('[Webhook] Recording uploaded to S3', { 
+          callSid: CallSid, 
+          storageKey: result.key,
+          size: result.size 
+        });
+      } catch (s3Error) {
+        // If S3 upload fails, still save the Twilio URL
+        logger.error('[Webhook] S3 upload failed, falling back to Twilio URL', { callSid: CallSid, error: s3Error });
+        await prisma.call.update({
+          where: { callSid: CallSid },
+          data: {
+            recordingUrl: RecordingUrl,
+            recordingStorageProvider: 'twilio',
+          },
+        });
+      }
+    } else {
+      // S3 not configured, just store the Twilio URL
+      await prisma.call.update({
+        where: { callSid: CallSid },
+        data: {
+          recordingUrl: RecordingUrl,
+          recordingStorageProvider: 'twilio',
+        },
+      });
+    }
 
     res.status(200).send('OK');
   } catch (error) {
