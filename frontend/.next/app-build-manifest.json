@@ -1,9 +1,9 @@
 {
   "pages": {
-    "/dashboard/page": [
+    "/dashboard/messaging/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/dashboard/page.js"
+      "static/chunks/app/dashboard/messaging/page.js"
     ],
     "/dashboard/layout": [
       "static/chunks/webpack.js",
@@ -16,10 +16,45 @@
       "static/css/app/layout.css",
       "static/chunks/app/layout.js"
     ],
+    "/dashboard/messaging/[id]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/messaging/[id]/page.js"
+    ],
+    "/dashboard/agents/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/agents/page.js"
+    ],
+    "/dashboard/contacts/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/contacts/page.js"
+    ],
+    "/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/page.js"
+    ],
+    "/dashboard/voices/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/voices/page.js"
+    ],
+    "/dashboard/dialpad/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/dialpad/page.js"
+    ],
     "/dashboard/calls/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/dashboard/calls/page.js"
+    ],
+    "/dashboard/calls/[id]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/dashboard/calls/[id]/page.js"
     ]
   }
 }

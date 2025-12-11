@@ -6,7 +6,7 @@ import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { createError } from '../middleware/error-handler';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { createAgentSchema, updateAgentSchema, makeOutboundCallSchema } from '../lib/validators';
+import { createAgentSchema, updateAgentSchema, makeOutboundCallSchema, sendMessageSchema } from '../lib/validators';
 import { ERROR_CODES, DEFAULT_VOICES, DEFAULT_LLM_MODELS } from '../lib/constants';
 import { decrypt } from '../utils/crypto';
 
@@ -23,7 +23,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
       orderBy: { createdAt: 'desc' },
       include: {
         _count: {
-          select: { calls: true },
+          select: { calls: true, messages: true },
         },
       },
     });
@@ -45,6 +45,7 @@ router.get('/', async (req: AuthRequest, res, next) => {
         return {
           ...agent,
           totalCalls: agent._count.calls,
+          totalMessages: agent._count.messages,
           avgDuration: Math.round(avgDurationResult._avg.duration || 0),
         };
       })
@@ -69,7 +70,7 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
       },
       include: {
         _count: {
-          select: { calls: true },
+          select: { calls: true, messages: true },
         },
       },
     });
@@ -95,6 +96,7 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
       data: {
         ...agent,
         totalCalls: agent._count.calls,
+        totalMessages: agent._count.messages,
         avgDuration: Math.round(avgDurationResult._avg.duration || 0),
       },
     });
@@ -137,6 +139,15 @@ router.post('/', async (req: AuthRequest, res, next) => {
         calendarEnabled: data.calendarEnabled ?? false,
         personaName: data.personaName,
         callPurpose: data.callPurpose,
+        // Communication channel
+        communicationChannel: data.communicationChannel || 'VOICE_ONLY',
+        // Messaging-specific fields
+        messagingGreeting: data.messagingGreeting,
+        messagingSystemPrompt: data.messagingSystemPrompt,
+        // Media tool access
+        imageToolEnabled: data.imageToolEnabled ?? false,
+        documentToolEnabled: data.documentToolEnabled ?? false,
+        videoToolEnabled: data.videoToolEnabled ?? false,
       },
     });
 
@@ -190,6 +201,15 @@ router.put('/:id', async (req: AuthRequest, res, next) => {
         calendarEnabled: data.calendarEnabled,
         personaName: data.personaName,
         callPurpose: data.callPurpose,
+        // Communication channel
+        communicationChannel: data.communicationChannel,
+        // Messaging-specific fields
+        messagingGreeting: data.messagingGreeting,
+        messagingSystemPrompt: data.messagingSystemPrompt,
+        // Media tool access
+        imageToolEnabled: data.imageToolEnabled,
+        documentToolEnabled: data.documentToolEnabled,
+        videoToolEnabled: data.videoToolEnabled,
       },
     });
 
@@ -416,6 +436,172 @@ router.post('/:id/call', async (req: AuthRequest, res, next) => {
         callSid: result.callSid,
         callId: call.id,
         status: 'initiated',
+        to: data.phoneNumber,
+        from: phoneNumber.phoneNumber,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/agents/:id/message - Send an outbound SMS/MMS message
+router.post('/:id/message', async (req: AuthRequest, res, next) => {
+  try {
+    const data = sendMessageSchema.parse(req.body);
+
+    // Get agent and verify ownership
+    const agent = await prisma.agent.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user!.id,
+      },
+    });
+
+    if (!agent) {
+      throw createError('Agent not found', 404, ERROR_CODES.AGENT_NOT_FOUND);
+    }
+
+    // Check if agent supports messaging
+    if (agent.communicationChannel === 'VOICE_ONLY') {
+      throw createError('Agent is not configured for messaging', 400, 'MESSAGING_NOT_ENABLED');
+    }
+
+    // Check if agent mode allows outbound
+    if (agent.mode === 'INBOUND') {
+      throw createError('Agent is configured for inbound only', 400, 'OUTBOUND_NOT_ALLOWED');
+    }
+
+    // Get phone number assigned to this agent
+    const phoneNumber = await prisma.phoneNumber.findFirst({
+      where: {
+        userId: req.user!.id,
+        agentId: agent.id,
+        isActive: true,
+      },
+    });
+
+    if (!phoneNumber) {
+      throw createError('No active phone number assigned to this agent', 400, ERROR_CODES.NO_PHONE_NUMBER);
+    }
+
+    // Get user's Twilio credentials
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: {
+        twilioAccountSid: true,
+        twilioAuthToken: true,
+        twilioConfigured: true,
+      },
+    });
+
+    if (!user?.twilioConfigured || !user.twilioAccountSid || !user.twilioAuthToken) {
+      throw createError('Twilio account not configured', 400, ERROR_CODES.TWILIO_NOT_CONFIGURED);
+    }
+
+    // Resolve asset IDs to URLs if provided
+    let allMediaUrls: string[] = data.mediaUrls || [];
+    
+    if (data.assetIds && data.assetIds.length > 0) {
+      const assets = await prisma.asset.findMany({
+        where: {
+          id: { in: data.assetIds },
+          userId: req.user!.id,
+        },
+      });
+      
+      // Validate that agent has the right tools enabled for these asset types
+      for (const asset of assets) {
+        if (asset.category === 'IMAGE' && !agent.imageToolEnabled) {
+          throw createError(`Image tool not enabled for this agent. Cannot send asset: ${asset.name}`, 400, 'IMAGE_TOOL_NOT_ENABLED');
+        }
+        if (asset.category === 'DOCUMENT' && !agent.documentToolEnabled) {
+          throw createError(`Document tool not enabled for this agent. Cannot send asset: ${asset.name}`, 400, 'DOCUMENT_TOOL_NOT_ENABLED');
+        }
+        if (asset.category === 'VIDEO' && !agent.videoToolEnabled) {
+          throw createError(`Video tool not enabled for this agent. Cannot send asset: ${asset.name}`, 400, 'VIDEO_TOOL_NOT_ENABLED');
+        }
+      }
+      
+      // Add asset URLs to media URLs
+      allMediaUrls = [...allMediaUrls, ...assets.map(a => a.url)];
+    }
+
+    // Check if agent has any media tool enabled when media is provided
+    const hasAnyMediaToolEnabled = agent.imageToolEnabled || agent.documentToolEnabled || agent.videoToolEnabled;
+    if (allMediaUrls.length > 0 && !hasAnyMediaToolEnabled) {
+      throw createError('No media tools enabled for this agent. Enable Image, Document, or Video tools to send media.', 400, 'NO_MEDIA_TOOLS_ENABLED');
+    }
+
+    // Initialize Twilio service with user's credentials
+    const { TwilioService } = await import('../services/twilio.service');
+    const twilioService = new TwilioService({
+      accountSid: user.twilioAccountSid,
+      authToken: decrypt(user.twilioAuthToken),
+    });
+
+    // Determine message type
+    const messageType = allMediaUrls.length > 0 ? 'MMS' : 'SMS';
+
+    // Send the message
+    const result = messageType === 'MMS'
+      ? await twilioService.sendMMS(data.phoneNumber, phoneNumber.phoneNumber, data.message, allMediaUrls)
+      : await twilioService.sendSMS(data.phoneNumber, phoneNumber.phoneNumber, data.message);
+
+    // Create or update conversation
+    const conversation = await prisma.conversation.upsert({
+      where: {
+        userId_externalNumber_twilioNumber: {
+          userId: req.user!.id,
+          externalNumber: data.phoneNumber,
+          twilioNumber: phoneNumber.phoneNumber,
+        },
+      },
+      update: {
+        lastMessageAt: new Date(),
+        messageCount: { increment: 1 },
+        agentId: agent.id, // Update to current agent
+      },
+      create: {
+        userId: req.user!.id,
+        externalNumber: data.phoneNumber,
+        twilioNumber: phoneNumber.phoneNumber,
+        agentId: agent.id,
+        lastMessageAt: new Date(),
+        messageCount: 1,
+      },
+    });
+
+    // Create message record
+    const message = await prisma.message.create({
+      data: {
+        messageSid: result.messageSid,
+        userId: req.user!.id,
+        agentId: agent.id,
+        phoneNumberId: phoneNumber.id,
+        conversationId: conversation.id, // Link to conversation
+        type: messageType,
+        direction: 'OUTBOUND',
+        status: 'QUEUED',
+        from: phoneNumber.phoneNumber,
+        to: data.phoneNumber,
+        body: data.message,
+        mediaUrls: allMediaUrls,
+        numMedia: allMediaUrls.length,
+        sentAt: new Date(),
+        // Agent snapshot
+        agentName: agent.name,
+        agentSystemPrompt: agent.messagingSystemPrompt || agent.systemPrompt,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        messageSid: result.messageSid,
+        messageId: message.id,
+        status: 'QUEUED',
+        type: messageType,
         to: data.phoneNumber,
         from: phoneNumber.phoneNumber,
       },

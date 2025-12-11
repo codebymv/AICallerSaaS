@@ -40,6 +40,15 @@ export const createAgentSchema = z.object({
   // Business context
   personaName: z.string().max(100).optional(),
   callPurpose: z.string().max(500).optional(),
+  // Communication channel
+  communicationChannel: z.enum(['VOICE_ONLY', 'MESSAGING_ONLY', 'OMNICHANNEL']).default('VOICE_ONLY'),
+  // Messaging-specific fields
+  messagingGreeting: z.string().max(500).optional(),
+  messagingSystemPrompt: z.string().max(10000).optional(),
+  // Media tool access (for messaging-capable agents)
+  imageToolEnabled: z.boolean().default(false),
+  documentToolEnabled: z.boolean().default(false),
+  videoToolEnabled: z.boolean().default(false),
 });
 
 export const updateAgentSchema = createAgentSchema.partial();
@@ -47,6 +56,27 @@ export const updateAgentSchema = createAgentSchema.partial();
 export const makeOutboundCallSchema = z.object({
   phoneNumber: z.string().min(10, 'Invalid phone number').max(15),
 });
+
+// Message schemas
+export const sendMessageSchema = z.object({
+  phoneNumber: z.string().min(10, 'Invalid phone number').max(15),
+  message: z.string().min(1, 'Message is required').max(1600), // SMS can be up to 1600 chars (10 segments)
+  mediaUrls: z.array(z.string().url()).max(10).optional(), // MMS allows up to 10 media files
+  assetIds: z.array(z.string()).max(10).optional(), // Reference pre-uploaded assets by ID
+});
+
+// Asset schemas
+export const createAssetSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100),
+  description: z.string().max(500).optional(),
+  category: z.enum(['IMAGE', 'DOCUMENT', 'VIDEO', 'OTHER']).default('OTHER'),
+  url: z.string().url('Must be a valid URL'),
+  mimeType: z.string().optional(),
+  fileSize: z.number().optional(),
+  agentId: z.string().optional(), // Optional: associate with specific agent
+});
+
+export const updateAssetSchema = createAssetSchema.partial();
 
 // Call schemas
 export const initiateCallSchema = z.object({
@@ -78,6 +108,9 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type CreateAgentInput = z.infer<typeof createAgentSchema>;
 export type UpdateAgentInput = z.infer<typeof updateAgentSchema>;
 export type MakeOutboundCallInput = z.infer<typeof makeOutboundCallSchema>;
+export type SendMessageInput = z.infer<typeof sendMessageSchema>;
+export type CreateAssetInput = z.infer<typeof createAssetSchema>;
+export type UpdateAssetInput = z.infer<typeof updateAssetSchema>;
 export type InitiateCallInput = z.infer<typeof initiateCallSchema>;
 export type CallFilterInput = z.infer<typeof callFilterSchema>;
 export type PaginationInput = z.infer<typeof paginationSchema>;

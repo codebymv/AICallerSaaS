@@ -245,10 +245,10 @@ export default function DialpadPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Hash className="h-8 w-8 text-slate-600" />
+        <Hash className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
         <div>
-          <h1 className="text-2xl font-bold text-slate-600">Dialpad</h1>
-          <p className="text-muted-foreground">Make outbound calls with your AI agents</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Dialpad</h1>
+          <p className="hidden sm:block text-muted-foreground text-sm">Make outbound calls with your AI agents</p>
         </div>
       </div>
 

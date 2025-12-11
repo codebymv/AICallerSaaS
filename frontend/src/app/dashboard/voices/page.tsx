@@ -275,10 +275,10 @@ export default function VoicesPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <AudioLines className="h-8 w-8 text-slate-600" />
+        <AudioLines className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
         <div>
-          <h1 className="text-2xl font-bold text-slate-600">Voices</h1>
-          <p className="text-muted-foreground">Choose and customize voices for your AI agents</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Voices</h1>
+          <p className="hidden sm:block text-muted-foreground text-sm">Choose and customize voices for your AI agents</p>
         </div>
       </div>
 
@@ -291,11 +291,11 @@ export default function VoicesPage() {
               <CardDescription>Click to select, or press play to preview</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-wrap gap-3 justify-center">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {VOICES.map((voice) => (
                   <div
                     key={voice.id}
-                    className={`relative p-4 border rounded-lg cursor-pointer transition-all hover:border-teal-400 w-full sm:w-[calc(50%-6px)] lg:w-[calc(33.333%-8px)] ${
+                    className={`relative p-4 border rounded-lg cursor-pointer transition-all hover:border-teal-400 ${
                       selectedVoice === voice.id
                         ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/20'
                         : 'border-slate-200 hover:bg-slate-50'

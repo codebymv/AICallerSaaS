@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode, BusinessContext } from '@/lib/constants';
+import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, getSystemPromptForMode, BusinessContext, COMMUNICATION_CHANNELS, CommunicationChannel, supportsVoice, supportsMessaging, getModeDescription, MEDIA_TOOLS } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2 } from 'lucide-react';
+import { OutboundMessageDialog } from '@/components/OutboundMessageDialog';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2, MessageSquare, Layers, Image as ImageIcon, FileText, Video } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -27,8 +28,10 @@ interface Agent {
   template?: string;
   isActive: boolean;
   totalCalls: number;
+  totalMessages: number;
   avgDuration: number;
   mode: AgentMode;
+  communicationChannel: CommunicationChannel;
   outboundGreeting?: string;
   callTimeout: number;
   retryAttempts: number;
@@ -37,6 +40,13 @@ interface Agent {
   calendarEnabled?: boolean;
   personaName?: string;
   callPurpose?: string;
+  // Messaging fields
+  messagingGreeting?: string;
+  messagingSystemPrompt?: string;
+  // Media tool flags
+  imageToolEnabled?: boolean;
+  documentToolEnabled?: boolean;
+  videoToolEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -81,6 +91,20 @@ const getModeIcon = (mode: string) => {
   }
 };
 
+const getChannelIcon = (channel: string) => {
+  const className = 'h-4 w-4 text-teal-600';
+  switch (channel) {
+    case 'VOICE_ONLY':
+      return <Phone className={className} />;
+    case 'MESSAGING_ONLY':
+      return <MessageSquare className={className} />;
+    case 'OMNICHANNEL':
+      return <Layers className={className} />;
+    default:
+      return null;
+  }
+};
+
 export default function AgentDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -91,6 +115,7 @@ export default function AgentDetailPage() {
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(searchParams.get('edit') === 'true');
   const [showCallDialog, setShowCallDialog] = useState(false);
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
 
   // Form state
   const [name, setName] = useState('');
@@ -104,6 +129,12 @@ export default function AgentDetailPage() {
   const [calendarEnabled, setCalendarEnabled] = useState(false);
   const [calendarStatus, setCalendarStatus] = useState<CalendarStatus | null>(null);
   const [callPurpose, setCallPurpose] = useState('');
+  
+  // Communication channel and media tools state
+  const [communicationChannel, setCommunicationChannel] = useState<CommunicationChannel>('VOICE_ONLY');
+  const [imageToolEnabled, setImageToolEnabled] = useState(false);
+  const [documentToolEnabled, setDocumentToolEnabled] = useState(false);
+  const [videoToolEnabled, setVideoToolEnabled] = useState(false);
   const [businessProfile, setBusinessProfile] = useState<{
     organizationName: string | null;
     industry: string | null;
@@ -235,6 +266,10 @@ export default function AgentDetailPage() {
         setCallWindowEnd(response.data.callWindowEnd || '');
         setCalendarEnabled(response.data.calendarEnabled || false);
         setCallPurpose(response.data.callPurpose || '');
+        setCommunicationChannel(response.data.communicationChannel || 'VOICE_ONLY');
+        setImageToolEnabled(response.data.imageToolEnabled || false);
+        setDocumentToolEnabled(response.data.documentToolEnabled || false);
+        setVideoToolEnabled(response.data.videoToolEnabled || false);
       }
     } catch (error) {
       const message = error instanceof ApiError ? error.message : 'Failed to load agent';
@@ -264,6 +299,10 @@ export default function AgentDetailPage() {
         calendarEnabled,
         personaName: ELEVENLABS_VOICES.find(v => v.id === voiceId)?.name || undefined,
         callPurpose: callPurpose || undefined,
+        communicationChannel,
+        imageToolEnabled,
+        documentToolEnabled,
+        videoToolEnabled,
       });
       toast({
         title: 'Agent updated',
@@ -354,16 +393,39 @@ export default function AgentDetailPage() {
 
           {/* Center: Stats (desktop only - fills available space) */}
           <div className="hidden lg:flex items-stretch gap-3 flex-1 mx-6">
-            <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
-              <span className="text-xs text-muted-foreground">Total Calls</span>
-              <span className="text-lg font-semibold text-slate-600">{agent.totalCalls || '—'}</span>
-            </div>
-            <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
-              <span className="text-xs text-muted-foreground">Avg Duration</span>
-              <span className="text-lg font-semibold text-slate-600">
-                {agent.avgDuration ? `${Math.round(agent.avgDuration)}s` : '—'}
-              </span>
-            </div>
+            {/* Communication stats - adapts based on channel */}
+            {agent.communicationChannel === 'VOICE_ONLY' ? (
+              <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
+                <span className="text-xs text-muted-foreground">Total Calls</span>
+                <span className="text-lg font-semibold text-slate-600">{agent.totalCalls || '—'}</span>
+              </div>
+            ) : agent.communicationChannel === 'MESSAGING_ONLY' ? (
+              <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
+                <span className="text-xs text-muted-foreground">Total Messages</span>
+                <span className="text-lg font-semibold text-slate-600">{agent.totalMessages || '—'}</span>
+              </div>
+            ) : (
+              <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
+                <span className="text-xs text-muted-foreground">Total Communications</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-semibold text-slate-600">{(agent.totalCalls || 0) + (agent.totalMessages || 0)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ({agent.totalCalls || 0} calls, {agent.totalMessages || 0} msgs)
+                  </span>
+                </div>
+              </div>
+            )}
+            
+            {/* Avg Duration - only show for voice-capable agents */}
+            {(agent.communicationChannel === 'VOICE_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
+              <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
+                <span className="text-xs text-muted-foreground">Avg Duration</span>
+                <span className="text-lg font-semibold text-slate-600">
+                  {agent.avgDuration ? `${Math.round(agent.avgDuration)}s` : '—'}
+                </span>
+              </div>
+            )}
+            
             <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
               <span className="text-xs text-muted-foreground">Status</span>
               <div className="flex items-center gap-2 mt-0.5">
@@ -397,10 +459,20 @@ export default function AgentDetailPage() {
               </>
             ) : (
               <>
-                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && (
+                {/* Make Call button - only for outbound/hybrid agents with voice capability */}
+                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && 
+                 (!agent.communicationChannel || agent.communicationChannel === 'VOICE_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
                   <Button onClick={() => setShowCallDialog(true)} className="bg-teal-600 hover:bg-teal-700">
                     <Phone className="h-4 w-4 mr-2" />
                     Make Call
+                  </Button>
+                )}
+                {/* Send Message button - only for outbound/hybrid agents with messaging capability */}
+                {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') && 
+                 (agent.communicationChannel === 'MESSAGING_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
+                  <Button onClick={() => setShowMessageDialog(true)} className="bg-teal-600 hover:bg-teal-700">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Send Message
                   </Button>
                 )}
                 <Button variant="outline" onClick={() => setEditing(true)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
@@ -415,21 +487,48 @@ export default function AgentDetailPage() {
         </div>
 
         {/* Stats - Mobile/Tablet only (stacked cards) */}
-        <div className="grid gap-4 grid-cols-3 lg:hidden">
-          <Card>
-            <CardHeader className="p-3">
-              <CardDescription className="text-xs">Total Calls</CardDescription>
-              <CardTitle className="text-xl text-slate-600">{agent.totalCalls || '—'}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader className="p-3">
-              <CardDescription className="text-xs">Avg Duration</CardDescription>
-              <CardTitle className="text-xl text-slate-600">
-                {agent.avgDuration ? `${Math.round(agent.avgDuration)}s` : '—'}
-              </CardTitle>
-            </CardHeader>
-          </Card>
+        <div className={`grid gap-4 lg:hidden ${
+          agent.communicationChannel === 'OMNICHANNEL' ? 'grid-cols-2' : 'grid-cols-3'
+        }`}>
+          {/* Communication stats card */}
+          {agent.communicationChannel === 'VOICE_ONLY' ? (
+            <Card>
+              <CardHeader className="p-3">
+                <CardDescription className="text-xs">Total Calls</CardDescription>
+                <CardTitle className="text-xl text-slate-600">{agent.totalCalls || '—'}</CardTitle>
+              </CardHeader>
+            </Card>
+          ) : agent.communicationChannel === 'MESSAGING_ONLY' ? (
+            <Card>
+              <CardHeader className="p-3">
+                <CardDescription className="text-xs">Total Messages</CardDescription>
+                <CardTitle className="text-xl text-slate-600">{agent.totalMessages || '—'}</CardTitle>
+              </CardHeader>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader className="p-3">
+                <CardDescription className="text-xs">Communications</CardDescription>
+                <CardTitle className="text-xl text-slate-600">{(agent.totalCalls || 0) + (agent.totalMessages || 0)}</CardTitle>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {agent.totalCalls || 0} calls · {agent.totalMessages || 0} msgs
+                </p>
+              </CardHeader>
+            </Card>
+          )}
+          
+          {/* Avg Duration - only for voice-capable */}
+          {(agent.communicationChannel === 'VOICE_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
+            <Card>
+              <CardHeader className="p-3">
+                <CardDescription className="text-xs">Avg Duration</CardDescription>
+                <CardTitle className="text-xl text-slate-600">
+                  {agent.avgDuration ? `${Math.round(agent.avgDuration)}s` : '—'}
+                </CardTitle>
+              </CardHeader>
+            </Card>
+          )}
+          
           <Card>
             <CardHeader className="p-3">
               <CardDescription className="text-xs">Status</CardDescription>
@@ -627,6 +726,34 @@ export default function AgentDetailPage() {
                 )}
               </div>
 
+              {/* Communication Channel */}
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Communication Channel</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {Object.entries(COMMUNICATION_CHANNELS).map(([key, channel]) => {
+                    const isSelected = communicationChannel === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
+                          isSelected ? 'border-teal-500 bg-teal-50' : ''
+                        }`}
+                        onClick={() => setCommunicationChannel(key as CommunicationChannel)}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                            {getChannelIcon(key)}
+                          </span>
+                          <h3 className="font-semibold text-xs text-slate-600">{channel.label}</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{channel.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Agent Mode</Label>
                 <div className="grid grid-cols-3 gap-2">
@@ -645,7 +772,7 @@ export default function AgentDetailPage() {
                         </span>
                         <h3 className="font-semibold text-xs text-slate-600">{modeData.label}</h3>
                       </div>
-                      <p className="text-xs text-muted-foreground">{modeData.description}</p>
+                      <p className="text-xs text-muted-foreground">{getModeDescription(key as AgentMode, communicationChannel)}</p>
                     </button>
                   ))}
                 </div>
@@ -751,35 +878,91 @@ export default function AgentDetailPage() {
               </div>
 
               {/* Tool Access */}
-              {calendarStatus?.connected && (
+              {(calendarStatus?.connected || supportsMessaging(communicationChannel)) && (
                 <div className="space-y-3">
                   <Label className="text-muted-foreground">Tool Access (optional)</Label>
                   
                   {/* Calendar Tool */}
-                  <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={calendarEnabled}
-                      onChange={(e) => setCalendarEnabled(e.target.checked)}
-                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                    />
-                    <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-slate-600">Calendar</span>
-                        {calendarStatus?.provider && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
-                            {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
-                          </span>
-                        )}
+                  {calendarStatus?.connected && (
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={calendarEnabled}
+                        onChange={(e) => setCalendarEnabled(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                      />
+                      <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-sm text-slate-600">Calendar</span>
+                          {calendarStatus?.provider && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                              {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Check your availability and book appointments
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        When enabled, this agent can check your availability and book appointments
-                      </p>
-                    </div>
-                  </label>
+                    </label>
+                  )}
 
-                  {/* Future tools can be added here */}
+                  {/* Media Tools - only for messaging-capable channels */}
+                  {supportsMessaging(communicationChannel) && (
+                    <>
+                      {/* Images Tool */}
+                      <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={imageToolEnabled}
+                          onChange={(e) => setImageToolEnabled(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                        />
+                        <ImageIcon className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <span className="font-medium text-sm text-slate-600">Images</span>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Send photos, screenshots, and graphics via MMS
+                          </p>
+                        </div>
+                      </label>
+
+                      {/* Documents Tool */}
+                      <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={documentToolEnabled}
+                          onChange={(e) => setDocumentToolEnabled(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                        />
+                        <FileText className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <span className="font-medium text-sm text-slate-600">Documents</span>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Send PDFs, contracts, and forms via MMS
+                          </p>
+                        </div>
+                      </label>
+
+                      {/* Videos Tool */}
+                      <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={videoToolEnabled}
+                          onChange={(e) => setVideoToolEnabled(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                        />
+                        <Video className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <span className="font-medium text-sm text-slate-600">Videos</span>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Share video content and tutorials via MMS
+                          </p>
+                        </div>
+                      </label>
+                    </>
+                  )}
                 </div>
               )}
             </>
@@ -816,29 +999,54 @@ export default function AgentDetailPage() {
                 </div>
                 <div className="flex-1">
                   <Label className="text-muted-foreground">Tool Access</Label>
-                  <div className="flex items-start gap-3 mt-2">
-                    <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm text-slate-600">Calendar</span>
-                        {agent.calendarEnabled && calendarStatus?.connected ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
-                            {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-600">
-                            Disabled
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {agent.calendarEnabled && calendarStatus?.connected
-                          ? `Using "${calendarStatus.eventTypeName}" for appointments`
-                          : !calendarStatus?.connected 
-                            ? 'Calendar not connected' 
-                            : 'Calendar access not enabled for this agent'}
-                      </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
+                    {/* Calendar Tool */}
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-teal-600 flex-shrink-0" />
+                      <span className="font-medium text-sm text-slate-600">Calendar</span>
+                      {agent.calendarEnabled && calendarStatus?.connected ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                          {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">
+                          Off
+                        </span>
+                      )}
                     </div>
+                    
+                    {/* Media Tools - only show if messaging channel */}
+                    {(agent.communicationChannel === 'MESSAGING_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <ImageIcon className="h-4 w-4 text-teal-600 flex-shrink-0" />
+                          <span className="font-medium text-sm text-slate-600">Images</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            agent.imageToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {agent.imageToolEnabled ? 'MMS' : 'Off'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-teal-600 flex-shrink-0" />
+                          <span className="font-medium text-sm text-slate-600">Documents</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            agent.documentToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {agent.documentToolEnabled ? 'MMS' : 'Off'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Video className="h-4 w-4 text-teal-600 flex-shrink-0" />
+                          <span className="font-medium text-sm text-slate-600">Videos</span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            agent.videoToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {agent.videoToolEnabled ? 'MMS' : 'Off'}
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -974,6 +1182,22 @@ export default function AgentDetailPage() {
             console.log('Call initiated:', callData);
             // Optionally redirect to call details page
             // router.push(`/dashboard/calls/${callData.callId}`);
+          }}
+        />
+      )}
+
+      {/* Outbound Message Dialog */}
+      {showMessageDialog && agent && (
+        <OutboundMessageDialog
+          agentId={agent.id}
+          agentName={agent.name}
+          imageToolEnabled={agent.imageToolEnabled || false}
+          documentToolEnabled={agent.documentToolEnabled || false}
+          videoToolEnabled={agent.videoToolEnabled || false}
+          onClose={() => setShowMessageDialog(false)}
+          onMessageSent={(messageData) => {
+            console.log('Message sent:', messageData);
+            // Could show message history or notification
           }}
         />
       )}

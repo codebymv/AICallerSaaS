@@ -164,6 +164,74 @@ class ApiClient {
     });
   }
 
+  async sendMessage(agentId: string, phoneNumber: string, message: string, mediaUrls?: string[], assetIds?: string[]) {
+    return this.request<{
+      messageSid: string;
+      messageId: string;
+      status: string;
+      type: 'SMS' | 'MMS';
+      to: string;
+      from: string;
+    }>(`/api/agents/${agentId}/message`, {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber, message, mediaUrls, assetIds }),
+    });
+  }
+
+  // Asset endpoints
+  async getAssets(params?: { category?: string; agentId?: string }) {
+    const searchParams = new URLSearchParams();
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.agentId) searchParams.set('agentId', params.agentId);
+    
+    const query = searchParams.toString();
+    return this.request<any[]>(`/api/assets${query ? `?${query}` : ''}`);
+  }
+
+  async getAsset(id: string) {
+    return this.request<any>(`/api/assets/${id}`);
+  }
+
+  async createAsset(data: {
+    name: string;
+    description?: string;
+    category: string;
+    url: string;
+    mimeType?: string;
+    fileSize?: number;
+    agentId?: string;
+  }) {
+    return this.request<any>('/api/assets', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateAsset(id: string, data: Partial<{
+    name: string;
+    description: string;
+    category: string;
+    url: string;
+    mimeType: string;
+    fileSize: number;
+    agentId: string;
+  }>) {
+    return this.request<any>(`/api/assets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteAsset(id: string) {
+    return this.request<{ success: boolean; message: string }>(`/api/assets/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getAssetStats() {
+    return this.request<{ IMAGE: number; DOCUMENT: number; VIDEO: number; OTHER: number }>('/api/assets/categories/stats');
+  }
+
   // Call endpoints
   async getCalls(params?: {
     page?: number;
@@ -218,9 +286,72 @@ class ApiClient {
 
   async getCallTimeSeries(days?: number) {
     const query = days ? `?days=${days}` : '';
-    return this.request<{ date: string; calls: number; duration: number; cost: number }[]>(
+    return this.request<{ date: string; calls: number; messages: number; duration: number; cost: number }[]>(
       `/api/calls/analytics/timeseries${query}`
     );
+  }
+
+  // Messaging/Conversation endpoints
+  async getConversations(params?: {
+    page?: number;
+    limit?: number;
+    agentId?: string;
+    search?: string;
+    status?: string;
+    messageCount?: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.agentId) searchParams.set('agentId', params.agentId);
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.messageCount) searchParams.set('messageCount', params.messageCount);
+    if (params?.startDate) searchParams.set('startDate', params.startDate);
+    if (params?.endDate) searchParams.set('endDate', params.endDate);
+
+    const query = searchParams.toString();
+    return this.request<any[]>(`/api/messages/conversations${query ? `?${query}` : ''}`);
+  }
+
+  async getConversation(id: string, params?: { page?: number; limit?: number }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+
+    const query = searchParams.toString();
+    return this.request<any>(`/api/messages/conversations/${id}${query ? `?${query}` : ''}`);
+  }
+
+  async getMessages(params?: {
+    page?: number;
+    limit?: number;
+    agentId?: string;
+    status?: string;
+    direction?: string;
+    type?: string;
+  }) {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set('page', params.page.toString());
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.agentId) searchParams.set('agentId', params.agentId);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.direction) searchParams.set('direction', params.direction);
+    if (params?.type) searchParams.set('type', params.type);
+
+    const query = searchParams.toString();
+    return this.request<any[]>(`/api/messages${query ? `?${query}` : ''}`);
+  }
+
+  async getMessage(id: string) {
+    return this.request<any>(`/api/messages/${id}`);
+  }
+
+  async getMessagingAnalytics(params?: { days?: number }) {
+    const query = params?.days ? `?days=${params.days}` : '';
+    return this.request<any>(`/api/messages/analytics/summary${query}`);
   }
 
   // Contact endpoints

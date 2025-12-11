@@ -26,6 +26,38 @@ enum AgentMode {
   HYBRID
 }
 
+enum CommunicationChannel {
+  VOICE_ONLY
+  MESSAGING_ONLY
+  OMNICHANNEL
+}
+
+enum MessageType {
+  SMS
+  MMS
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  UNDELIVERED
+  RECEIVED
+}
+
+enum AssetCategory {
+  IMAGE
+  DOCUMENT
+  VIDEO
+  OTHER
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -60,6 +92,9 @@ model User {
   apiKeys       ApiKey[]
   usageMetrics  UsageMetric[]
   calendarIntegration CalendarIntegration?
+  messages      Message[]
+  conversations Conversation[]
+  assets        Asset[]   // User's uploaded media assets
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -125,6 +160,18 @@ model Agent {
   // Template
   template        String?
   
+  // Communication Channel Configuration
+  communicationChannel  CommunicationChannel @default(VOICE_ONLY)
+  
+  // Messaging-specific Configuration
+  messagingGreeting     String?   @db.Text  // Initial SMS greeting
+  messagingSystemPrompt String?   @db.Text  // Different prompt for text context
+  
+  // Media Tool Access (for messaging-capable agents)
+  imageToolEnabled      Boolean   @default(false)  // Can send images (product photos, screenshots)
+  documentToolEnabled   Boolean   @default(false)  // Can send PDFs, contracts, forms
+  videoToolEnabled      Boolean   @default(false)  // Can send video links/content
+  
   // Integrations
   webhookUrl      String?
   webhookEvents   String[]  @default([])
@@ -142,6 +189,9 @@ model Agent {
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   calls           Call[]
   phoneNumbers    PhoneNumber[]
+  messages        Message[]
+  conversations   Conversation[]
+  assets          Asset[]   // Pre-uploaded media assets for this agent
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -149,6 +199,7 @@ model Agent {
   @@index([userId])
   @@index([template])
   @@index([isActive])
+  @@index([communicationChannel])
 }
 
 // ============ PHONE NUMBERS ============
@@ -170,6 +221,7 @@ model PhoneNumber {
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   calls           Call[]
+  messages        Message[]
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -321,6 +373,104 @@ model StripeEvent {
   @@index([processed])
 }
 
+// ============ MESSAGES ============
+
+model Message {
+  id              String    @id @default(cuid())
+  
+  // Twilio ID
+  messageSid      String    @unique
+  
+  // Message Details
+  type            MessageType      @default(SMS)
+  direction       MessageDirection
+  status          MessageStatus    @default(QUEUED)
+  from            String
+  to              String
+  
+  // Content
+  body            String?   @db.Text
+  mediaUrls       String[]  @default([])  // MMS media URLs
+  mediaTypes      String[]  @default([])  // MIME types for each media
+  numMedia        Int       @default(0)
+  
+  // Timing
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  
+  // Cost & Usage
+  costUsd         Decimal?  @db.Decimal(10, 4)
+  numSegments     Int       @default(1)
+  
+  // Conversation Threading
+  conversationId  String?
+  conversation    Conversation? @relation(fields: [conversationId], references: [id])
+  
+  // Outcome / AI Response metadata
+  aiGenerated     Boolean   @default(false)
+  errorCode       String?
+  errorMessage    String?
+  
+  // Metadata
+  metadata        Json?
+  
+  // Agent Snapshot (for AI-generated messages)
+  agentName       String?
+  agentSystemPrompt String? @db.Text
+  
+  // Relations
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  agentId         String?
+  agent           Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  
+  phoneNumberId   String?
+  phoneNumber     PhoneNumber? @relation(fields: [phoneNumberId], references: [id])
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([userId, createdAt])
+  @@index([conversationId])
+  @@index([agentId])
+  @@index([status])
+  @@index([messageSid])
+  @@index([from, to])
+}
+
+model Conversation {
+  id              String    @id @default(cuid())
+  
+  // Participants
+  externalNumber  String    // External phone number (customer)
+  twilioNumber    String    // User's Twilio number
+  
+  // Context
+  lastMessageAt   DateTime  @default(now())
+  messageCount    Int       @default(0)
+  
+  // AI Conversation state (store recent messages for context)
+  conversationHistory Json?
+  
+  // Relations
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  agentId         String?
+  agent           Agent?    @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  
+  messages        Message[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([userId, externalNumber, twilioNumber])
+  @@index([userId])
+  @@index([agentId])
+  @@index([lastMessageAt])
+}
+
 // ============ CALENDAR INTEGRATIONS ============
 
 model CalendarIntegration {
@@ -359,4 +509,40 @@ model CalendarIntegration {
   updatedAt             DateTime  @updatedAt
   
   @@index([userId])
+}
+
+// ============ ASSETS (Media for Messaging) ============
+
+model Asset {
+  id              String        @id @default(cuid())
+  
+  // Asset Info
+  name            String        // Display name (e.g., "Product Brochure")
+  description     String?       @db.Text  // Description for LLM context (helps agent know when to use it)
+  category        AssetCategory @default(OTHER)
+  
+  // File Info
+  url             String        // Public URL for Twilio to access
+  mimeType        String?       // e.g., "image/jpeg", "application/pdf"
+  fileSize        Int?          // Size in bytes
+  
+  // Storage Info (for future S3 implementation)
+  // TODO: Add these fields when S3 is configured
+  // storageKey    String?       // S3 object key
+  // storageProvider String?     // "s3", "local", "external"
+  
+  // Relations
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Optional: Associate with specific agent for quick access
+  agentId         String?
+  agent           Agent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([userId])
+  @@index([agentId])
+  @@index([category])
 }

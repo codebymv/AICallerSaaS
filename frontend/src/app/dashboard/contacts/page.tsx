@@ -12,11 +12,12 @@ import {
   Search, 
   Plus, 
   Phone, 
-  Edit2, 
+  Edit, 
   Trash2, 
   Loader2,
   User,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 import { ContactModal } from '@/components/ContactModal';
 
@@ -33,6 +34,7 @@ export default function ContactsPage() {
   const { toast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [searchDebounce, setSearchDebounce] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -48,8 +50,9 @@ export default function ContactsPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const fetchContacts = async () => {
-    setLoading(true);
+  const fetchContacts = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const response = await api.getContacts({ search: searchDebounce || undefined });
       setContacts(response.data || []);
@@ -62,6 +65,7 @@ export default function ContactsPage() {
       });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -130,19 +134,45 @@ export default function ContactsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <Users className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Contacts</h1>
-          <span className="hidden sm:inline text-slate-400">•</span>
-          <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">
-            Manage your contact directory
-          </p>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Contacts</h1>
+            <p className="hidden sm:block text-muted-foreground text-sm">Manage your contact directory</p>
+          </div>
         </div>
-        <Button onClick={handleCreate} className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
-          <Plus className="h-4 w-4 mr-2" />
-          New Contact
-        </Button>
+        {/* Mobile: icon-only buttons */}
+        <div className="flex gap-2 sm:hidden">
+          <Button 
+            onClick={() => fetchContacts(true)} 
+            disabled={refreshing} 
+            variant="outline"
+            size="icon"
+            className="text-teal-600 border-teal-600 hover:bg-teal-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button size="icon" onClick={handleCreate} className="bg-teal-600 hover:bg-teal-700">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        {/* Desktop: full buttons */}
+        <div className="hidden sm:flex gap-2">
+          <Button 
+            onClick={() => fetchContacts(true)} 
+            disabled={refreshing} 
+            variant="outline"
+            className="text-teal-600 border-teal-600 hover:bg-teal-50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button onClick={handleCreate} className="bg-teal-600 hover:bg-teal-700">
+            <Plus className="h-4 w-4 mr-2" />
+            New Contact
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -192,8 +222,8 @@ export default function ContactsPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                      <User className="h-5 w-5 text-teal-600" />
+                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                      <User className="h-6 w-6 text-slate-400" />
                     </div>
                     <div className="min-w-0">
                       <h3 className="font-semibold text-slate-600 truncate">{contact.name}</h3>
@@ -207,9 +237,9 @@ export default function ContactsPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleEdit(contact)}
-                      className="h-8 w-8 text-slate-500 hover:text-teal-600"
+                      className="text-teal-600 hover:text-teal-700"
                     >
-                      <Edit2 className="h-4 w-4" />
+                      <Edit className="h-4 w-4" />
                     </Button>
                     {deleteConfirm === contact.id ? (
                       <div className="flex items-center gap-1">
@@ -236,9 +266,8 @@ export default function ContactsPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setDeleteConfirm(contact.id)}
-                        className="h-8 w-8 text-slate-500 hover:text-red-600"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     )}
                   </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BarChart3, Loader2, UserPlus } from 'lucide-react';
+import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BarChart3, Loader2, UserPlus, MessageSquare, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -35,44 +35,48 @@ export default function DashboardPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [recentCalls, setRecentCalls] = useState<any[]>([]);
   const [contacts, setContacts] = useState<Record<string, any>>({});
-  const [timeSeries, setTimeSeries] = useState<{ date: string; calls: number; duration: number; cost: number }[]>([]);
+  const [timeSeries, setTimeSeries] = useState<{ date: string; calls: number; messages: number; duration: number; cost: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsRes, agentsRes, callsRes, timeSeriesRes] = await Promise.all([
-          api.getCallAnalytics(),
-          api.getAgents(),
-          api.getCalls({ limit: 5 }),
-          api.getCallTimeSeries(30),
-        ]);
-        setStats(statsRes.data);
-        setAgents(agentsRes.data || []);
-        const calls = callsRes.data || [];
-        setRecentCalls(calls);
-        setTimeSeries(timeSeriesRes.data || []);
-        
-        // Fetch contacts for phone numbers in recent calls
-        if (calls.length > 0) {
-          const phoneNumbers = Array.from(new Set(calls.map(getCallPhone)));
-          try {
-            const contactsRes = await api.getContactsBatch(phoneNumbers);
-            if (contactsRes.data) {
-              setContacts(contactsRes.data);
-            }
-          } catch (e) {
-            // Ignore contact fetch errors
+  const fetchData = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    try {
+      const [statsRes, agentsRes, callsRes, timeSeriesRes] = await Promise.all([
+        api.getCallAnalytics(),
+        api.getAgents(),
+        api.getCalls({ limit: 5 }),
+        api.getCallTimeSeries(30),
+      ]);
+      setStats(statsRes.data);
+      setAgents(agentsRes.data || []);
+      const calls = callsRes.data || [];
+      setRecentCalls(calls);
+      setTimeSeries(timeSeriesRes.data || []);
+      
+      // Fetch contacts for phone numbers in recent calls
+      if (calls.length > 0) {
+        const phoneNumbers = Array.from(new Set(calls.map(getCallPhone)));
+        try {
+          const contactsRes = await api.getContactsBatch(phoneNumbers);
+          if (contactsRes.data) {
+            setContacts(contactsRes.data);
           }
+        } catch (e) {
+          // Ignore contact fetch errors
         }
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, []);
   
@@ -125,42 +129,79 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <BarChart3 className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Dashboard</h1>
-          <span className="hidden sm:inline text-slate-400">•</span>
-          <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">Overview of your agent activity</p>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Dashboard</h1>
+            <p className="hidden sm:block text-muted-foreground text-sm">Overview of your agent activity</p>
+          </div>
         </div>
-        <Link href="/dashboard/agents/new" className="w-full sm:w-auto">
-          <Button className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
-            <Plus className="h-4 w-4 mr-2" />
-            New Agent
+        {/* Mobile: icon-only buttons */}
+        <div className="flex gap-2 sm:hidden">
+          <Button 
+            onClick={() => fetchData(true)} 
+            disabled={refreshing} 
+            variant="outline"
+            size="icon"
+            className="text-teal-600 border-teal-600 hover:bg-teal-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
-        </Link>
+          <Link href="/dashboard/agents/new">
+            <Button size="icon" className="bg-teal-600 hover:bg-teal-700">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+        {/* Desktop: full buttons */}
+        <div className="hidden sm:flex gap-2">
+          <Button 
+            onClick={() => fetchData(true)} 
+            disabled={refreshing} 
+            variant="outline"
+            className="text-teal-600 border-teal-600 hover:bg-teal-50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Link href="/dashboard/agents/new">
+            <Button className="bg-teal-600 hover:bg-teal-700">
+              <Plus className="h-4 w-4 mr-2" />
+              New Agent
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="Total Calls"
           value={stats?.totalCalls || 0}
           icon={<Phone className="h-5 w-5" />}
-          description="All time"
+          description="Voice communications"
           chartData={timeSeries.map(d => ({ date: d.date, value: d.calls }))}
+        />
+        <StatCard
+          title="Total Messages"
+          value={stats?.totalMessages || 0}
+          icon={<MessageSquare className="h-5 w-5" />}
+          description="SMS/MMS sent"
+          chartData={timeSeries.map(d => ({ date: d.date, value: d.messages }))}
         />
         <StatCard
           title="Total Duration"
           value={formatDuration(stats?.totalDuration || 0)}
           icon={<Clock className="h-5 w-5" />}
-          description="Minutes used"
+          description="Call minutes"
           chartData={timeSeries.map(d => ({ date: d.date, value: d.duration }))}
         />
         <StatCard
           title="Total Cost"
           value={formatCurrency(stats?.totalCost || 0)}
           icon={<DollarSign className="h-5 w-5" />}
-          description="This period"
+          description="All communications"
           chartData={timeSeries.map(d => ({ date: d.date, value: d.cost }))}
         />
       </div>

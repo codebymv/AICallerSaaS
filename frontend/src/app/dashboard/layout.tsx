@@ -17,7 +17,8 @@ import {
   LayoutDashboard,
   Hash,
   AudioLines,
-  Users
+  Users,
+  MessageSquare
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -26,10 +27,11 @@ import { useCallEvents } from '@/hooks/use-call-events';
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
+  { href: '/dashboard/voices', label: 'Voices', icon: AudioLines },
+  { href: '/dashboard/contacts', label: 'Contacts', icon: Users },
   { href: '/dashboard/dialpad', label: 'Dialpad', icon: Hash },
   { href: '/dashboard/calls', label: 'Call Logs', icon: PhoneCall },
-  { href: '/dashboard/contacts', label: 'Contacts', icon: Users },
-  { href: '/dashboard/voices', label: 'Voices', icon: AudioLines },
+  { href: '/dashboard/messaging', label: 'Messaging', icon: MessageSquare },
 ];
 
 export default function DashboardLayout({

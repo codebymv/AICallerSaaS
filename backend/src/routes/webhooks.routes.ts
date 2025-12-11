@@ -217,4 +217,62 @@ router.post('/twilio/recording', async (req, res) => {
   }
 });
 
+// POST /webhooks/twilio/message-status - SMS/MMS status updates
+router.post('/twilio/message-status', async (req, res) => {
+  try {
+    const {
+      MessageSid,
+      MessageStatus,
+      ErrorCode,
+      ErrorMessage,
+    } = req.body;
+
+    logger.info('[Webhook] Message status update', { messageSid: MessageSid, status: MessageStatus });
+
+    // Map Twilio message status to our MessageStatus enum
+    const statusMap: Record<string, string> = {
+      'queued': 'QUEUED',
+      'sending': 'QUEUED',
+      'sent': 'SENT',
+      'delivered': 'DELIVERED',
+      'undelivered': 'UNDELIVERED',
+      'failed': 'FAILED',
+      'received': 'RECEIVED',
+    };
+
+    const status = statusMap[MessageStatus] || MessageStatus.toUpperCase();
+
+    // Prepare update data
+    const updateData: any = {
+      status,
+    };
+
+    // Add timestamps based on status
+    if (status === 'SENT') {
+      updateData.sentAt = new Date();
+    }
+    if (status === 'DELIVERED') {
+      updateData.deliveredAt = new Date();
+    }
+
+    // Add error info if present
+    if (ErrorCode) {
+      updateData.errorCode = ErrorCode;
+      updateData.errorMessage = ErrorMessage || null;
+    }
+
+    // Update message record
+    await prisma.message.update({
+      where: { messageSid: MessageSid },
+      data: updateData,
+    });
+
+    res.status(200).send('OK');
+  } catch (error) {
+    logger.error('[Webhook] Message status error:', error);
+    // Don't return 500 for missing messages - they might have been deleted
+    res.status(200).send('OK');
+  }
+});
+
 export default router;

@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { formatDuration, formatDate, formatPhoneNumber } from '@/lib/utils';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
 import { ContactModal } from '@/components/ContactModal';
+import { OutboundCallDialog } from '@/components/OutboundCallDialog';
 
 interface Agent {
   id: string;
@@ -22,7 +23,9 @@ interface Agent {
 // Helper to get avatar for a voice
 const getVoiceAvatar = (voiceId?: string): string | null => {
   if (!voiceId) return null;
-  const voice = ELEVENLABS_VOICES.find(v => v.id === voiceId.toLowerCase());
+  const voiceLower = voiceId.toLowerCase();
+  // Try matching by ID first, then by name
+  const voice = ELEVENLABS_VOICES.find(v => v.id === voiceLower || v.name.toLowerCase() === voiceLower);
   return voice?.avatar || null;
 };
 
@@ -223,6 +226,7 @@ export default function CallsPage() {
   });
   const [addContactModalOpen, setAddContactModalOpen] = useState(false);
   const [selectedPhoneNumber, setSelectedPhoneNumber] = useState<string>('');
+  const [showCallDialog, setShowCallDialog] = useState(false);
 
   const fetchCalls = async (pageNum: number = 1) => {
     try {
@@ -326,38 +330,61 @@ export default function CallsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <PhoneCall className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Call Logs</h1>
-          <span className="hidden sm:inline text-slate-400">•</span>
-          <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">View and manage your call history</p>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Call Logs</h1>
+            <p className="hidden sm:block text-muted-foreground text-sm">View and manage your call history</p>
+          </div>
         </div>
-        <div className="flex gap-2 w-full sm:w-auto">
+        {/* Mobile: icon-only buttons */}
+        <div className="flex gap-2 sm:hidden">
           <Button 
             onClick={() => fetchCalls(1)} 
             disabled={loading} 
             variant="outline"
-            className="flex-1 sm:flex-none text-teal-600 border-teal-600 hover:bg-teal-50"
+            size="icon"
+            className="text-teal-600 border-teal-600 hover:bg-teal-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button 
+            size="icon"
+            onClick={() => setShowCallDialog(true)}
+            className="bg-teal-600 hover:bg-teal-700"
+          >
+            <Phone className="h-4 w-4" />
+          </Button>
+        </div>
+        {/* Desktop: full buttons */}
+        <div className="hidden sm:flex gap-2">
+          <Button 
+            onClick={() => fetchCalls(1)} 
+            disabled={loading} 
+            variant="outline"
+            className="text-teal-600 border-teal-600 hover:bg-teal-50"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Link href="/dashboard/dialpad" className="flex-1 sm:flex-none">
-            <Button className="w-full bg-teal-600 hover:bg-teal-700">
-              <Phone className="h-4 w-4 mr-2" />
-              Make Call
-            </Button>
-          </Link>
+          <Button 
+            onClick={() => setShowCallDialog(true)}
+            className="bg-teal-600 hover:bg-teal-700"
+          >
+            <Phone className="h-4 w-4 mr-2" />
+            Make Call
+          </Button>
         </div>
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex flex-wrap gap-3">
-            {/* Search */}
-            <div className="relative flex-1 min-w-[200px]">
+          {/* Desktop: single row, Mobile: grid layout */}
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            {/* Search - fills remaining space on desktop */}
+            <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[180px]">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by phone, agent, or date..."
@@ -367,8 +394,8 @@ export default function CallsPage() {
               />
             </div>
 
-            {/* Agent Selector */}
-            <div className="w-full sm:w-auto sm:min-w-[160px]">
+            {/* Agent Selector - full width on mobile */}
+            <div className="w-full sm:w-auto sm:min-w-[140px]">
               <AgentSelector
                 agents={agents}
                 selectedAgentId={filter.agentId}
@@ -377,7 +404,7 @@ export default function CallsPage() {
             </div>
 
             {/* Duration Filter */}
-            <div className="w-full sm:w-auto sm:min-w-[140px]">
+            <div className="w-[calc(50%-4px)] sm:w-auto sm:min-w-[130px]">
               <Dropdown
                 options={[
                   { value: '', label: 'All Durations' },
@@ -392,7 +419,7 @@ export default function CallsPage() {
             </div>
 
             {/* Status Filter */}
-            <div className="w-full sm:w-auto sm:min-w-[140px]">
+            <div className="w-[calc(50%-4px)] sm:w-auto sm:min-w-[120px]">
               <Dropdown
                 options={[
                   { value: '', label: 'All Status' },
@@ -406,36 +433,24 @@ export default function CallsPage() {
               />
             </div>
 
-            {/* Date Range - side by side on mobile */}
-            <div className="w-full sm:w-auto flex gap-2">
-              <div className="flex-1 sm:min-w-[140px] relative">
-                <Input
-                  type="date"
-                  placeholder="Start date"
-                  value={filter.startDate}
-                  onChange={(e) => setFilter({ ...filter, startDate: e.target.value })}
-                  className="w-full"
-                />
-                {!filter.startDate && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none sm:hidden">
-                    Start
-                  </span>
-                )}
-              </div>
-              <div className="flex-1 sm:min-w-[140px] relative">
-                <Input
-                  type="date"
-                  placeholder="End date"
-                  value={filter.endDate}
-                  onChange={(e) => setFilter({ ...filter, endDate: e.target.value })}
-                  className="w-full"
-                />
-                {!filter.endDate && (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none sm:hidden">
-                    End
-                  </span>
-                )}
-              </div>
+            {/* Date Range */}
+            <div className="w-[calc(50%-4px)] sm:w-[130px]">
+              <Input
+                type="date"
+                value={filter.startDate}
+                onChange={(e) => setFilter({ ...filter, startDate: e.target.value })}
+                className="w-full text-sm"
+                title="Start date"
+              />
+            </div>
+            <div className="w-[calc(50%-4px)] sm:w-[130px]">
+              <Input
+                type="date"
+                value={filter.endDate}
+                onChange={(e) => setFilter({ ...filter, endDate: e.target.value })}
+                className="w-full text-sm"
+                title="End date"
+              />
             </div>
           </div>
         </CardContent>
@@ -465,20 +480,18 @@ export default function CallsPage() {
                     <Link href={`/dashboard/calls/${call.id}`} className="block">
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
                             {call.direction === 'inbound' ? (
-                              <ArrowDownLeft className="h-4 w-4 text-teal-600" />
+                              <ArrowDownLeft className="h-5 w-5 text-teal-600" />
                             ) : (
-                              <ArrowUpRight className="h-4 w-4 text-teal-600" />
+                              <ArrowUpRight className="h-5 w-5 text-teal-600" />
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
                             {contactName ? (
                               <>
                                 <p className="text-sm font-medium text-slate-600">{contactName}</p>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
-                                </div>
+                                <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
                               </>
                             ) : (
                               <>
@@ -496,9 +509,9 @@ export default function CallsPage() {
                                     <UserPlus className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
-                                <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
                               </>
                             )}
+                            <p className="text-xs text-muted-foreground">{call.agent?.name || call.agentName || 'Deleted Agent'}</p>
                           </div>
                         </div>
                         <CallStatusBadge status={call.status} />
@@ -519,15 +532,13 @@ export default function CallsPage() {
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b">
-                    <tr className="text-sm text-muted-foreground">
-                      <th className="text-left p-4 font-medium">Direction</th>
-                      <th className="text-left p-4 font-medium">Phone</th>
-                      <th className="text-left p-4 font-medium">Agent</th>
-                      <th className="text-left p-4 font-medium">Duration</th>
-                      <th className="text-left p-4 font-medium">Status</th>
-                      <th className="text-left p-4 font-medium">Date</th>
-                      <th className="text-left p-4 font-medium"></th>
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="text-left p-4 font-medium text-slate-600">Contact</th>
+                      <th className="text-left p-4 font-medium text-slate-600">Agent</th>
+                      <th className="text-left p-4 font-medium text-slate-600">Duration</th>
+                      <th className="text-left p-4 font-medium text-slate-600">Status</th>
+                      <th className="text-left p-4 font-medium text-slate-600">Date</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -535,43 +546,61 @@ export default function CallsPage() {
                       const phone = getCallPhone(call);
                       const contactName = getContactName(phone);
                       return (
-                        <tr key={call.id} className="border-b hover:bg-slate-50">
+                        <tr key={call.id} className="border-b hover:bg-slate-50 transition-colors">
                           <td className="p-4">
-                            <div className="w-8 h-8 rounded-full flex items-center justify-center bg-teal-100">
-                              {call.direction === 'inbound' ? (
-                                <ArrowDownLeft className="h-4 w-4 text-teal-600" />
-                              ) : (
-                                <ArrowUpRight className="h-4 w-4 text-teal-600" />
-                              )}
+                            <Link href={`/dashboard/calls/${call.id}`} className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
+                                {call.direction === 'inbound' ? (
+                                  <ArrowDownLeft className="h-5 w-5 text-teal-600" />
+                                ) : (
+                                  <ArrowUpRight className="h-5 w-5 text-teal-600" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                {contactName ? (
+                                  <>
+                                    <p className="font-medium text-slate-600">{contactName}</p>
+                                    <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
+                                  </>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-mono text-sm font-medium text-slate-600">{formatPhoneNumber(phone)}</p>
+                                    <button
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleAddContact(phone);
+                                      }}
+                                      className="text-slate-400 hover:text-teal-600 transition-colors"
+                                      title="Add to contacts"
+                                    >
+                                      <UserPlus className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {(() => {
+                                  const avatar = getVoiceAvatar(call.agent?.voice || call.agentVoice);
+                                  return avatar ? (
+                                    <Image
+                                      src={avatar}
+                                      alt={call.agent?.name || call.agentName || ''}
+                                      width={32}
+                                      height={32}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <Bot className="h-4 w-4 text-muted-foreground" />
+                                  );
+                                })()}
+                              </div>
+                              <span className="text-sm text-slate-600">{call.agent?.name || call.agentName || 'Deleted Agent'}</span>
                             </div>
-                          </td>
-                          <td className="p-4">
-                            {contactName ? (
-                              <div>
-                                <p className="text-sm font-medium text-slate-600">{contactName}</p>
-                                <p className="font-mono text-xs text-muted-foreground">{formatPhoneNumber(phone)}</p>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-sm text-slate-600">
-                                  {formatPhoneNumber(phone)}
-                                </span>
-                                <button
-                                  onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleAddContact(phone);
-                                  }}
-                                  className="text-slate-400 hover:text-teal-600 transition-colors"
-                                  title="Add to contacts"
-                                >
-                                  <UserPlus className="h-4 w-4" />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                          <td className="p-4">
-                            <span className="text-sm text-slate-600">{call.agent?.name || call.agentName || 'Deleted Agent'}</span>
                           </td>
                           <td className="p-4">
                             <span className="text-sm text-slate-600">
@@ -582,16 +611,9 @@ export default function CallsPage() {
                             <CallStatusBadge status={call.status} />
                           </td>
                           <td className="p-4">
-                            <span className="text-sm text-muted-foreground">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
                               {formatDate(call.createdAt)}
                             </span>
-                          </td>
-                          <td className="p-4">
-                            <Link href={`/dashboard/calls/${call.id}`}>
-                              <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
-                                View
-                              </Button>
-                            </Link>
                           </td>
                         </tr>
                       );
@@ -622,6 +644,17 @@ export default function CallsPage() {
         onSave={handleSaveContact}
         initialPhoneNumber={selectedPhoneNumber}
       />
+
+      {/* Outbound Call Dialog */}
+      {showCallDialog && (
+        <OutboundCallDialog
+          onClose={() => setShowCallDialog(false)}
+          onCallInitiated={() => {
+            setShowCallDialog(false);
+            fetchCalls(1);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -231,4 +231,81 @@ export class TwilioService {
         </Connect>
       </Response>`;
   }
+
+  // ============================================
+  // SMS/MMS Methods
+  // ============================================
+
+  /**
+   * Send an SMS message
+   */
+  async sendSMS(to: string, from: string, body: string): Promise<{ messageSid: string; status: string }> {
+    try {
+      const message = await this.client.messages.create({
+        to,
+        from,
+        body,
+        statusCallback: `${config.apiUrl}/webhooks/twilio/message-status`,
+      });
+
+      logger.info('[Twilio] SMS sent', { messageSid: message.sid, to, from });
+
+      return {
+        messageSid: message.sid,
+        status: message.status,
+      };
+    } catch (error) {
+      logger.error('[Twilio] Send SMS error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send an MMS message with media
+   */
+  async sendMMS(to: string, from: string, body: string, mediaUrls: string[]): Promise<{ messageSid: string; status: string }> {
+    try {
+      const message = await this.client.messages.create({
+        to,
+        from,
+        body,
+        mediaUrl: mediaUrls,
+        statusCallback: `${config.apiUrl}/webhooks/twilio/message-status`,
+      });
+
+      logger.info('[Twilio] MMS sent', { messageSid: message.sid, to, from, mediaCount: mediaUrls.length });
+
+      return {
+        messageSid: message.sid,
+        status: message.status,
+      };
+    } catch (error) {
+      logger.error('[Twilio] Send MMS error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get message details
+   */
+  async getMessage(messageSid: string) {
+    try {
+      const message = await this.client.messages(messageSid).fetch();
+      return {
+        sid: message.sid,
+        status: message.status,
+        from: message.from,
+        to: message.to,
+        body: message.body,
+        numSegments: message.numSegments,
+        numMedia: message.numMedia,
+        direction: message.direction,
+        errorCode: message.errorCode,
+        errorMessage: message.errorMessage,
+      };
+    } catch (error) {
+      logger.error('[Twilio] Get message error:', error);
+      throw error;
+    }
+  }
 }

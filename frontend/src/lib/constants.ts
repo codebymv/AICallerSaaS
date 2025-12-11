@@ -108,23 +108,144 @@ export const AGENT_MODES = {
     id: 'INBOUND',
     label: 'Inbound', 
     description: 'Receive inbound calls only',
+    descriptionMessaging: 'Receive messages only',
+    descriptionOmni: 'Receive communications only',
     iconType: 'ArrowDownLeft'
   },
   OUTBOUND: { 
     id: 'OUTBOUND',
     label: 'Outbound', 
     description: 'Make outbound calls only',
+    descriptionMessaging: 'Send messages only',
+    descriptionOmni: 'Send communications only',
     iconType: 'ArrowUpRight'
   },
   HYBRID: { 
     id: 'HYBRID',
     label: 'Hybrid', 
-    description: 'Both inbound and outbound calls',
+    description: 'Make and receive calls',
+    descriptionMessaging: 'Send and receive messages',
+    descriptionOmni: 'Send and receive communications',
     iconType: 'ArrowLeftRight'
   },
 } as const;
 
 export type AgentMode = keyof typeof AGENT_MODES;
+
+// Helper to get mode description based on channel
+export function getModeDescription(mode: AgentMode, channel: CommunicationChannel): string {
+  const modeConfig = AGENT_MODES[mode];
+  if (channel === 'MESSAGING_ONLY') {
+    return modeConfig.descriptionMessaging;
+  } else if (channel === 'OMNICHANNEL') {
+    return modeConfig.descriptionOmni;
+  }
+  return modeConfig.description;
+}
+
+// Communication channels
+export const COMMUNICATION_CHANNELS = {
+  VOICE_ONLY: {
+    id: 'VOICE_ONLY',
+    label: 'Voice Only',
+    description: 'Handle calls with voice AI',
+    iconType: 'Phone'
+  },
+  MESSAGING_ONLY: {
+    id: 'MESSAGING_ONLY',
+    label: 'Messaging Only',
+    description: 'Handle SMS/MMS conversations',
+    iconType: 'MessageSquare'
+  },
+  OMNICHANNEL: {
+    id: 'OMNICHANNEL',
+    label: 'Omnichannel',
+    description: 'Handle both calls and texts',
+    iconType: 'Layers'
+  },
+} as const;
+
+export type CommunicationChannel = keyof typeof COMMUNICATION_CHANNELS;
+
+// Media tools for messaging agents
+export const MEDIA_TOOLS = {
+  IMAGES: {
+    id: 'images',
+    field: 'imageToolEnabled',
+    label: 'Images',
+    description: 'Send photos, screenshots, and graphics',
+    iconType: 'Image',
+    category: 'IMAGE',
+    acceptedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
+    maxSize: 5 * 1024 * 1024, // 5MB (Twilio MMS limit)
+  },
+  DOCUMENTS: {
+    id: 'documents',
+    field: 'documentToolEnabled',
+    label: 'Documents',
+    description: 'Send PDFs, contracts, and forms',
+    iconType: 'FileText',
+    category: 'DOCUMENT',
+    acceptedTypes: ['application/pdf'],
+    maxSize: 5 * 1024 * 1024, // 5MB
+  },
+  VIDEOS: {
+    id: 'videos',
+    field: 'videoToolEnabled',
+    label: 'Videos',
+    description: 'Share video content and tutorials',
+    iconType: 'Video',
+    category: 'VIDEO',
+    acceptedTypes: ['video/mp4', 'video/quicktime'],
+    maxSize: 5 * 1024 * 1024, // 5MB
+  },
+} as const;
+
+export type MediaToolType = keyof typeof MEDIA_TOOLS;
+
+// Asset categories (matches Prisma enum)
+export const ASSET_CATEGORIES = {
+  IMAGE: { label: 'Image', color: 'bg-blue-100 text-blue-700' },
+  DOCUMENT: { label: 'Document', color: 'bg-amber-100 text-amber-700' },
+  VIDEO: { label: 'Video', color: 'bg-purple-100 text-purple-700' },
+  OTHER: { label: 'Other', color: 'bg-slate-100 text-slate-600' },
+} as const;
+
+export type AssetCategory = keyof typeof ASSET_CATEGORIES;
+
+// Helper to check if any media tool is enabled
+export function hasAnyMediaToolEnabled(agent: { imageToolEnabled?: boolean; documentToolEnabled?: boolean; videoToolEnabled?: boolean }): boolean {
+  return !!(agent.imageToolEnabled || agent.documentToolEnabled || agent.videoToolEnabled);
+}
+
+// Helper to get enabled media tools for an agent
+export function getEnabledMediaTools(agent: { imageToolEnabled?: boolean; documentToolEnabled?: boolean; videoToolEnabled?: boolean }): typeof MEDIA_TOOLS[MediaToolType][] {
+  const enabled: typeof MEDIA_TOOLS[MediaToolType][] = [];
+  if (agent.imageToolEnabled) enabled.push(MEDIA_TOOLS.IMAGES);
+  if (agent.documentToolEnabled) enabled.push(MEDIA_TOOLS.DOCUMENTS);
+  if (agent.videoToolEnabled) enabled.push(MEDIA_TOOLS.VIDEOS);
+  return enabled;
+}
+
+// Message status
+export const MESSAGE_STATUS = {
+  QUEUED: 'QUEUED',
+  SENT: 'SENT',
+  DELIVERED: 'DELIVERED',
+  FAILED: 'FAILED',
+  UNDELIVERED: 'UNDELIVERED',
+  RECEIVED: 'RECEIVED',
+} as const;
+
+export const MESSAGE_STATUS_COLORS: Record<string, string> = {
+  QUEUED: 'bg-slate-100 text-slate-600',
+  SENT: 'bg-blue-100 text-blue-700',
+  DELIVERED: 'bg-green-100 text-green-700',
+  FAILED: 'bg-red-100 text-red-700',
+  UNDELIVERED: 'bg-orange-100 text-orange-700',
+  RECEIVED: 'bg-teal-100 text-teal-700',
+  default: 'bg-slate-100 text-slate-600',
+};
 
 // Call purpose presets
 export const CALL_PURPOSES = {
@@ -340,6 +461,173 @@ IMPORTANT: Email address is REQUIRED for all bookings. Always ask for and verify
   }
 };
 
+// Messaging-specific system prompt templates (for SMS/MMS)
+export const MESSAGING_SYSTEM_PROMPTS: Record<AgentMode, { base: string; withCalendar: string }> = {
+  INBOUND: {
+    base: `You are a professional and friendly text messaging assistant. People are texting you for help, so respond promptly and helpfully.
+
+CORE BEHAVIORS:
+- Respond within 1-2 short sentences when possible
+- Be clear and concise - texts should be easy to read quickly
+- Use friendly but professional language
+- Ask one question at a time to keep the conversation flowing
+- If something needs explanation, break it into multiple messages
+
+TEXT MESSAGING STYLE:
+- Keep messages under 160 characters when possible (SMS limit)
+- Use simple, direct language
+- It's okay to use common abbreviations (e.g., "appt" for appointment)
+- Avoid long paragraphs - bullet points or separate messages work better
+- Use emojis sparingly for warmth (1-2 max per message) 👋
+
+HANDLING COMMON SCENARIOS:
+- Quick questions: Answer directly and offer to help with more
+- Complex topics: Break into multiple shorter messages
+- Complaints: Acknowledge, apologize briefly, focus on resolution
+- Unclear messages: Ask one clarifying question`,
+
+    withCalendar: `You are a professional text messaging assistant with scheduling capabilities. Help people book appointments efficiently via text.
+
+CORE BEHAVIORS:
+- Respond concisely - texts should be scannable
+- When they want to schedule, check availability immediately
+- Present time options as a numbered list for easy selection
+- Collect name and email (email REQUIRED for booking)
+
+SCHEDULING FLOW:
+1. User mentions scheduling → use check_calendar_availability
+2. Present options like:
+   "I have these times:
+   1️⃣ Mon 10am
+   2️⃣ Tue 2pm
+   3️⃣ Wed 11am
+   Reply with a number!"
+3. After they choose, get their email
+4. Use book_appointment and confirm
+
+TEXT MESSAGING STYLE:
+- Keep messages short and scannable
+- Use numbered lists for options
+- One question at a time
+- Confirm bookings with all details
+
+IMPORTANT: Email is REQUIRED for booking. Always collect it before confirming.`
+  },
+  
+  OUTBOUND: {
+    base: `You are a professional outbound text messaging agent. You're reaching out to people, so be respectful and get to the point quickly.
+
+CORE BEHAVIORS:
+- Introduce yourself and your purpose in the first message
+- Keep texts short and scannable
+- Be prepared for no response - that's okay
+- Offer value before asking for anything
+- Make it easy to opt-out
+
+OUTBOUND TEXT STYLE:
+- First message: Who you are + why you're texting + value prop
+- Keep under 160 characters per message when possible
+- Ask one thing at a time
+- Make responses easy (yes/no, numbers, etc.)
+
+MESSAGE STRUCTURE:
+1. "Hi [Name]! This is [Agent] from [Company]."
+2. Brief value proposition
+3. Simple call-to-action or question
+4. "Reply STOP to opt out"
+
+HANDLING RESPONSES:
+- "Who is this?": Reintroduce yourself clearly
+- No response: One follow-up max, then stop
+- "Stop/Unsubscribe": Acknowledge and confirm removal immediately`,
+
+    withCalendar: `You are a professional outbound text messaging agent with scheduling capabilities. You're reaching out to help people book valuable appointments.
+
+CORE BEHAVIORS:
+- Introduce yourself and purpose clearly
+- Offer appointment booking as a convenience
+- Present availability in easy-to-choose format
+- Collect name and email for booking (email REQUIRED)
+
+OUTBOUND SCHEDULING FLOW:
+1. Introduce: "Hi! This is [Agent] from [Company]. I'm reaching out about scheduling your [appointment type]."
+2. If interested, use check_calendar_availability
+3. Send numbered options:
+   "Available times:
+   1️⃣ Mon 10am
+   2️⃣ Tue 3pm
+   Reply with a number or suggest another time!"
+4. Collect email before booking
+5. Confirm with book_appointment
+
+TEXT STYLE:
+- First message under 160 chars with clear purpose
+- Numbered lists for easy selection
+- One question at a time
+- Include opt-out option: "Reply STOP to opt out"
+
+IMPORTANT: Always collect email before booking. Be respectful - no response after one follow-up means stop.`
+  },
+  
+  HYBRID: {
+    base: `You are a versatile text messaging agent handling both incoming and outgoing conversations. Adapt your style based on who initiated.
+
+FOR INBOUND TEXTS (they texted you):
+- They want help - be responsive and helpful
+- Answer their questions directly
+- Be patient with back-and-forth
+
+FOR OUTBOUND TEXTS (you texted them):
+- You're reaching out - respect their time
+- State your purpose immediately
+- Make it easy to respond or opt-out
+
+CORE TEXT BEHAVIORS:
+- Keep messages short (under 160 chars when possible)
+- One question or topic at a time
+- Use numbered lists for multiple options
+- Be professional but warm
+- Quick, helpful responses
+
+HANDLING BOTH MODES:
+- Inbound: Focus on solving their issue
+- Outbound: Focus on delivering value quickly
+- Both: Make responding easy with clear options`,
+
+    withCalendar: `You are a versatile text messaging agent with scheduling capabilities, handling both incoming and outgoing conversations.
+
+FOR INBOUND (they texted you):
+- If they mention scheduling, check availability right away
+- Be helpful and responsive
+- Guide them through booking step by step
+
+FOR OUTBOUND (you texted them):
+- Introduce yourself and offer scheduling
+- Make booking convenient and quick
+- Respect if they don't respond
+
+SCHEDULING FLOW (BOTH):
+1. Use check_calendar_availability when scheduling comes up
+2. Present options as numbered list:
+   "Times available:
+   1️⃣ Mon 10am
+   2️⃣ Tue 2pm
+   3️⃣ Wed 11am
+   Reply with a number!"
+3. Collect name and email (email REQUIRED)
+4. Confirm with book_appointment
+5. Send confirmation with all details
+
+TEXT STYLE:
+- Short, scannable messages
+- Numbered options for easy reply
+- One question at a time
+- Confirm all booking details
+
+IMPORTANT: Email is REQUIRED for all bookings.`
+  }
+};
+
 // Business context type for system prompt injection
 export interface BusinessContext {
   organizationName?: string;
@@ -353,9 +641,15 @@ export interface BusinessContext {
 export function getSystemPromptForMode(
   mode: AgentMode, 
   hasCalendarAccess: boolean,
-  businessContext?: BusinessContext
+  businessContext?: BusinessContext,
+  communicationChannel: CommunicationChannel = 'VOICE_ONLY'
 ): string {
-  const prompts = MODE_SYSTEM_PROMPTS[mode];
+  // Use messaging prompts for MESSAGING_ONLY channel, voice prompts otherwise
+  const promptSource = communicationChannel === 'MESSAGING_ONLY' 
+    ? MESSAGING_SYSTEM_PROMPTS 
+    : MODE_SYSTEM_PROMPTS;
+  
+  const prompts = promptSource[mode];
   let prompt = hasCalendarAccess ? prompts.withCalendar : prompts.base;
   
   // If business context is provided, prepend it to the prompt
@@ -391,4 +685,23 @@ export function getSystemPromptForMode(
   }
   
   return prompt;
+}
+
+// Helper function to get messaging-specific system prompt
+export function getMessagingSystemPrompt(
+  mode: AgentMode,
+  hasCalendarAccess: boolean,
+  businessContext?: BusinessContext
+): string {
+  return getSystemPromptForMode(mode, hasCalendarAccess, businessContext, 'MESSAGING_ONLY');
+}
+
+// Check if a communication channel supports voice
+export function supportsVoice(channel: CommunicationChannel): boolean {
+  return channel === 'VOICE_ONLY' || channel === 'OMNICHANNEL';
+}
+
+// Check if a communication channel supports messaging
+export function supportsMessaging(channel: CommunicationChannel): boolean {
+  return channel === 'MESSAGING_ONLY' || channel === 'OMNICHANNEL';
 }

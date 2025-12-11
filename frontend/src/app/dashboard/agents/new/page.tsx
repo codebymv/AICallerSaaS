@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import NextImage from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, CALL_PURPOSES, CallPurposeType, getSystemPromptForMode, BusinessContext } from '@/lib/constants';
+import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, CALL_PURPOSES, CallPurposeType, getSystemPromptForMode, BusinessContext, COMMUNICATION_CHANNELS, CommunicationChannel, supportsVoice, supportsMessaging, getModeDescription, MEDIA_TOOLS } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, ArrowLeft, Bot, Sparkles, Calendar, Wrench, Phone, AlertCircle, Building2, HelpCircle, ClipboardList, Bell, Edit, MessageCircle, Clock, ChevronDown, Settings } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, ArrowLeft, Bot, Sparkles, Calendar, Wrench, Phone, AlertCircle, Building2, HelpCircle, ClipboardList, Bell, Edit, MessageCircle, Clock, ChevronDown, Settings, MessageSquare, Layers, Image as ImageIcon, FileText, Video } from 'lucide-react';
 
 const getModeIcon = (mode: string) => {
   switch (mode) {
@@ -27,8 +27,8 @@ const getModeIcon = (mode: string) => {
   }
 };
 
-const getCallPurposeIcon = (purposeType: string, isSelected: boolean) => {
-  const className = `h-3 w-3 ${isSelected ? 'text-teal-600' : 'text-slate-500'}`;
+const getCallPurposeIcon = (purposeType: string) => {
+  const className = 'h-3 w-3 text-teal-600';
   switch (purposeType) {
     case 'SCHEDULE_APPOINTMENTS':
       return <Calendar className={className} />;
@@ -42,6 +42,20 @@ const getCallPurposeIcon = (purposeType: string, isSelected: boolean) => {
       return <MessageCircle className={className} />;
     case 'CUSTOM':
       return <Edit className={className} />;
+    default:
+      return null;
+  }
+};
+
+const getChannelIcon = (channel: string) => {
+  const className = 'h-4 w-4 text-teal-600';
+  switch (channel) {
+    case 'VOICE_ONLY':
+      return <Phone className={className} />;
+    case 'MESSAGING_ONLY':
+      return <MessageSquare className={className} />;
+    case 'OMNICHANNEL':
+      return <Layers className={className} />;
     default:
       return null;
   }
@@ -107,6 +121,7 @@ export default function NewAgentPage() {
    voiceSettings: { stability: number; similarity_boost: number; style: number } | null;
    greeting: string;
    mode: AgentMode;
+   communicationChannel: CommunicationChannel;
    outboundGreeting: string;
    callTimeout: number;
    retryAttempts: number;
@@ -115,6 +130,12 @@ export default function NewAgentPage() {
    calendarEnabled: boolean;
    callPurposeType: CallPurposeType;
    callPurpose: string;
+   // Messaging-specific fields
+   messagingGreeting: string;
+   // Media tool access
+   imageToolEnabled: boolean;
+   documentToolEnabled: boolean;
+   videoToolEnabled: boolean;
 }>({
     name: '',
     template: 'mode-default',
@@ -123,6 +144,7 @@ export default function NewAgentPage() {
     voiceSettings: null, // Will be loaded from voice defaults
     greeting: '',
     mode: 'INBOUND',
+    communicationChannel: 'VOICE_ONLY',
     outboundGreeting: '',
     callTimeout: 600,
     retryAttempts: 0,
@@ -131,6 +153,11 @@ export default function NewAgentPage() {
     calendarEnabled: false,
     callPurposeType: 'SCHEDULE_APPOINTMENTS',
     callPurpose: CALL_PURPOSES.SCHEDULE_APPOINTMENTS.value,
+    // Messaging defaults
+    messagingGreeting: '',
+    imageToolEnabled: false,
+    documentToolEnabled: false,
+    videoToolEnabled: false,
   });
 
   // Load voice defaults from localStorage on mount
@@ -241,7 +268,21 @@ export default function NewAgentPage() {
       
       // If using mode-default template, update the system prompt with business context
       if (prev.template === 'mode-default') {
-        updates.systemPrompt = getSystemPromptForMode(newMode, calendarConnected, buildBusinessContext());
+        updates.systemPrompt = getSystemPromptForMode(newMode, calendarConnected, buildBusinessContext(), prev.communicationChannel);
+      }
+      
+      return { ...prev, ...updates };
+    });
+  };
+
+  // Update system prompt when communication channel changes
+  const handleChannelChange = (newChannel: CommunicationChannel) => {
+    setFormData(prev => {
+      const updates: Partial<typeof prev> = { communicationChannel: newChannel };
+      
+      // If using mode-default template, update the system prompt for the new channel
+      if (prev.template === 'mode-default') {
+        updates.systemPrompt = getSystemPromptForMode(prev.mode, calendarConnected, buildBusinessContext(), newChannel);
       }
       
       return { ...prev, ...updates };
@@ -255,7 +296,7 @@ export default function NewAgentPage() {
       const updates: Partial<typeof prev> = { template: templateId };
       
       if (templateId === 'mode-default') {
-        updates.systemPrompt = getSystemPromptForMode(prev.mode, calendarConnected, buildBusinessContext());
+        updates.systemPrompt = getSystemPromptForMode(prev.mode, calendarConnected, buildBusinessContext(), prev.communicationChannel);
       } else if (template) {
         updates.systemPrompt = template.prompt;
       }
@@ -280,22 +321,33 @@ export default function NewAgentPage() {
 
     setLoading(true);
     try {
+      // Determine if we should include voice settings based on channel
+      const includeVoice = supportsVoice(formData.communicationChannel);
+      
       const response = await api.createAgent({
         name: formData.name,
         systemPrompt: prompt,
-        voiceId: formData.voiceId,
-        voiceSettings: formData.voiceSettings || undefined,
-        greeting: formData.greeting,
+        // Only include voice settings if channel supports voice
+        voiceId: includeVoice ? formData.voiceId : undefined,
+        voiceSettings: includeVoice ? (formData.voiceSettings || undefined) : undefined,
+        greeting: includeVoice ? formData.greeting : undefined,
         template: formData.template !== 'custom' ? formData.template : undefined,
         mode: formData.mode,
-        outboundGreeting: formData.outboundGreeting || undefined,
+        communicationChannel: formData.communicationChannel,
+        outboundGreeting: includeVoice ? (formData.outboundGreeting || undefined) : undefined,
         callTimeout: formData.callTimeout,
         retryAttempts: formData.retryAttempts,
         callWindowStart: formData.callWindowStart || undefined,
         callWindowEnd: formData.callWindowEnd || undefined,
         calendarEnabled: formData.calendarEnabled,
-        personaName: ELEVENLABS_VOICES.find(v => v.id === formData.voiceId)?.name || undefined,
+        personaName: includeVoice ? (ELEVENLABS_VOICES.find(v => v.id === formData.voiceId)?.name || undefined) : undefined,
         callPurpose: formData.callPurpose || undefined,
+        // Messaging-specific fields
+        messagingGreeting: supportsMessaging(formData.communicationChannel) ? (formData.messagingGreeting || undefined) : undefined,
+        // Media tool access
+        imageToolEnabled: supportsMessaging(formData.communicationChannel) ? formData.imageToolEnabled : false,
+        documentToolEnabled: supportsMessaging(formData.communicationChannel) ? formData.documentToolEnabled : false,
+        videoToolEnabled: supportsMessaging(formData.communicationChannel) ? formData.videoToolEnabled : false,
       });
 
       const agentId = response.data.id;
@@ -541,7 +593,35 @@ export default function NewAgentPage() {
               )}
             </div>
 
-            {/* Agent Mode */}
+            {/* Communication Channel - Select first so Agent Mode descriptions update */}
+            <div className="space-y-2">
+              <Label className="text-muted-foreground">Communication Channel *</Label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                {Object.entries(COMMUNICATION_CHANNELS).map(([key, channel]) => {
+                  const isSelected = formData.communicationChannel === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
+                        isSelected ? 'border-teal-500 bg-teal-50' : ''
+                      }`}
+                      onClick={() => handleChannelChange(key as CommunicationChannel)}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                          {getChannelIcon(key)}
+                        </span>
+                        <h3 className="font-semibold text-xs text-slate-600">{channel.label}</h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{channel.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Agent Mode - Descriptions update based on selected channel */}
             <div className="space-y-2">
               <Label className="text-muted-foreground">Agent Mode *</Label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -560,7 +640,7 @@ export default function NewAgentPage() {
                       </span>
                       <h3 className="font-semibold text-xs text-slate-600">{mode.label}</h3>
                     </div>
-                    <p className="text-xs text-muted-foreground">{mode.description}</p>
+                    <p className="text-xs text-muted-foreground">{getModeDescription(key as AgentMode, formData.communicationChannel)}</p>
                   </button>
                 ))}
               </div>
@@ -601,8 +681,8 @@ export default function NewAgentPage() {
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`w-5 h-5 rounded-full flex items-center justify-center ${isSelected ? 'bg-teal-100' : 'bg-slate-100'}`}>
-                          {getCallPurposeIcon(key, isSelected)}
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                          {getCallPurposeIcon(key)}
                         </span>
                         <h3 className="font-semibold text-xs text-slate-600">{purpose.label}</h3>
                       </div>
@@ -653,28 +733,42 @@ export default function NewAgentPage() {
       {step === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-slate-600">Behavior & Voice</CardTitle>
-            <CardDescription>Configure how your agent talks and responds</CardDescription>
+            <CardTitle className="text-slate-600">
+              {formData.communicationChannel === 'MESSAGING_ONLY' ? 'Behavior & Messaging' : 'Behavior & Voice'}
+            </CardTitle>
+            <CardDescription>
+              {formData.communicationChannel === 'MESSAGING_ONLY' 
+                ? 'Configure how your agent responds via text' 
+                : 'Configure how your agent talks and responds'}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="voice" className="text-muted-foreground">Voice *</Label>
-              <VoiceSelector
-                value={formData.voiceId}
-                onChange={(voiceId) => setFormData({ ...formData, voiceId })}
-              />
-            </div>
+            {/* Voice selector - only show for voice-capable channels */}
+            {supportsVoice(formData.communicationChannel) && (
+              <div className="space-y-2">
+                <Label htmlFor="voice" className="text-muted-foreground">Voice *</Label>
+                <VoiceSelector
+                  value={formData.voiceId}
+                  onChange={(voiceId) => setFormData({ ...formData, voiceId })}
+                />
+              </div>
+            )}
+            
             <div className="space-y-2">
               <Label htmlFor="prompt" className="text-muted-foreground">System Prompt *</Label>
               <textarea
                 id="prompt"
                 className="w-full min-h-[200px] p-3 border rounded-md text-sm"
-                placeholder="Describe how your agent should behave..."
+                placeholder={formData.communicationChannel === 'MESSAGING_ONLY' 
+                  ? "Describe how your agent should respond to text messages..."
+                  : "Describe how your agent should behave..."}
                 value={formData.systemPrompt || selectedTemplate?.prompt || ''}
                 onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
               />
             </div>
-            {(formData.mode === 'INBOUND' || formData.mode === 'HYBRID') && (
+            
+            {/* Voice greetings - only for voice-capable channels */}
+            {supportsVoice(formData.communicationChannel) && (formData.mode === 'INBOUND' || formData.mode === 'HYBRID') && (
               <div className="space-y-2">
                 <Label htmlFor="greeting" className="text-muted-foreground">Inbound Greeting (optional)</Label>
                 <Input
@@ -685,7 +779,7 @@ export default function NewAgentPage() {
                 />
               </div>
             )}
-            {(formData.mode === 'OUTBOUND' || formData.mode === 'HYBRID') && (
+            {supportsVoice(formData.communicationChannel) && (formData.mode === 'OUTBOUND' || formData.mode === 'HYBRID') && (
               <div className="space-y-2">
                 <Label htmlFor="outboundGreeting" className="text-muted-foreground">Outbound Greeting (optional)</Label>
                 <Input
@@ -696,10 +790,33 @@ export default function NewAgentPage() {
                 />
               </div>
             )}
+            
+            {/* Messaging settings - only for messaging-capable channels */}
+            {supportsMessaging(formData.communicationChannel) && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="messagingGreeting" className="text-muted-foreground">
+                    SMS Greeting (optional)
+                  </Label>
+                  <Input
+                    id="messagingGreeting"
+                    placeholder={`e.g., Hi! This is ${businessProfile?.organizationName || '[Company]'}. How can I help you today?`}
+                    value={formData.messagingGreeting}
+                    onChange={(e) => setFormData({ ...formData, messagingGreeting: e.target.value })}
+                  />
+                </div>
+              </>
+            )}
 
-            {/* Call Window (optional) */}
+            {/* Activity Window (optional) */}
             <div className="space-y-2">
-              <Label className="text-muted-foreground">Call Window (optional)</Label>
+              <Label className="text-muted-foreground">
+                {formData.communicationChannel === 'MESSAGING_ONLY' 
+                  ? 'Message Window (optional)' 
+                  : formData.communicationChannel === 'OMNICHANNEL' 
+                    ? 'Communications Window (optional)' 
+                    : 'Call Window (optional)'}
+              </Label>
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">From</span>
@@ -727,45 +844,101 @@ export default function NewAgentPage() {
             </div>
 
             {/* Tool Access */}
-            {calendarConnected && (
+            {(calendarConnected || supportsMessaging(formData.communicationChannel)) && (
               <div className="space-y-3">
                 <Label className="text-muted-foreground">Tool Access (optional)</Label>
                 
                 {/* Calendar Tool */}
-                <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={formData.calendarEnabled}
-                    onChange={(e) => {
-                      const enabled = e.target.checked;
-                      setFormData(prev => ({
-                        ...prev,
-                        calendarEnabled: enabled,
-                        // Update system prompt if using mode-default template
-                        systemPrompt: prev.template === 'mode-default' 
-                          ? getSystemPromptForMode(prev.mode, enabled) 
-                          : prev.systemPrompt
-                      }));
-                    }}
-                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500"
-                  />
-                  <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-slate-600">Calendar</span>
-                      {calendarStatus?.provider && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
-                          {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
-                        </span>
-                      )}
+                {calendarConnected && (
+                  <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={formData.calendarEnabled}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        setFormData(prev => ({
+                          ...prev,
+                          calendarEnabled: enabled,
+                          // Update system prompt if using mode-default template
+                          systemPrompt: prev.template === 'mode-default' 
+                            ? getSystemPromptForMode(prev.mode, enabled) 
+                            : prev.systemPrompt
+                        }));
+                      }}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                    />
+                    <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-slate-600">Calendar</span>
+                        {calendarStatus?.provider && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                            {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Check your availability and book appointments
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      When enabled, this agent can check your availability and book appointments
-                    </p>
-                  </div>
-                </label>
+                  </label>
+                )}
 
-                {/* Future tools can be added here */}
+                {/* Media Tools - only for messaging-capable channels */}
+                {supportsMessaging(formData.communicationChannel) && (
+                  <>
+                    {/* Images Tool */}
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formData.imageToolEnabled}
+                        onChange={(e) => setFormData({ ...formData, imageToolEnabled: e.target.checked })}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                      />
+                      <ImageIcon className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-medium text-sm text-slate-600">Images</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Send photos, screenshots, and graphics via MMS
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Documents Tool */}
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formData.documentToolEnabled}
+                        onChange={(e) => setFormData({ ...formData, documentToolEnabled: e.target.checked })}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                      />
+                      <FileText className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-medium text-sm text-slate-600">Documents</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Send PDFs, contracts, and forms via MMS
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Videos Tool */}
+                    <label className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={formData.videoToolEnabled}
+                        onChange={(e) => setFormData({ ...formData, videoToolEnabled: e.target.checked })}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-teal-600 focus:ring-teal-500"
+                      />
+                      <Video className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <span className="font-medium text-sm text-slate-600">Videos</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Share video content and tutorials via MMS
+                        </p>
+                      </div>
+                    </label>
+                  </>
+                )}
               </div>
             )}
 

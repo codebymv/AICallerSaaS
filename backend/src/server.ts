@@ -23,6 +23,8 @@ import phoneNumberRoutes from './routes/phone-numbers.routes';
 import settingsRoutes from './routes/settings.routes';
 import calendarRoutes from './routes/calendar.routes';
 import contactRoutes from './routes/contacts.routes';
+import assetRoutes from './routes/assets.routes';
+import messageRoutes from './routes/messages.routes';
 
 // WebSocket
 import { initializeWebSocket, setupTwilioMediaStream } from './websocket';
@@ -151,9 +153,11 @@ export async function createServer() {
   app.use('/api/agents', agentRoutes);
   app.use('/api/calls', callRoutes);
   app.use('/api/contacts', contactRoutes);
+  app.use('/api/messages', messageRoutes);
   app.use('/api/phone-numbers', phoneNumberRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/calendar', calendarRoutes);
+  app.use('/api/assets', assetRoutes);
   
   // Twilio webhooks (no auth required) - both paths for compatibility
   app.use('/webhooks', webhookRoutes);

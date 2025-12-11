@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Plus, Bot, MoreVertical, Trash2, Edit, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Loader2 } from 'lucide-react';
+import { Plus, Bot, MoreVertical, Trash2, Edit, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Loader2, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
@@ -27,8 +27,10 @@ export default function AgentsPage() {
   const { toast } = useToast();
   const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const fetchAgents = async () => {
+  const fetchAgents = async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
     try {
       const response = await api.getAgents();
       setAgents(response.data || []);
@@ -36,6 +38,7 @@ export default function AgentsPage() {
       console.error('Failed to fetch agents:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -69,19 +72,49 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
           <Bot className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Agents</h1>
-          <span className="hidden sm:inline text-slate-400">•</span>
-          <p className="text-muted-foreground text-sm sm:text-base w-full sm:w-auto">Manage your AI voice agents</p>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Agents</h1>
+            <p className="hidden sm:block text-muted-foreground text-sm">Manage your AI voice agents</p>
+          </div>
         </div>
-        <Link href="/dashboard/agents/new" className="w-full sm:w-auto">
-          <Button className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700">
-            <Plus className="h-4 w-4 mr-2" />
-            New Agent
+        {/* Mobile: icon-only buttons */}
+        <div className="flex gap-2 sm:hidden">
+          <Button 
+            onClick={() => fetchAgents(true)} 
+            disabled={refreshing} 
+            variant="outline"
+            size="icon"
+            className="text-teal-600 border-teal-600 hover:bg-teal-50"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
-        </Link>
+          <Link href="/dashboard/agents/new">
+            <Button size="icon" className="bg-teal-600 hover:bg-teal-700">
+              <Plus className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+        {/* Desktop: full buttons */}
+        <div className="hidden sm:flex gap-2">
+          <Button 
+            onClick={() => fetchAgents(true)} 
+            disabled={refreshing} 
+            variant="outline"
+            className="text-teal-600 border-teal-600 hover:bg-teal-50"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Link href="/dashboard/agents/new">
+            <Button className="bg-teal-600 hover:bg-teal-700">
+              <Plus className="h-4 w-4 mr-2" />
+              New Agent
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {agents.length === 0 ? (
@@ -128,7 +161,7 @@ export default function AgentsPage() {
                 </div>
                 <div className="flex gap-1">
                   <Link href={`/dashboard/agents/${agent.id}?edit=true`}>
-                    <Button variant="ghost" size="icon" title="Edit agent" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                    <Button variant="ghost" size="icon" title="Edit agent" className="text-teal-600 hover:text-teal-700">
                       <Edit className="h-4 w-4" />
                     </Button>
                   </Link>

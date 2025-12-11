@@ -300,7 +300,18 @@ router.get('/analytics/summary', async (req: AuthRequest, res, next) => {
       if (endDate) where.createdAt.lte = new Date(endDate as string);
     }
 
-    const [totalCalls, completedCalls, totalDuration, avgDuration, totalCost] = await Promise.all([
+    // Build message where clause (similar structure but for messages)
+    const messageWhere: any = {
+      userId: req.user!.id,
+    };
+    if (agentId) messageWhere.agentId = agentId;
+    if (startDate || endDate) {
+      messageWhere.createdAt = {};
+      if (startDate) messageWhere.createdAt.gte = new Date(startDate as string);
+      if (endDate) messageWhere.createdAt.lte = new Date(endDate as string);
+    }
+
+    const [totalCalls, completedCalls, totalDuration, avgDuration, totalCost, totalMessages, deliveredMessages, messageCost] = await Promise.all([
       prisma.call.count({ where }),
       prisma.call.count({ where: { ...where, status: 'completed' } }),
       prisma.call.aggregate({
@@ -315,6 +326,12 @@ router.get('/analytics/summary', async (req: AuthRequest, res, next) => {
         where,
         _sum: { costUsd: true },
       }),
+      prisma.message.count({ where: messageWhere }),
+      prisma.message.count({ where: { ...messageWhere, status: 'DELIVERED' } }),
+      prisma.message.aggregate({
+        where: messageWhere,
+        _sum: { costUsd: true },
+      }),
     ]);
 
     res.json({
@@ -325,7 +342,12 @@ router.get('/analytics/summary', async (req: AuthRequest, res, next) => {
         failedCalls: totalCalls - completedCalls,
         totalDuration: totalDuration._sum.duration || 0,
         avgDuration: Math.round(avgDuration._avg.duration || 0),
-        totalCost: Number(totalCost._sum.costUsd || 0),
+        totalCost: Number(totalCost._sum.costUsd || 0) + Number(messageCost._sum.costUsd || 0),
+        // Message stats
+        totalMessages,
+        deliveredMessages,
+        failedMessages: totalMessages - deliveredMessages,
+        messageCost: Number(messageCost._sum.costUsd || 0),
       },
     });
   } catch (error) {
@@ -360,25 +382,52 @@ router.get('/analytics/timeseries', async (req: AuthRequest, res, next) => {
       },
     });
 
+    // Fetch all messages in the date range
+    const messages = await prisma.message.findMany({
+      where: {
+        userId: req.user!.id,
+        createdAt: {
+          gte: startDate,
+        },
+      },
+      select: {
+        createdAt: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
     // Group by date
-    const dateMap = new Map<string, { calls: number; duration: number; cost: number }>();
+    const dateMap = new Map<string, { calls: number; messages: number; duration: number; cost: number }>();
 
     // Initialize all dates in range with zeros
     for (let i = 0; i < days; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
       const dateStr = date.toISOString().split('T')[0];
-      dateMap.set(dateStr, { calls: 0, duration: 0, cost: 0 });
+      dateMap.set(dateStr, { calls: 0, messages: 0, duration: 0, cost: 0 });
     }
 
     // Aggregate calls by date
     for (const call of calls) {
       const dateStr = call.createdAt.toISOString().split('T')[0];
-      const existing = dateMap.get(dateStr) || { calls: 0, duration: 0, cost: 0 };
+      const existing = dateMap.get(dateStr) || { calls: 0, messages: 0, duration: 0, cost: 0 };
       dateMap.set(dateStr, {
+        ...existing,
         calls: existing.calls + 1,
         duration: existing.duration + (call.duration || 0),
         cost: existing.cost + Number(call.costUsd || 0),
+      });
+    }
+
+    // Aggregate messages by date
+    for (const message of messages) {
+      const dateStr = message.createdAt.toISOString().split('T')[0];
+      const existing = dateMap.get(dateStr) || { calls: 0, messages: 0, duration: 0, cost: 0 };
+      dateMap.set(dateStr, {
+        ...existing,
+        messages: existing.messages + 1,
       });
     }
 
@@ -388,6 +437,7 @@ router.get('/analytics/timeseries', async (req: AuthRequest, res, next) => {
       .map(([date, data]) => ({
         date,
         calls: data.calls,
+        messages: data.messages,
         duration: data.duration,
         cost: Math.round(data.cost * 100) / 100, // Round to 2 decimal places
       }));
