@@ -147,7 +147,11 @@ router.get('/:id/recording', async (req: AuthRequest, res, next) => {
     }
 
     // Fallback: Fetch recording from Twilio with authentication
-    const twilioUrl = call.recordingUrl!.endsWith('.mp3') 
+    if (!call.recordingUrl) {
+      throw createError('Recording not available', 404, ERROR_CODES.CALL_NOT_FOUND);
+    }
+    
+    const twilioUrl = call.recordingUrl.endsWith('.mp3') 
       ? call.recordingUrl 
       : `${call.recordingUrl}.mp3`;
       
