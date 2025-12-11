@@ -33,6 +33,8 @@ export interface CalendarIntegration {
   // Common fields
   eventTypeName?: string | null;
   timezone: string;
+  // Agent-specific duration (for Google Calendar)
+  defaultDuration?: number;
 }
 
 export interface PipelineConfig {
