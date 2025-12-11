@@ -24,6 +24,7 @@ router.get('/twilio', async (req: AuthRequest, res, next) => {
       select: {
         twilioAccountSid: true,
         twilioAuthToken: true,
+        twilioMessagingServiceSid: true,
         twilioConfigured: true,
       },
     });
@@ -37,6 +38,7 @@ router.get('/twilio', async (req: AuthRequest, res, next) => {
       data: {
         configured: user.twilioConfigured,
         accountSid: user.twilioAccountSid || null,
+        messagingServiceSid: user.twilioMessagingServiceSid || null,
         // Never expose the actual auth token, just show if it's set
         authTokenSet: !!user.twilioAuthToken,
         authTokenMasked: user.twilioAuthToken ? maskSecret(decrypt(user.twilioAuthToken)) : null,
@@ -50,7 +52,7 @@ router.get('/twilio', async (req: AuthRequest, res, next) => {
 // PUT /api/settings/twilio - Update Twilio credentials
 router.put('/twilio', async (req: AuthRequest, res, next) => {
   try {
-    const { accountSid, authToken } = req.body;
+    const { accountSid, authToken, messagingServiceSid } = req.body;
 
     if (!accountSid || !authToken) {
       throw createError(
@@ -84,6 +86,7 @@ router.put('/twilio', async (req: AuthRequest, res, next) => {
       data: {
         twilioAccountSid: accountSid,
         twilioAuthToken: encryptedToken,
+        twilioMessagingServiceSid: messagingServiceSid || null,
         twilioConfigured: true,
       },
     });
@@ -95,6 +98,7 @@ router.put('/twilio', async (req: AuthRequest, res, next) => {
       data: {
         configured: true,
         accountSid,
+        messagingServiceSid: messagingServiceSid || null,
         authTokenSet: true,
         authTokenMasked: maskSecret(authToken),
       },

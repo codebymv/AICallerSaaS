@@ -492,6 +492,7 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
         twilioAccountSid: true,
         twilioAuthToken: true,
         twilioConfigured: true,
+        twilioMessagingServiceSid: true,
       },
     });
 
@@ -543,10 +544,13 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
     // Determine message type
     const messageType = allMediaUrls.length > 0 ? 'MMS' : 'SMS';
 
-    // Send the message
+    // Get Messaging Service SID for A2P 10DLC compliance (optional)
+    const messagingServiceSid = user.twilioMessagingServiceSid || undefined;
+
+    // Send the message (uses Messaging Service SID if configured for US A2P compliance)
     const result = messageType === 'MMS'
-      ? await twilioService.sendMMS(data.phoneNumber, phoneNumber.phoneNumber, data.message, allMediaUrls)
-      : await twilioService.sendSMS(data.phoneNumber, phoneNumber.phoneNumber, data.message);
+      ? await twilioService.sendMMS(data.phoneNumber, phoneNumber.phoneNumber, data.message, allMediaUrls, messagingServiceSid)
+      : await twilioService.sendSMS(data.phoneNumber, phoneNumber.phoneNumber, data.message, messagingServiceSid);
 
     // Create or update conversation
     const conversation = await prisma.conversation.upsert({

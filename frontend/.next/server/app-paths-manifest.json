@@ -1,8 +1,6 @@
 {
-  "/dashboard/calls/page": "app/dashboard/calls/page.js",
-  "/dashboard/dialpad/page": "app/dashboard/dialpad/page.js",
-  "/dashboard/calls/[id]/page": "app/dashboard/calls/[id]/page.js",
-  "/dashboard/contacts/page": "app/dashboard/contacts/page.js",
+  "/login/page": "app/login/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
   "/dashboard/messaging/page": "app/dashboard/messaging/page.js",
-  "/dashboard/agents/page": "app/dashboard/agents/page.js"
+  "/dashboard/settings/page": "app/dashboard/settings/page.js"
 }

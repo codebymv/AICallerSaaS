@@ -238,17 +238,31 @@ export class TwilioService {
 
   /**
    * Send an SMS message
+   * @param to - Recipient phone number
+   * @param from - Sender phone number (used if no messagingServiceSid)
+   * @param body - Message content
+   * @param messagingServiceSid - Optional Twilio Messaging Service SID for A2P 10DLC compliance
    */
-  async sendSMS(to: string, from: string, body: string): Promise<{ messageSid: string; status: string }> {
+  async sendSMS(to: string, from: string, body: string, messagingServiceSid?: string): Promise<{ messageSid: string; status: string }> {
     try {
-      const message = await this.client.messages.create({
+      // Use Messaging Service SID if provided (required for US A2P 10DLC compliance)
+      // Otherwise fall back to using the 'from' phone number directly
+      const messageOptions: any = {
         to,
-        from,
         body,
         statusCallback: `${config.apiUrl}/webhooks/twilio/message-status`,
-      });
+      };
 
-      logger.info('[Twilio] SMS sent', { messageSid: message.sid, to, from });
+      if (messagingServiceSid) {
+        messageOptions.messagingServiceSid = messagingServiceSid;
+        logger.info('[Twilio] Using Messaging Service for SMS', { messagingServiceSid });
+      } else {
+        messageOptions.from = from;
+      }
+
+      const message = await this.client.messages.create(messageOptions);
+
+      logger.info('[Twilio] SMS sent', { messageSid: message.sid, to, from: messagingServiceSid || from });
 
       return {
         messageSid: message.sid,
@@ -262,16 +276,30 @@ export class TwilioService {
 
   /**
    * Send an MMS message with media
+   * @param to - Recipient phone number
+   * @param from - Sender phone number (used if no messagingServiceSid)
+   * @param body - Message content
+   * @param mediaUrls - Array of media URLs to attach
+   * @param messagingServiceSid - Optional Twilio Messaging Service SID for A2P 10DLC compliance
    */
-  async sendMMS(to: string, from: string, body: string, mediaUrls: string[]): Promise<{ messageSid: string; status: string }> {
+  async sendMMS(to: string, from: string, body: string, mediaUrls: string[], messagingServiceSid?: string): Promise<{ messageSid: string; status: string }> {
     try {
-      const message = await this.client.messages.create({
+      // Use Messaging Service SID if provided (required for US A2P 10DLC compliance)
+      const messageOptions: any = {
         to,
-        from,
         body,
         mediaUrl: mediaUrls,
         statusCallback: `${config.apiUrl}/webhooks/twilio/message-status`,
-      });
+      };
+
+      if (messagingServiceSid) {
+        messageOptions.messagingServiceSid = messagingServiceSid;
+        logger.info('[Twilio] Using Messaging Service for MMS', { messagingServiceSid });
+      } else {
+        messageOptions.from = from;
+      }
+
+      const message = await this.client.messages.create(messageOptions);
 
       logger.info('[Twilio] MMS sent', { messageSid: message.sid, to, from, mediaCount: mediaUrls.length });
 

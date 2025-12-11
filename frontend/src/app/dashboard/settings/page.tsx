@@ -14,6 +14,7 @@ import { ELEVENLABS_VOICES } from '@/lib/constants';
 interface TwilioSettings {
   configured: boolean;
   accountSid: string | null;
+  messagingServiceSid: string | null;
   authTokenSet: boolean;
   authTokenMasked: string | null;
 }
@@ -209,12 +210,12 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [settings, setSettings] = useState<TwilioSettings | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
   const [hasPhoneNumbers, setHasPhoneNumbers] = useState(false);
   
   // Form state
   const [accountSid, setAccountSid] = useState('');
   const [authToken, setAuthToken] = useState('');
+  const [messagingServiceSid, setMessagingServiceSid] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [editing, setEditing] = useState(false);
 
@@ -227,7 +228,6 @@ export default function SettingsPage() {
   const [calendlyToken, setCalendlyToken] = useState('');
   const [showCalendlyToken, setShowCalendlyToken] = useState(false);
   const [calendarEditing, setCalendarEditing] = useState(false);
-  const [showCalendarHelp, setShowCalendarHelp] = useState(false);
   
   // Cal.com state
   const [calcomApiKey, setCalcomApiKey] = useState('');
@@ -307,6 +307,9 @@ export default function SettingsPage() {
       setSettings(response.data || null);
       if (response.data?.accountSid) {
         setAccountSid(response.data.accountSid);
+      }
+      if (response.data?.messagingServiceSid) {
+        setMessagingServiceSid(response.data.messagingServiceSid);
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error);
@@ -574,7 +577,7 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      await api.updateTwilioSettings(accountSid, authToken);
+      await api.updateTwilioSettings(accountSid, authToken, messagingServiceSid || undefined);
       toast({
         title: 'Settings saved',
         description: 'Your Twilio credentials have been saved and verified.',
@@ -687,42 +690,27 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2">
               <CardTitle className="text-base sm:text-lg text-slate-600">Twilio</CardTitle>
               {/* Help Tooltip */}
-              <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowHelp(!showHelp)}
-                      className="text-teal-500 hover:text-teal-700 transition-colors"
-                      aria-label="How to get Twilio credentials"
-                    >
-                      <HelpCircle className="h-4 w-4" />
-                    </button>
-                    {showHelp && (
-                      <>
-                        <div 
-                          className="fixed inset-0 z-40" 
-                          onClick={() => setShowHelp(false)}
-                        />
-                        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-72 bg-white border rounded-lg shadow-lg p-4">
-                          <span className="text-sm mb">You will need a Twilio number to place or receive calls.</span>
-                          <h4 className="font-medium text-sm mb-2">How to get your Twilio credentials:</h4>
-                          <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                            <li>Go to your Twilio Console</li>
-                            <li>Find your <strong className="text-foreground">Account SID</strong> and <strong className="text-foreground">Auth Token</strong> on the dashboard</li>
-                            <li>Copy and paste them below</li>
-                            <li>Make sure you have at least one phone number</li>
-                          </ol>
-                          <a 
-                            href="https://console.twilio.com" 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 mt-3 text-sm text-teal-600 hover:underline"
-                          >
-                            Open Twilio Console <ExternalLink className="h-3 w-3" />
-                          </a>
-                        </div>
-                      </>
-                    )}
-                  </div>
+              <div className="relative group">
+                <HelpCircle className="h-4 w-4 text-teal-500 hover:text-teal-700 cursor-help transition-colors" />
+                <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-white border rounded-lg shadow-lg p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                  <span className="text-sm mb">You will need a Twilio number to place or receive calls.</span>
+                  <h4 className="font-medium text-sm mb-2">How to get your Twilio credentials:</h4>
+                  <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                    <li>Go to your Twilio Console</li>
+                    <li>Find your <strong className="text-foreground">Account SID</strong> and <strong className="text-foreground">Auth Token</strong> on the dashboard</li>
+                    <li>Copy and paste them below</li>
+                    <li>Make sure you have at least one phone number</li>
+                  </ol>
+                  <a 
+                    href="https://console.twilio.com" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 mt-3 text-sm text-teal-600 hover:underline"
+                  >
+                    Open Twilio Console <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
             </div>
             <div className="flex items-center gap-2 ml-13 sm:ml-0">
               {settings?.configured ? (
@@ -757,8 +745,49 @@ export default function SettingsPage() {
                   </p>
                 </div>
               </div>
+              
+              {/* Messaging Service SID - Editable inline */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="messagingServiceSidConfigured" className="text-muted-foreground text-xs sm:text-sm">Messaging Service SID</Label>
+                  <span className="text-xs text-muted-foreground">(Optional)</span>
+                  <div className="relative group">
+                    <HelpCircle className="h-4 w-4 text-teal-500 hover:text-teal-700 cursor-help transition-colors" />
+                    <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-white border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                      <p className="font-medium text-sm mb-1">Required for US SMS delivery</p>
+                      <p className="text-sm text-muted-foreground mb-2">US carriers require A2P 10DLC registration for business SMS. Without it, messages may be blocked.</p>
+                      <p className="text-sm text-muted-foreground mb-2"><strong className="text-foreground">To set up:</strong></p>
+                      <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
+                        <li>Register your brand in Twilio Trust Hub</li>
+                        <li>Create an A2P Campaign</li>
+                        <li>Create a Messaging Service & add your number</li>
+                        <li>Paste the Service SID (MGxxx...) here</li>
+                      </ol>
+                      <a 
+                        href="https://www.twilio.com/docs/messaging/compliance/a2p-10dlc" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-3 text-sm text-teal-600 hover:underline"
+                      >
+                        Learn more <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+                <Input
+                  id="messagingServiceSidConfigured"
+                  value={messagingServiceSid}
+                  onChange={(e) => setMessagingServiceSid(e.target.value)}
+                  placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  className="font-mono text-xs sm:text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter your Twilio Messaging Service SID for reliable SMS delivery in the US.
+                </p>
+              </div>
+
               <div className="flex flex-wrap gap-2">
-                <Button onClick={() => setEditing(true)} size="sm" className="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white">
+                <Button onClick={() => { setEditing(true); }} size="sm" className="flex-1 sm:flex-none bg-teal-600 hover:bg-teal-700 text-white">
                   Update Credentials
                 </Button>
                 <Button variant="outline" onClick={handleTest} disabled={testing} size="sm" className="flex-1 sm:flex-none text-teal-600 border-teal-600">
@@ -870,7 +899,7 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="accountSid">Account SID</Label>
+                  <Label htmlFor="accountSid" className="text-muted-foreground text-xs sm:text-sm">Account SID</Label>
                   <Input
                     id="accountSid"
                     value={accountSid}
@@ -880,7 +909,7 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="authToken">Auth Token</Label>
+                  <Label htmlFor="authToken" className="text-muted-foreground text-xs sm:text-sm">Auth Token</Label>
                   <div className="relative">
                     <Input
                       id="authToken"
@@ -900,6 +929,47 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+              
+              {/* Messaging Service SID - Optional */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="messagingServiceSid" className="text-muted-foreground text-xs sm:text-sm">Messaging Service SID</Label>
+                  <span className="text-xs text-muted-foreground">(Optional)</span>
+                  <div className="relative group">
+                    <HelpCircle className="h-4 w-4 text-teal-500 hover:text-teal-700 cursor-help transition-colors" />
+                    <div className="absolute left-0 bottom-full mb-2 w-72 p-3 bg-white border rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                      <p className="font-medium text-sm mb-1">Required for US SMS delivery</p>
+                      <p className="text-sm text-muted-foreground mb-2">US carriers require A2P 10DLC registration for business SMS. Without it, messages may be blocked.</p>
+                      <p className="text-sm text-muted-foreground mb-2"><strong className="text-foreground">To set up:</strong></p>
+                      <ol className="text-sm text-muted-foreground list-decimal list-inside space-y-1">
+                        <li>Register your brand in Twilio Trust Hub</li>
+                        <li>Create an A2P Campaign</li>
+                        <li>Create a Messaging Service & add your number</li>
+                        <li>Paste the Service SID (MGxxx...) here</li>
+                      </ol>
+                      <a 
+                        href="https://www.twilio.com/docs/messaging/compliance/a2p-10dlc" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 mt-3 text-sm text-teal-600 hover:underline"
+                      >
+                        Learn more <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+                <Input
+                  id="messagingServiceSid"
+                  value={messagingServiceSid}
+                  onChange={(e) => setMessagingServiceSid(e.target.value)}
+                  placeholder="MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter your Twilio Messaging Service SID for reliable SMS delivery in the US.
+                </p>
+              </div>
+
               <div className="flex gap-2">
                 <Button onClick={handleSave} disabled={saving} className="bg-teal-600 hover:bg-teal-700">
                   {saving ? (
@@ -932,36 +1002,21 @@ export default function SettingsPage() {
             <div className="flex items-center gap-2">
               <CardTitle className="text-base sm:text-lg text-slate-600">Calendar</CardTitle>
               {/* Help Tooltip */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowCalendarHelp(!showCalendarHelp)}
-                  className="text-teal-500 hover:text-teal-700 transition-colors"
-                  aria-label="Calendar integration help"
-                >
-                  <HelpCircle className="h-4 w-4" />
-                </button>
-                {showCalendarHelp && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowCalendarHelp(false)}
-                    />
-                    <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-80 bg-white border rounded-lg shadow-lg p-4">
-                      <h4 className="font-medium text-sm mb-2">Calendar Integration Options</h4>
-                      <div className="space-y-3 text-sm text-muted-foreground">
-                        <div>
-                          <p className="font-medium text-foreground">Cal.com (Recommended)</p>
-                          <p>Full programmatic booking - AI can directly create appointments without any follow-up needed.</p>
-                        </div>
-                        <div>
-                          <p className="font-medium text-foreground">Calendly</p>
-                          <p>Availability checking only - AI can see open slots but cannot book directly (API limitation).</p>
-                        </div>
-                      </div>
+              <div className="relative group">
+                <HelpCircle className="h-4 w-4 text-teal-500 hover:text-teal-700 cursor-help transition-colors" />
+                <div className="absolute left-0 top-full mt-2 z-50 w-80 bg-white border rounded-lg shadow-lg p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                  <h4 className="font-medium text-sm mb-2">Calendar Integration Options</h4>
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    <div>
+                      <p className="font-medium text-foreground">Cal.com (Recommended)</p>
+                      <p>Full programmatic booking - AI can directly create appointments without any follow-up needed.</p>
                     </div>
-                  </>
-                )}
+                    <div>
+                      <p className="font-medium text-foreground">Calendly</p>
+                      <p>Availability checking only - AI can see open slots but cannot book directly (API limitation).</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-2 ml-13 sm:ml-0">

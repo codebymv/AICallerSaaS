@@ -448,15 +448,16 @@ class ApiClient {
     return this.request<{
       configured: boolean;
       accountSid: string | null;
+      messagingServiceSid: string | null;
       authTokenSet: boolean;
       authTokenMasked: string | null;
     }>('/api/settings/twilio');
   }
 
-  async updateTwilioSettings(accountSid: string, authToken: string) {
+  async updateTwilioSettings(accountSid: string, authToken: string, messagingServiceSid?: string) {
     return this.request<any>('/api/settings/twilio', {
       method: 'PUT',
-      body: JSON.stringify({ accountSid, authToken }),
+      body: JSON.stringify({ accountSid, authToken, messagingServiceSid }),
     });
   }
 

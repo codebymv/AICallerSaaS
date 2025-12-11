@@ -82,6 +82,7 @@ model User {
   // Twilio Integration (BYOT - Bring Your Own Twilio)
   twilioAccountSid    String?   @map("twilioaccountsid") // User's Twilio Account SID
   twilioAuthToken     String?   @map("twilioauthtoken") // User's Twilio Auth Token (encrypted)
+  twilioMessagingServiceSid String? @map("twiliomessagingservicesid") // Optional Messaging Service SID for A2P 10DLC
   twilioConfigured    Boolean   @default(false) @map("twilioconfigured")
   
   // Relations
