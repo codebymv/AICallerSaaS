@@ -540,7 +540,7 @@ export default function ConversationDetailPage() {
       {/* Add Contact Modal */}
       <ContactModal
         open={addContactModalOpen}
-        onOpenChange={setAddContactModalOpen}
+        onClose={() => setAddContactModalOpen(false)}
         onSave={handleSaveContact}
         initialPhoneNumber={conversation.externalNumber}
       />

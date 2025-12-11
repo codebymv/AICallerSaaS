@@ -738,7 +738,7 @@ export default function MessagingPage() {
       {/* Add Contact Modal */}
       <ContactModal
         open={addContactModalOpen}
-        onOpenChange={setAddContactModalOpen}
+        onClose={() => setAddContactModalOpen(false)}
         onSave={handleSaveContact}
         initialPhoneNumber={selectedPhoneNumber}
       />

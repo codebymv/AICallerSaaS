@@ -482,7 +482,7 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
     });
 
     if (!phoneNumber) {
-      throw createError('No active phone number assigned to this agent', 400, ERROR_CODES.NO_PHONE_NUMBER);
+      throw createError('No active phone number assigned to this agent', 400, ERROR_CODES.PHONE_NUMBER_NOT_FOUND);
     }
 
     // Get user's Twilio credentials

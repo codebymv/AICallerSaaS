@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { prisma } from '../lib/prisma';
-import { createError, ERROR_CODES } from '../lib/constants';
+import { createError } from '../middleware/error-handler';
+import { ERROR_CODES } from '../lib/constants';
 import { logger } from '../utils/logger';
 
 const router = Router();
