@@ -290,7 +290,12 @@ export default function CallDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/calls">
-            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+            {/* Mobile: icon-only */}
+            <Button variant="ghost" size="icon" className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            {/* Desktop: icon + text */}
+            <Button variant="ghost" size="sm" className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Calls
             </Button>
@@ -320,7 +325,12 @@ export default function CallDetailPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/calls">
-            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+            {/* Mobile: icon-only */}
+            <Button variant="ghost" size="icon" className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            {/* Desktop: icon + text */}
+            <Button variant="ghost" size="sm" className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
@@ -341,16 +351,16 @@ export default function CallDetailPage() {
         </span>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 w-full max-w-full">
         {/* Call Info Card */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-lg text-slate-600">Call Information</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Direction & Numbers */}
-            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-lg">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+            <div className="flex items-center gap-3 p-3 sm:p-4 bg-slate-50 rounded-lg">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
                 call.direction === 'inbound' ? DIRECTION_COLORS.inbound.bg : DIRECTION_COLORS.outbound.bg
               }`}>
                 {call.direction === 'inbound' ? (
@@ -366,7 +376,7 @@ export default function CallDetailPage() {
                 {contact ? (
                   <div>
                     <p className="font-medium text-slate-600">{contact.name}</p>
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-wrap">
                       <span className="font-mono text-muted-foreground">{formatPhoneNumber(call.from)}</span>
                       <span className="text-muted-foreground">→</span>
                       <span className="font-mono text-muted-foreground">{formatPhoneNumber(call.to)}</span>
@@ -374,7 +384,7 @@ export default function CallDetailPage() {
                   </div>
                 ) : (
                   <div>
-                    <div className="flex items-center gap-2 text-sm">
+                    <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm flex-wrap">
                       <span className="font-mono text-slate-600">{formatPhoneNumber(call.from)}</span>
                       <span className="text-muted-foreground">→</span>
                       <span className="font-mono text-slate-600">{formatPhoneNumber(call.to)}</span>
@@ -383,7 +393,7 @@ export default function CallDetailPage() {
                           const phone = call.direction === 'inbound' ? call.from : call.to;
                           if (phone) handleAddContact(phone);
                         }}
-                        className="text-slate-400 hover:text-teal-600 transition-colors ml-1"
+                        className="text-slate-400 hover:text-teal-600 transition-colors"
                         title="Add to contacts"
                       >
                         <UserPlus className="h-4 w-4" />
@@ -419,7 +429,7 @@ export default function CallDetailPage() {
         </Card>
 
         {/* Agent Card */}
-        <Card>
+        <Card className="min-w-0 overflow-hidden">
           <CardHeader>
             <CardTitle className="text-lg text-slate-600">AI Agent</CardTitle>
           </CardHeader>
@@ -458,9 +468,9 @@ export default function CallDetailPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-3">
+                    <div className="flex flex-col items-end gap-1 ml-2 sm:ml-3">
                       <span
-                        className={`px-2 py-1 text-xs rounded-full ${
+                        className={`px-2 py-1 text-xs rounded-full flex-shrink-0 ${
                           fullAgent.isActive
                             ? 'bg-green-100 text-green-700'
                             : 'bg-slate-100 text-slate-600'
@@ -469,11 +479,11 @@ export default function CallDetailPage() {
                         {fullAgent.isActive ? 'Active' : 'Inactive'}
                       </span>
                       {fullAgent.mode && AGENT_MODES[fullAgent.mode as keyof typeof AGENT_MODES] && (
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground flex-shrink-0">
+                          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
                             {getModeIcon(fullAgent.mode)}
                           </span>
-                          {AGENT_MODES[fullAgent.mode as keyof typeof AGENT_MODES].label}
+                          <span className="hidden sm:inline">{AGENT_MODES[fullAgent.mode as keyof typeof AGENT_MODES].label}</span>
                         </span>
                       )}
                     </div>

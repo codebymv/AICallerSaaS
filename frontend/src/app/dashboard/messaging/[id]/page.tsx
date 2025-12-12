@@ -284,7 +284,12 @@ export default function ConversationDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-4">
           <Link href="/dashboard/messaging">
-            <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+            {/* Mobile: icon-only */}
+            <Button variant="ghost" size="icon" className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            {/* Desktop: icon + text */}
+            <Button variant="ghost" size="sm" className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Messaging
             </Button>
@@ -312,37 +317,39 @@ export default function ConversationDetailPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link href="/dashboard/messaging">
-              <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+              {/* Mobile: icon-only */}
+              <Button variant="ghost" size="icon" className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              {/* Desktop: icon + text */}
+              <Button variant="ghost" size="sm" className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
             </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-teal-100 flex-shrink-0">
-                <MessageSquare className="h-5 w-5 text-teal-600" />
-              </div>
-              <div>
+            <div>
+              <div className="flex items-center gap-3">
+                <MessageSquare className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
                 {contact ? (
-                  <>
-                    <h1 className="text-lg font-semibold text-slate-600">{contact.name}</h1>
-                    <p className="text-sm text-muted-foreground font-mono">{formatPhoneNumber(conversation.externalNumber)}</p>
-                  </>
+                  <h1 className="text-lg font-semibold text-slate-600">{contact.name}</h1>
                 ) : (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <h1 className="text-lg font-semibold text-slate-600 font-mono">{formatPhoneNumber(conversation.externalNumber)}</h1>
-                      <button
-                        onClick={handleAddContact}
-                        className="text-slate-400 hover:text-teal-600 transition-colors"
-                        title="Add to contacts"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Unknown contact</p>
-                  </>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg font-semibold text-slate-600 font-mono">{formatPhoneNumber(conversation.externalNumber)}</h1>
+                    <button
+                      onClick={handleAddContact}
+                      className="text-slate-400 hover:text-teal-600 transition-colors"
+                      title="Add to contacts"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </button>
+                  </div>
                 )}
               </div>
+              {contact ? (
+                <p className="text-sm text-muted-foreground font-mono">{formatPhoneNumber(conversation.externalNumber)}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">Unknown contact</p>
+              )}
             </div>
           </div>
           

@@ -138,22 +138,28 @@ export default function AgentsPage() {
           {agents.map((agent) => (
             <Card key={agent.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="flex flex-row items-start justify-between space-y-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
-                      <Image
-                        src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
-                        alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
-                        width={48}
-                        height={48}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="h-6 w-6 text-slate-400" />
-                    )}
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg text-slate-600">{agent.name}</CardTitle>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <Link href={`/dashboard/agents/${agent.id}`} className="flex-shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-teal-600 transition-all">
+                      {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.avatar ? (
+                        <Image
+                          src={ELEVENLABS_VOICES.find(v => v.id === agent.voice)!.avatar!}
+                          alt={ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || 'Voice'}
+                          width={48}
+                          height={48}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-6 w-6 text-slate-400" />
+                      )}
+                    </div>
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/dashboard/agents/${agent.id}`}>
+                      <CardTitle className="text-lg text-slate-600 hover:text-teal-600 hover:underline decoration-slate-300 hover:decoration-teal-600 underline-offset-2 transition-colors cursor-pointer">
+                        {agent.name}
+                      </CardTitle>
+                    </Link>
                     <CardDescription className="line-clamp-1">
                       {agent.callPurpose || 'No purpose set'}
                     </CardDescription>

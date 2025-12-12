@@ -15,7 +15,7 @@ import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
 import { OutboundMessageDialog } from '@/components/OutboundMessageDialog';
 import { DeleteButton } from '@/components/DeleteButton';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2, MessageSquare, Layers, Image as ImageIcon, FileText, Video, HelpCircle, ClipboardList, Bell, Edit } from 'lucide-react';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2, MessageSquare, Layers, Image as ImageIcon, FileText, Video, HelpCircle, ClipboardList, Bell, Edit, X, Save, Loader2, Trash2 } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -467,7 +467,12 @@ export default function AgentDetailPage() {
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <div className="text-muted-foreground">Agent not found</div>
         <Link href="/dashboard/agents">
-          <Button variant="ghost" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+          {/* Mobile: icon-only */}
+          <Button variant="ghost" size="icon" className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          {/* Desktop: icon + text */}
+          <Button variant="ghost" className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Agents
           </Button>
@@ -481,26 +486,84 @@ export default function AgentDetailPage() {
       {/* Header - Compact layout on desktop */}
       <div className="flex flex-col gap-4">
         {/* Top row: Back, Name, Stats (desktop), Actions */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="flex lg:flex-row lg:items-center lg:justify-between gap-4">
           {/* Left: Back + Name */}
-          <div className="flex items-center gap-4 min-w-0">
+          <div className="flex items-start gap-4 min-w-0 flex-1">
             <Link href="/dashboard/agents" className="flex-shrink-0">
-              <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+              {/* Mobile: icon-only */}
+              <Button variant="ghost" size="icon" className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              {/* Desktop: icon + text */}
+              <Button variant="ghost" size="sm" className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
             </Link>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-3">
                 <Bot className="h-6 w-6 text-slate-600 flex-shrink-0" />
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-600 truncate max-w-[200px] sm:max-w-[250px]" title={agent.name}>
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-600 truncate max-w-[120px] sm:max-w-none" title={agent.name}>
                   {agent.name}
                 </h1>
               </div>
-              <p className="text-muted-foreground text-xs">
+              <p className="text-muted-foreground text-xs mt-1">
                 {AGENT_MODES[agent.mode]?.label || agent.mode} agent
               </p>
             </div>
+          </div>
+
+          {/* Right: Action buttons - Mobile/Tablet (Edit & Delete in 2x2 grid) */}
+          <div className="flex gap-2 flex-shrink-0 lg:hidden">
+            {editing ? (
+              <>
+                <Button variant="outline" size="icon" onClick={() => setEditing(false)} className="sm:hidden text-teal-600 border-teal-600 hover:bg-teal-50">
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" onClick={() => setEditing(false)} className="hidden sm:flex text-teal-600 border-teal-600 hover:bg-teal-50">
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button size="icon" onClick={handleSave} disabled={saving} className="sm:hidden bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button onClick={handleSave} disabled={saving} className="hidden sm:flex bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                {/* Edit button */}
+                <Button variant="outline" size="icon" onClick={() => setEditing(true)} className="sm:hidden text-teal-600 border-teal-600 hover:bg-teal-50">
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" onClick={() => setEditing(true)} className="hidden sm:flex text-teal-600 border-teal-600 hover:bg-teal-50">
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                {/* Delete button */}
+                <DeleteButton
+                  variant="full"
+                  onDelete={handleDelete}
+                  itemName={agent.name}
+                  title="Delete Agent"
+                />
+              </>
+            )}
           </div>
 
           {/* Center: Stats (desktop only - fills available space) */}
@@ -541,35 +604,28 @@ export default function AgentDetailPage() {
                 </span>
               </div>
             )}
-
-            <div className="flex flex-col justify-center px-4 py-2 bg-white rounded-lg border flex-1">
-              <span className="text-xs text-muted-foreground">Status</span>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                  {agent.isActive ? 'Active' : 'Inactive'}
-                </span>
-                {agent.mode && AGENT_MODES[agent.mode] && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center bg-teal-100">
-                      {getModeIcon(agent.mode)}
-                    </span>
-                    {AGENT_MODES[agent.mode].label}
-                  </span>
-                )}
-              </div>
-            </div>
           </div>
 
-          {/* Right: Action buttons */}
-          <div className="flex gap-2 flex-shrink-0">
+          {/* Right: Action buttons - Desktop only (below stats) */}
+          <div className="hidden lg:flex gap-2 flex-shrink-0">
             {editing ? (
               <>
                 <Button variant="outline" onClick={() => setEditing(false)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
+                  <X className="h-4 w-4 mr-2" />
                   Cancel
                 </Button>
                 <Button onClick={handleSave} disabled={saving} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </Button>
               </>
             ) : (
@@ -591,6 +647,7 @@ export default function AgentDetailPage() {
                     </Button>
                   )}
                 <Button variant="outline" onClick={() => setEditing(true)} className="text-teal-600 border-teal-600 hover:bg-teal-50">
+                  <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
                 <DeleteButton
@@ -604,9 +661,30 @@ export default function AgentDetailPage() {
           </div>
         </div>
 
+        {/* Make Call / Send Message buttons - Mobile/Tablet only (above stats) */}
+        {!editing && (
+          <div className="flex gap-2 lg:hidden">
+            {/* Make Call button */}
+            {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') &&
+              (!agent.communicationChannel || agent.communicationChannel === 'VOICE_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
+                <Button onClick={() => setShowCallDialog(true)} className="flex-1 bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
+                  <Phone className="h-4 w-4 mr-2" />
+                  Make Call
+                </Button>
+              )}
+            {/* Send Message button */}
+            {(agent.mode === 'OUTBOUND' || agent.mode === 'HYBRID') &&
+              (agent.communicationChannel === 'MESSAGING_ONLY' || agent.communicationChannel === 'OMNICHANNEL') && (
+                <Button onClick={() => setShowMessageDialog(true)} className="flex-1 bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Send Message
+                </Button>
+              )}
+          </div>
+        )}
+
         {/* Stats - Mobile/Tablet only (stacked cards) */}
-        <div className={`grid gap-4 lg:hidden ${agent.communicationChannel === 'OMNICHANNEL' ? 'grid-cols-2' : 'grid-cols-3'
-          }`}>
+        <div className="grid grid-cols-2 gap-4 lg:hidden">
           {/* Communication stats card */}
           {agent.communicationChannel === 'VOICE_ONLY' ? (
             <Card>
@@ -649,28 +727,24 @@ export default function AgentDetailPage() {
               </CardHeader>
             </Card>
           )}
-
-          <Card>
-            <CardHeader className="p-3">
-              <CardDescription className="text-xs">Status</CardDescription>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                  {agent.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-            </CardHeader>
-          </Card>
         </div>
       </div>
 
       {/* Details */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-slate-600">Agent Configuration</CardTitle>
-          <CardDescription>
-            Voice and AI model settings
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-slate-600">Agent Configuration</CardTitle>
+              <CardDescription>
+                Voice and AI model settings
+              </CardDescription>
+            </div>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${agent.isActive ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+              }`}>
+              {agent.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {editing ? (
@@ -1311,7 +1385,7 @@ export default function AgentDetailPage() {
                     <p className="font-medium text-lg text-slate-600">
                       {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.name || agent.voice}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="hidden sm:block text-sm text-muted-foreground">
                       {ELEVENLABS_VOICES.find(v => v.id === agent.voice)?.description}
                     </p>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -1325,13 +1399,13 @@ export default function AgentDetailPage() {
                     {/* Calendar Tool */}
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-teal-600 flex-shrink-0" />
-                      <span className="font-medium text-sm text-slate-600">Calendar</span>
+                      <span className="hidden sm:inline font-medium text-sm text-slate-600">Calendar</span>
                       {agent.calendarEnabled && calendarStatus?.connected ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
+                        <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-700">
                           {calendarStatus.provider === 'calcom' ? 'Cal.com' : 'Calendly'}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">
+                        <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-500">
                           Off
                         </span>
                       )}
@@ -1342,24 +1416,24 @@ export default function AgentDetailPage() {
                       <>
                         <div className="flex items-center gap-2">
                           <ImageIcon className="h-4 w-4 text-teal-600 flex-shrink-0" />
-                          <span className="font-medium text-sm text-slate-600">Images</span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.imageToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                          <span className="hidden sm:inline font-medium text-sm text-slate-600">Images</span>
+                          <span className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.imageToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
                             }`}>
                             {agent.imageToolEnabled ? 'MMS' : 'Off'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <FileText className="h-4 w-4 text-teal-600 flex-shrink-0" />
-                          <span className="font-medium text-sm text-slate-600">Documents</span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.documentToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                          <span className="hidden sm:inline font-medium text-sm text-slate-600">Documents</span>
+                          <span className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.documentToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
                             }`}>
                             {agent.documentToolEnabled ? 'MMS' : 'Off'}
                           </span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Video className="h-4 w-4 text-teal-600 flex-shrink-0" />
-                          <span className="font-medium text-sm text-slate-600">Videos</span>
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.videoToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
+                          <span className="hidden sm:inline font-medium text-sm text-slate-600">Videos</span>
+                          <span className={`hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${agent.videoToolEnabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'
                             }`}>
                             {agent.videoToolEnabled ? 'MMS' : 'Off'}
                           </span>

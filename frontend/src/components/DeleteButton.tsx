@@ -44,13 +44,25 @@ export function DeleteButton({
     if (variant === 'full') {
         return (
             <>
+                {/* Mobile: icon-only */}
+                <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => setShowModal(true)}
+                    disabled={disabled}
+                    className={`sm:hidden ${className}`}
+                >
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+                {/* Desktop: icon + text */}
                 <Button
                     variant="destructive"
                     size={size}
                     onClick={() => setShowModal(true)}
                     disabled={disabled}
-                    className={className}
+                    className={`hidden sm:flex ${className}`}
                 >
+                    <Trash2 className="h-4 w-4 mr-2" />
                     Delete
                 </Button>
                 <DeleteConfirmModal

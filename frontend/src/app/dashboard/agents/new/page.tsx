@@ -521,7 +521,12 @@ export default function NewAgentPage() {
               ))}
             </div>
             <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/agents')} className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+              {/* Mobile: icon-only */}
+              <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/agents')} className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              {/* Desktop: icon + text */}
+              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/agents')} className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
@@ -864,7 +869,12 @@ export default function NewAgentPage() {
             </div>
 
             <div className="flex justify-between">
-              <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+              {/* Mobile: icon-only */}
+              <Button variant="ghost" size="icon" onClick={() => setStep(1)} className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              {/* Desktop: icon + text */}
+              <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>
@@ -1234,7 +1244,12 @@ export default function NewAgentPage() {
             )}
 
             <div className="flex justify-between pt-4">
-              <Button variant="ghost" size="sm" onClick={() => setStep(2)} className="text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+              {/* Mobile: icon-only */}
+              <Button variant="ghost" size="icon" onClick={() => setStep(2)} className="sm:hidden text-teal-600 hover:text-teal-700 hover:bg-teal-50">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              {/* Desktop: icon + text */}
+              <Button variant="ghost" size="sm" onClick={() => setStep(2)} className="hidden sm:flex text-teal-600 hover:text-teal-700 hover:bg-teal-50">
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back
               </Button>

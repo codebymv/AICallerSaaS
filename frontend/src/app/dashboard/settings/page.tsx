@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, Bot, ChevronDown, Trash2, AlertCircle } from 'lucide-react';
+import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, Bot, ChevronDown, Trash2, AlertCircle, X } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -800,12 +800,23 @@ export default function SettingsPage() {
                         )}
                       </Button>
                       {editing && (
-                        <Button variant="outline" onClick={() => {
-                          setEditing(false);
-                          setAuthToken('');
-                        }}>
-                          Cancel
-                        </Button>
+                        <>
+                          {/* Mobile: icon-only */}
+                          <Button variant="outline" size="icon" onClick={() => {
+                            setEditing(false);
+                            setAuthToken('');
+                          }} className="sm:hidden">
+                            <X className="h-4 w-4" />
+                          </Button>
+                          {/* Desktop: icon + text */}
+                          <Button variant="outline" onClick={() => {
+                            setEditing(false);
+                            setAuthToken('');
+                          }} className="hidden sm:flex">
+                            <X className="h-4 w-4 mr-2" />
+                            Cancel
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -1018,7 +1029,19 @@ export default function SettingsPage() {
                         <Button onClick={handleConnectGoogle} disabled={calendarLoading} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
                           {calendarLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</> : <><Calendar className="h-4 w-4 mr-2" />Connect Google Calendar</>}
                         </Button>
-                        {calendarEditing && <Button variant="outline" onClick={() => setCalendarEditing(false)}>Cancel</Button>}
+                        {calendarEditing && (
+                          <>
+                            {/* Mobile: icon-only */}
+                            <Button variant="outline" size="icon" onClick={() => setCalendarEditing(false)} className="sm:hidden">
+                              <X className="h-4 w-4" />
+                            </Button>
+                            {/* Desktop: icon + text */}
+                            <Button variant="outline" onClick={() => setCalendarEditing(false)} className="hidden sm:flex">
+                              <X className="h-4 w-4 mr-2" />
+                              Cancel
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   )
@@ -1079,7 +1102,19 @@ export default function SettingsPage() {
                         <Button onClick={handleConnectCalcom} disabled={calendarLoading || !calcomApiKey} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
                           {calendarLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</> : <><Calendar className="h-4 w-4 mr-2" />Connect Cal.com</>}
                         </Button>
-                        {calendarEditing && <Button variant="outline" onClick={() => { setCalendarEditing(false); setCalcomApiKey(''); }}>Cancel</Button>}
+                        {calendarEditing && (
+                          <>
+                            {/* Mobile: icon-only */}
+                            <Button variant="outline" size="icon" onClick={() => { setCalendarEditing(false); setCalcomApiKey(''); }} className="sm:hidden">
+                              <X className="h-4 w-4" />
+                            </Button>
+                            {/* Desktop: icon + text */}
+                            <Button variant="outline" onClick={() => { setCalendarEditing(false); setCalcomApiKey(''); }} className="hidden sm:flex">
+                              <X className="h-4 w-4 mr-2" />
+                              Cancel
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   )
@@ -1140,7 +1175,19 @@ export default function SettingsPage() {
                         <Button onClick={handleConnectCalendly} disabled={calendarLoading || !calendlyToken} className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
                           {calendarLoading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Connecting...</> : <><Calendar className="h-4 w-4 mr-2" />Connect Calendly</>}
                         </Button>
-                        {calendarEditing && <Button variant="outline" onClick={() => { setCalendarEditing(false); setCalendlyToken(''); }}>Cancel</Button>}
+                        {calendarEditing && (
+                          <>
+                            {/* Mobile: icon-only */}
+                            <Button variant="outline" size="icon" onClick={() => { setCalendarEditing(false); setCalendlyToken(''); }} className="sm:hidden">
+                              <X className="h-4 w-4" />
+                            </Button>
+                            {/* Desktop: icon + text */}
+                            <Button variant="outline" onClick={() => { setCalendarEditing(false); setCalendlyToken(''); }} className="hidden sm:flex">
+                              <X className="h-4 w-4 mr-2" />
+                              Cancel
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   )
