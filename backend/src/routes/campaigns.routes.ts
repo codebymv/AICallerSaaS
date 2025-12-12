@@ -690,7 +690,7 @@ router.post('/:id/leads/:leadId/convert-to-contact', async (req: AuthRequest, re
     const contact = await prisma.contact.create({
       data: {
         userId: req.user!.id,
-        name: lead.name || undefined,
+        name: lead.name || lead.phoneNumber,
         phoneNumber: lead.phoneNumber,
         email: lead.email || undefined,
         notes: lead.notes ? `Converted from campaign: ${campaign.name}\n${lead.notes}` : `Converted from campaign: ${campaign.name}`,
@@ -754,7 +754,7 @@ router.post('/:id/convert-successful-leads', async (req: AuthRequest, res, next)
       await prisma.contact.create({
         data: {
           userId: req.user!.id,
-          name: lead.name || undefined,
+          name: lead.name || lead.phoneNumber,
           phoneNumber: lead.phoneNumber,
           email: lead.email || undefined,
           notes: lead.notes ? `Converted from campaign: ${campaign.name}\n${lead.notes}` : `Converted from campaign: ${campaign.name}`,

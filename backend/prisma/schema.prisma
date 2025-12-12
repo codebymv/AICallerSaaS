@@ -266,6 +266,7 @@ model Contact {
   id           String   @id @default(cuid())
   phoneNumber  String   // Primary identifier, not unique (user-scoped)
   name         String
+  email        String?
   notes        String?  @db.Text
   
   userId       String
