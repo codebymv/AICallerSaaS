@@ -18,15 +18,19 @@ import {
   Hash,
   AudioLines,
   Users,
-  MessageSquare
+  MessageSquare,
+  Flag,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { GlobalSearch } from '@/components/GlobalSearch';
 import { api } from '@/lib/api';
 import { useCallEvents } from '@/hooks/use-call-events';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/agents', label: 'Agents', icon: Bot },
+  { href: '/dashboard/campaigns', label: 'Campaigns', icon: Flag },
   { href: '/dashboard/voices', label: 'Voices', icon: AudioLines },
   { href: '/dashboard/contacts', label: 'Contacts', icon: Users },
   { href: '/dashboard/dialpad', label: 'Dialpad', icon: Hash },
@@ -44,9 +48,21 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Subscribe to real-time call events (shows toast for call started/ended)
   useCallEvents(user?.id || null);
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen((open) => !open);
+      }
+    };
+    document.addEventListener('keydown', down);
+    return () => document.removeEventListener('keydown', down);
+  }, []);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -105,6 +121,14 @@ export default function DashboardLayout({
             className="h-6 w-auto"
           />
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSearchOpen(true)}
+          className="-mr-2"
+        >
+          <Search className="h-5 w-5 text-slate-600" />
+        </Button>
       </div>
 
       {/* Sidebar */}
@@ -114,8 +138,8 @@ export default function DashboardLayout({
         }`}
       >
         <div className="flex flex-col h-full">
-          {/* Logo - Subtle gradient header with inverted icon and text */}
-          <div className="flex items-center gap-3 px-6 py-5 bg-gradient-to-b from-[#0fa693] to-teal-600">
+          {/* Logo - Subtle gradient header with inverted icon and text (Desktop only) */}
+          <div className="hidden lg:flex items-center gap-3 px-6 py-5 bg-gradient-to-b from-[#0fa693] to-teal-600">
             <Image
               src="/logo-icon-transparent-inverted.png"
               alt="Gleam Icon"
@@ -132,6 +156,20 @@ export default function DashboardLayout({
               priority
               className="h-7 w-auto"
             />
+          </div>
+
+          {/* Search Trigger (Desktop) */}
+          <div className="hidden lg:block px-4 py-2">
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-500 bg-white border rounded-lg hover:border-teal-300 hover:text-slate-700 transition-all shadow-sm group"
+            >
+              <Search className="h-4 w-4 group-hover:text-teal-500 transition-colors" />
+              <span>Search...</span>
+              <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-slate-50 px-1.5 font-mono text-[10px] font-medium text-slate-400 opacity-100">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </button>
           </div>
 
           {/* Navigation */}
@@ -222,6 +260,8 @@ export default function DashboardLayout({
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
+
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

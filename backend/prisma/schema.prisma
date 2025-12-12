@@ -58,6 +58,24 @@ enum AssetCategory {
   OTHER
 }
 
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum LeadStatus {
+  PENDING
+  SCHEDULED
+  CALLING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -96,6 +114,7 @@ model User {
   messages      Message[]
   conversations Conversation[]
   assets        Asset[]   // User's uploaded media assets
+  campaigns     Campaign[]
   
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -201,6 +220,7 @@ model Agent {
   messages        Message[]
   conversations   Conversation[]
   assets          Asset[]   // Pre-uploaded media assets for this agent
+  campaigns       Campaign[]
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -309,6 +329,10 @@ model Call {
   agentVoice      String?
   agentVoiceProvider String?
   
+  // Campaign tracking
+  campaignId      String?
+  campaignLeadId  String?
+  
   // Relations
   userId          String
   user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -326,6 +350,7 @@ model Call {
   @@index([agentId])
   @@index([status])
   @@index([callSid])
+  @@index([campaignId])
 }
 
 // ============ USAGE TRACKING ============
@@ -572,4 +597,84 @@ model Asset {
   @@index([userId])
   @@index([agentId])
   @@index([category])
+}
+
+// ============ CAMPAIGNS ============
+
+model Campaign {
+  id              String          @id @default(cuid())
+  name            String
+  description     String?         @db.Text
+  
+  // Agent Configuration
+  agentId         String
+  agent           Agent           @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  
+  // Schedule & Pacing
+  status          CampaignStatus  @default(DRAFT)
+  startDate       DateTime?
+  endDate         DateTime?
+  callWindowStart String?         // HH:MM format (e.g. "09:00")
+  callWindowEnd   String?         // HH:MM format (e.g. "17:00")
+  dailyCallLimit  Int             @default(100)
+  callsPerHour    Int?            // Rate limiting (null = no limit)
+  minCallInterval Int             @default(30) // Seconds between calls
+  
+  // Retry Configuration
+  maxRetryAttempts Int            @default(3)
+  retryInterval    Int            @default(3600) // Seconds (default 1 hour)
+  
+  // Statistics
+  totalLeads      Int             @default(0)
+  callsCompleted  Int             @default(0)
+  callsSuccessful Int             @default(0)
+  callsFailed     Int             @default(0)
+  leadsContacted  Int             @default(0)
+  
+  // Relations
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leads           CampaignLead[]
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  
+  @@index([userId])
+  @@index([agentId])
+  @@index([status])
+  @@index([startDate])
+}
+
+model CampaignLead {
+  id              String      @id @default(cuid())
+  
+  campaignId      String
+  campaign        Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  
+  // Lead Information
+  name            String?
+  phoneNumber     String
+  email           String?
+  metadata        Json?       @default("{}") // Custom fields from CSV
+  
+  // Call Status
+  status          LeadStatus  @default(PENDING)
+  attempts        Int         @default(0)
+  lastAttemptAt   DateTime?
+  nextAttemptAt   DateTime?   // Scheduled time for next attempt
+  
+  // Call Results
+  lastCallId      String?
+  lastCallDuration Int?       // Seconds
+  lastCallStatus  String?     // completed, failed, no-answer, busy
+  outcome         String?     // answered, voicemail, no-answer, busy, failed
+  notes           String?     @db.Text
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([campaignId])
+  @@index([status])
+  @@index([nextAttemptAt])
+  @@unique([campaignId, phoneNumber]) // Prevent duplicate numbers in same campaign
 }

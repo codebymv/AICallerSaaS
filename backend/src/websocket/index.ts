@@ -459,6 +459,52 @@ function broadcastToUser(userId: string, event: string, data: any) {
   }
 }
 
+// ============================================
+// Campaign WebSocket Events
+// ============================================
+
+export function broadcastCampaignStarted(userId: string, campaignId: string, campaignName: string) {
+  broadcastToUser(userId, 'campaign:started', {
+    campaignId,
+    campaignName,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export function broadcastCampaignPaused(userId: string, campaignId: string, campaignName: string) {
+  broadcastToUser(userId, 'campaign:paused', {
+    campaignId,
+    campaignName,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export function broadcastCampaignCompleted(userId: string, campaignId: string, campaignName: string) {
+  broadcastToUser(userId, 'campaign:completed', {
+    campaignId,
+    campaignName,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export function broadcastCampaignLeadCalled(userId: string, campaignId: string, leadId: string, leadName: string | null, phoneNumber: string) {
+  broadcastToUser(userId, 'campaign:lead-called', {
+    campaignId,
+    leadId,
+    leadName,
+    phoneNumber,
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export function broadcastCampaignStatsUpdated(userId: string, campaignId: string, stats: any) {
+  broadcastToUser(userId, 'campaign:stats-updated', {
+    campaignId,
+    stats,
+    timestamp: new Date().toISOString(),
+  });
+}
+
 // Export for external access
 export function getActiveSessions(): Map<string, CallSession> {
   return activeSessions;

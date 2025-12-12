@@ -12,7 +12,7 @@ import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, CALL_PURPOSES, CallPurposeType, getSystemPromptForMode, BusinessContext, COMMUNICATION_CHANNELS, CommunicationChannel, supportsVoice, supportsMessaging, getModeDescription, MEDIA_TOOLS } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, ArrowLeft, Bot, Sparkles, Calendar, Wrench, Phone, AlertCircle, Building2, HelpCircle, ClipboardList, Bell, Edit, MessageCircle, Clock, ChevronDown, Settings, MessageSquare, Layers, Image as ImageIcon, FileText, Video } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, ArrowLeft, Bot, Sparkles, Calendar, Wrench, Phone, AlertCircle, Building2, HelpCircle, ClipboardList, Bell, Edit, MessageCircle, Clock, ChevronDown, Settings, MessageSquare, Layers, Image as ImageIcon, FileText, Video, Check } from 'lucide-react';
 
 const getModeIcon = (mode: string) => {
   switch (mode) {
@@ -488,6 +488,32 @@ export default function NewAgentPage() {
         <h1 className="text-3xl font-bold text-slate-600">Create New Agent</h1>
         <span className="hidden sm:inline text-slate-400">•</span>
         <p className="text-muted-foreground w-full sm:w-auto">Build an AI voice agent step by step</p>
+      </div>
+
+      {/* Progress Steps */}
+      <div className="flex items-center justify-between">
+        {[1, 2, 3].map((num) => (
+          <div key={num} className="flex items-center flex-1">
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
+                num === step
+                  ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
+                  : num < step
+                  ? 'bg-teal-100 text-teal-600'
+                  : 'bg-slate-100 text-slate-400'
+              }`}
+            >
+              {num < step ? <Check className="h-4 w-4" /> : num}
+            </div>
+            {num < 3 && (
+              <div
+                className={`flex-1 h-1 mx-2 transition-colors ${
+                  num < step ? 'bg-teal-600' : 'bg-slate-200'
+                }`}
+              />
+            )}
+          </div>
+        ))}
       </div>
 
       {/* Step 1: Choose Template */}

@@ -105,6 +105,32 @@ export default function DialpadPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Keyboard support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input or textarea
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (calling) return;
+
+      if (/^[0-9*#]$/.test(e.key)) {
+        e.preventDefault();
+        handleDialpadPress(e.key);
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleBackspace();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleCall();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [phoneNumber, calling, selectedAgentId, agents]); // Dependencies for event listener
+
   const selectedAgent = agents.find(a => a.id === selectedAgentId);
 
   const formatPhoneNumber = (digits: string) => {

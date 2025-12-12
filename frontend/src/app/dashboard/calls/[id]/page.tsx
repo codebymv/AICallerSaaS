@@ -22,6 +22,7 @@ import {
   Loader2,
   UserPlus,
   ArrowRight,
+  Flag,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -546,6 +547,36 @@ export default function CallDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Campaign Card */}
+        {(call as any).campaignData?.campaign && (
+          <Card className="min-w-0 overflow-hidden">
+            <CardHeader>
+              <CardTitle className="text-lg text-slate-600">Campaign</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Link
+                href={`/dashboard/campaigns/${(call as any).campaignData.campaign.id}`}
+                className="flex items-center p-3 rounded-lg border hover:bg-slate-50 transition-colors"
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                    <Flag className="h-5 w-5 text-teal-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-slate-600 truncate">{(call as any).campaignData.campaign.name}</p>
+                    {(call as any).campaignData.lead?.name && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        Lead: {(call as any).campaignData.lead.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Transcript Card */}

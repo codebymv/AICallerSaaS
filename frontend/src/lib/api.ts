@@ -4,6 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface ApiResponse<T> {
   success: boolean;
+  message?: string;
   data?: T;
   error?: {
     code: string;
@@ -43,7 +44,8 @@ class ApiClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    signal?: AbortSignal
   ): Promise<ApiResponse<T>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -59,7 +61,12 @@ class ApiClient {
         ...headers,
         ...(options.headers as Record<string, string>),
       },
+      signal,
     });
+
+    if (signal?.aborted) {
+      throw new ApiError('Request was aborted by the client.', 'ABORT_ERROR', 0);
+    }
 
     const data = await response.json();
 
@@ -691,6 +698,95 @@ class ApiClient {
       : '/api/calendar/disconnect';
     return this.request<{ disconnected: boolean; provider: string }>( url, {
       method: 'DELETE',
+    });
+  }
+
+  // ============================================
+  // Campaigns
+  // ============================================
+
+  async getCampaigns(params?: { page?: number; limit?: number; status?: string }) {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request<any[]>(`/api/campaigns?${query}`);
+  }
+
+  async getCampaign(id: string, signal?: AbortSignal) {
+    return this.request<any>(`/api/campaigns/${id}`, {}, signal);
+  }
+
+  async createCampaign(data: any) {
+    return this.request<any>('/api/campaigns', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCampaign(id: string, data: any) {
+    return this.request<any>(`/api/campaigns/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCampaign(id: string) {
+    return this.request<void>(`/api/campaigns/${id}`, { method: 'DELETE' });
+  }
+
+  async startCampaign(id: string) {
+    return this.request<any>(`/api/campaigns/${id}/start`, { method: 'POST' });
+  }
+
+  async pauseCampaign(id: string) {
+    return this.request<any>(`/api/campaigns/${id}/pause`, { method: 'POST' });
+  }
+
+  async cancelCampaign(id: string) {
+    return this.request<any>(`/api/campaigns/${id}/cancel`, { method: 'POST' });
+  }
+
+  async addCampaignLeads(campaignId: string, leads: any[]) {
+    return this.request<any>(`/api/campaigns/${campaignId}/leads`, {
+      method: 'POST',
+      body: JSON.stringify(leads),
+    });
+  }
+
+  async uploadCampaignLeadsCSV(campaignId: string, csvData: string) {
+    return this.request<any>(`/api/campaigns/${campaignId}/leads/upload`, {
+      method: 'POST',
+      body: JSON.stringify({ csvData }),
+    });
+  }
+
+  async getCampaignLeads(campaignId: string, params?: { page?: number; limit?: number; status?: string }, signal?: AbortSignal) {
+    const query = new URLSearchParams(params as any).toString();
+    return this.request<any[]>(`/api/campaigns/${campaignId}/leads?${query}`, {}, signal);
+  }
+
+  async updateCampaignLead(campaignId: string, leadId: string, data: any) {
+    return this.request<any>(`/api/campaigns/${campaignId}/leads/${leadId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCampaignLead(campaignId: string, leadId: string) {
+    return this.request<void>(`/api/campaigns/${campaignId}/leads/${leadId}`, { method: 'DELETE' });
+  }
+
+  async getCampaignStats(campaignId: string) {
+    return this.request<any>(`/api/campaigns/${campaignId}/stats`);
+  }
+
+  async convertLeadToContact(campaignId: string, leadId: string) {
+    return this.request<any>(`/api/campaigns/${campaignId}/leads/${leadId}/convert-to-contact`, {
+      method: 'POST',
+    });
+  }
+
+  async convertSuccessfulLeadsToContacts(campaignId: string) {
+    return this.request<any>(`/api/campaigns/${campaignId}/convert-successful-leads`, {
+      method: 'POST',
     });
   }
 }

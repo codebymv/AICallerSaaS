@@ -14,6 +14,7 @@ import { ELEVENLABS_VOICES } from '@/lib/constants';
 import { ContactModal } from '@/components/ContactModal';
 import { OutboundMessageDialog } from '@/components/OutboundMessageDialog';
 import { AgentSelector } from '@/components/AgentSelector';
+import { EmptyState } from '@/components/EmptyState';
 
 interface Agent {
   id: string;
@@ -394,14 +395,30 @@ export default function MessagingPage() {
       </Card>
 
       {/* Conversations List */}
-      {conversations.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        </div>
+      ) : conversations.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <MessageSquare className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold text-slate-600 mb-2">No conversations yet</h3>
-            <p className="text-muted-foreground text-center max-w-md">
-              When you send or receive SMS/MMS messages with your agents, they'll appear here.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={MessageSquare}
+              title={filter.agentId ? 'No conversations found' : 'No conversations yet'}
+              description={
+                filter.agentId
+                  ? 'Try adjusting your filters to find what you are looking for.'
+                  : 'When you send or receive SMS/MMS messages with your agents, they will appear here.'
+              }
+              action={
+                !filter.agentId
+                  ? {
+                      label: 'New Message',
+                      onClick: () => setShowMessageDialog(true),
+                    }
+                  : undefined
+              }
+            />
           </CardContent>
         </Card>
       ) : (

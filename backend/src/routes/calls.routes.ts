@@ -195,9 +195,32 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
       throw createError('Call not found', 404, ERROR_CODES.CALL_NOT_FOUND);
     }
 
+    // If this is a campaign call, fetch campaign info
+    let campaignData = null;
+    if (call.campaignId) {
+      const campaign = await prisma.campaign.findUnique({
+        where: { id: call.campaignId },
+        select: { id: true, name: true, status: true },
+      });
+      
+      if (call.campaignLeadId) {
+        const lead = await prisma.campaignLead.findUnique({
+          where: { id: call.campaignLeadId },
+          select: { id: true, name: true, phoneNumber: true, outcome: true },
+        });
+        
+        campaignData = {
+          campaign,
+          lead,
+        };
+      } else {
+        campaignData = { campaign };
+      }
+    }
+
     res.json({
       success: true,
-      data: call,
+      data: { ...call, campaignData },
     });
   } catch (error) {
     next(error);

@@ -14,6 +14,7 @@ import { ELEVENLABS_VOICES } from '@/lib/constants';
 import { ContactModal } from '@/components/ContactModal';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
 import { AgentSelector } from '@/components/AgentSelector';
+import { EmptyState } from '@/components/EmptyState';
 
 interface Agent {
   id: string;
@@ -343,14 +344,30 @@ export default function CallsPage() {
       </Card>
 
       {/* Calls List */}
-      {calls.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+        </div>
+      ) : calls.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Phone className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold text-slate-600 mb-2">No calls yet</h3>
-            <p className="text-muted-foreground text-center max-w-md">
-              When you make or receive calls with your agents, they'll appear here.
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={Phone}
+              title={filter.status || filter.agentId ? 'No calls found' : 'No calls yet'}
+              description={
+                filter.status || filter.agentId
+                  ? 'Try adjusting your filters to find what you are looking for.'
+                  : 'Your call history will appear here once you start making or receiving calls.'
+              }
+              action={
+                !filter.status && !filter.agentId
+                  ? {
+                      label: 'Make a Call',
+                      onClick: () => setShowCallDialog(true),
+                    }
+                  : undefined
+              }
+            />
           </CardContent>
         </Card>
       ) : (

@@ -1,6 +1,11 @@
 'use client';
 
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { LineChart as RechartsLineChart, Line as RechartsLine, ResponsiveContainer as RechartsResponsiveContainer } from 'recharts';
+
+// Fix for Recharts type compatibility with React 18
+const ResponsiveContainer = RechartsResponsiveContainer as any;
+const LineChart = RechartsLineChart as any;
+const Line = RechartsLine as any;
 
 interface SparklineProps {
   data: { date: string; value: number }[];
