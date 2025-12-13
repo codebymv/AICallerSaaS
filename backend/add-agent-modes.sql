@@ -28,3 +28,4 @@ ADD COLUMN IF NOT EXISTS "callWindowEnd" TEXT;
 -- Update existing agents to have INBOUND mode (if they don't already)
 UPDATE "Agent" SET "mode" = 'INBOUND' WHERE "mode" IS NULL;
 
+

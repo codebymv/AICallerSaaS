@@ -1,3 +1,5 @@
+import { Plan } from '@prisma/client';
+
 // Voice provider constants
 
 // Map of friendly names to actual ElevenLabs voice IDs
@@ -56,11 +58,11 @@ export const ERROR_CODES = {
   AUTH_TOKEN_INVALID: 'TOKEN_INVALID',
   UNAUTHORIZED: 'UNAUTHORIZED',
   AUTH_UNAUTHORIZED: 'UNAUTHORIZED',
-  
+
   // Validation errors
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   INVALID_INPUT: 'INVALID_INPUT',
-  
+
   // Resource errors
   NOT_FOUND: 'NOT_FOUND',
   USER_NOT_FOUND: 'USER_NOT_FOUND',
@@ -68,21 +70,22 @@ export const ERROR_CODES = {
   CALL_NOT_FOUND: 'CALL_NOT_FOUND',
   PHONE_NUMBER_NOT_FOUND: 'PHONE_NUMBER_NOT_FOUND',
   ALREADY_EXISTS: 'ALREADY_EXISTS',
-  
+
   // Rate limiting
   RATE_LIMITED: 'RATE_LIMITED',
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
-  
+
   // Server errors
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
-  
+
   // Call errors
   CALL_FAILED: 'CALL_FAILED',
   CALL_IN_PROGRESS: 'CALL_IN_PROGRESS',
   CALL_QUOTA_EXCEEDED: 'CALL_QUOTA_EXCEEDED',
   TWILIO_ERROR: 'TWILIO_ERROR',
-  
+  INSUFFICIENT_CREDITS: 'INSUFFICIENT_CREDITS',
+
   // Twilio configuration
   TWILIO_NOT_CONFIGURED: 'TWILIO_NOT_CONFIGURED',
 } as const;
@@ -100,7 +103,9 @@ export const ERROR_MESSAGES: Record<string, string> = {
   [ERROR_CODES.SERVICE_UNAVAILABLE]: 'Service temporarily unavailable',
   [ERROR_CODES.CALL_FAILED]: 'Failed to initiate call',
   [ERROR_CODES.CALL_IN_PROGRESS]: 'A call is already in progress',
-};
+  [ERROR_CODES.CALL_QUOTA_EXCEEDED]: 'You have used all included minutes and credits',
+  [ERROR_CODES.INSUFFICIENT_CREDITS]: 'You do not have enough credits to perform this action',
+} as const;
 
 // Call status
 export const CALL_STATUS = {
@@ -113,3 +118,38 @@ export const CALL_STATUS = {
   NO_ANSWER: 'no-answer',
   CANCELED: 'canceled',
 } as const;
+
+// Billing / usage
+
+export const VOICE_MINUTE_RATE_USD = 0.05;
+export const SMS_SEGMENT_RATE_USD = 0.01;  // Cost per SMS segment
+export const MMS_RATE_USD = 0.03;          // Cost per MMS message
+export const CREDITS_PER_USD = 100;
+
+export const PLAN_MINUTES: Record<Plan, number> = {
+  FREE: 100,
+  STARTER: 500,
+  PROFESSIONAL: 2000,
+  ENTERPRISE: 10000,
+};
+
+export const AGENT_LIMITS: Record<Plan, number> = {
+  FREE: 1,
+  STARTER: 5,
+  PROFESSIONAL: 20,
+  ENTERPRISE: 100, // Effectively unlimited for enterprise
+};
+
+export const CAMPAIGN_LIMITS: Record<Plan, number> = {
+  FREE: 0,        // Must upgrade to use campaigns
+  STARTER: 1,
+  PROFESSIONAL: 3,
+  ENTERPRISE: 100, // Effectively unlimited
+};
+
+export const STRIPE_PRICE_TO_PLAN: Record<string, Plan> = {
+  // Starter monthly
+  'price_1Sdq7DRxBJaRlFvtBe9fI2dc': 'STARTER',
+  // Professional monthly
+  'price_1Sdq8eRxBJaRlFvtctCqP1e4': 'PROFESSIONAL',
+};

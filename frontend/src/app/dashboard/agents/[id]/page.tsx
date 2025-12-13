@@ -15,7 +15,8 @@ import { VoiceSelector } from '@/components/VoiceSelector';
 import { OutboundCallDialog } from '@/components/OutboundCallDialog';
 import { OutboundMessageDialog } from '@/components/OutboundMessageDialog';
 import { DeleteButton } from '@/components/DeleteButton';
-import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2, MessageSquare, Layers, Image as ImageIcon, FileText, Video, HelpCircle, ClipboardList, Bell, Edit, X, Save, Loader2, Trash2 } from 'lucide-react';
+import { canAccessFeature, Plan } from '@/lib/subscription';
+import { User, Phone, ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Bot, Calendar, CheckCircle, XCircle, ExternalLink, Sparkles, Wrench, ChevronDown, Settings, AlertCircle, Building2, MessageSquare, Layers, Image as ImageIcon, FileText, Video, HelpCircle, ClipboardList, Bell, Edit, X, Save, Loader2, Trash2, Lock } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -137,13 +138,13 @@ const getCallPurposeIcon = (purposeType: string) => {
 // Helper function to determine callPurposeType from callPurpose string
 const getCallPurposeTypeFromString = (purpose: string): CallPurposeType => {
   if (!purpose) return 'CUSTOM';
-  
+
   for (const [key, purposeData] of Object.entries(CALL_PURPOSES)) {
     if (purposeData.value && purpose.trim() === purposeData.value.trim()) {
       return key as CallPurposeType;
     }
   }
-  
+
   return 'CUSTOM';
 };
 
@@ -198,6 +199,16 @@ export default function AgentDetailPage() {
   const [assignedPhoneNumber, setAssignedPhoneNumber] = useState<PhoneNumber | null>(null);
   const [selectedPhoneNumberId, setSelectedPhoneNumberId] = useState<string>('');
   const [phoneNumbersLoading, setPhoneNumbersLoading] = useState(true);
+  const [userPlan, setUserPlan] = useState<Plan>('FREE');
+
+  // Load user plan
+  useEffect(() => {
+    api.getBillingStatus().then(res => {
+      if (res.data) {
+        setUserPlan(res.data.plan);
+      }
+    }).catch(err => console.error('Failed to load plan', err));
+  }, []);
   const [twilioConfigured, setTwilioConfigured] = useState(false);
   const [phoneDropdownOpen, setPhoneDropdownOpen] = useState(false);
   const [savingPhoneNumber, setSavingPhoneNumber] = useState(false);
@@ -248,14 +259,14 @@ export default function AgentDetailPage() {
   // Fetch event types for a specific calendar
   const fetchEventTypes = async (calendarId: string) => {
     if (!calendarId || !calendarStatus?.calendars) return;
-    
+
     const calendar = calendarStatus.calendars.find(c => c.id === calendarId);
     if (!calendar) return;
-    
+
     setLoadingEventTypes(true);
     try {
       let types: Array<{ id: string; name: string; duration: number }> = [];
-      
+
       if (calendar.provider === 'calcom') {
         const response = await api.getCalcomEventTypes();
         types = (response.data || []).map((et: any) => ({
@@ -272,7 +283,7 @@ export default function AgentDetailPage() {
         }));
       }
       // Google Calendar doesn't have event types - uses duration instead
-      
+
       setEventTypes(types);
     } catch (error) {
       console.error('Failed to fetch event types:', error);
@@ -939,7 +950,7 @@ export default function AgentDetailPage() {
                               </button>
                             );
                           })}
-                          
+
                           {/* Settings link */}
                           <div className="border-t mt-1 pt-1">
                             <Link
@@ -964,19 +975,41 @@ export default function AgentDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   {Object.entries(COMMUNICATION_CHANNELS).map(([key, channel]) => {
                     const isSelected = communicationChannel === key;
+                    const isOmnichannel = key === 'OMNICHANNEL';
+                    const isLocked = isOmnichannel && !canAccessFeature(userPlan, 'HYBRID_MODE');
+
                     return (
                       <button
                         key={key}
                         type="button"
-                        className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${isSelected ? 'border-teal-500 bg-teal-50' : ''
+                        disabled={isLocked}
+                        className={`relative p-3 border rounded-lg text-left transition-colors ${isSelected
+                          ? 'border-teal-500 bg-teal-50'
+                          : isLocked
+                            ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
+                            : 'hover:border-teal-500'
                           }`}
-                        onClick={() => setCommunicationChannel(key as CommunicationChannel)}
+                        onClick={() => {
+                          if (!isLocked) setCommunicationChannel(key as CommunicationChannel);
+                          else {
+                            toast({
+                              title: "Upgrade Required",
+                              description: "Omnichannel is available on Professional plans and above.",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
                       >
+                        {isLocked && (
+                          <div className="absolute top-2 right-2">
+                            <Lock className="h-3 w-3 text-slate-400" />
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center ${isLocked ? 'bg-slate-200' : 'bg-teal-100'}`}>
                             {getChannelIcon(key)}
                           </span>
-                          <h3 className="font-semibold text-xs text-slate-600">{channel.label}</h3>
+                          <h3 className={`font-semibold text-xs ${isLocked ? 'text-slate-500' : 'text-slate-600'}`}>{channel.label}</h3>
                         </div>
                         <p className="text-xs text-muted-foreground">{channel.description}</p>
                       </button>
@@ -988,24 +1021,48 @@ export default function AgentDetailPage() {
               <div className="space-y-2">
                 <Label className="text-muted-foreground">Agent Mode *</Label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {Object.entries(AGENT_MODES).map(([key, modeData]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
-                        mode === key ? 'border-teal-500 bg-teal-50' : ''
-                      }`}
-                      onClick={() => setMode(key as AgentMode)}
-                    >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
-                          {getModeIcon(key)}
-                        </span>
-                        <h3 className="font-semibold text-xs text-slate-600">{modeData.label}</h3>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{getModeDescription(key as AgentMode, communicationChannel)}</p>
-                    </button>
-                  ))}
+                  {Object.entries(AGENT_MODES).map(([key, modeData]) => {
+                    // Check if mode is allowed for current plan
+                    const isHybrid = key === 'HYBRID';
+                    const isLocked = isHybrid && !canAccessFeature(userPlan, 'HYBRID_MODE');
+
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        disabled={isLocked}
+                        className={`relative p-3 border rounded-lg text-left transition-colors ${mode === key
+                          ? 'border-teal-500 bg-teal-50'
+                          : isLocked
+                            ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
+                            : 'hover:border-teal-500'
+                          }`}
+                        onClick={() => {
+                          if (!isLocked) setMode(key as AgentMode);
+                          else {
+                            toast({
+                              title: "Upgrade Required",
+                              description: "Hybrid mode is available on Professional plans and above.",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                      >
+                        {isLocked && (
+                          <div className="absolute top-2 right-2">
+                            <Lock className="h-3 w-3 text-slate-400" />
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`w-5 h-5 rounded-full flex items-center justify-center ${isLocked ? 'bg-slate-200' : 'bg-teal-100'}`}>
+                            {getModeIcon(key)}
+                          </span>
+                          <h3 className={`font-semibold text-xs ${isLocked ? 'text-slate-500' : 'text-slate-600'}`}>{modeData.label}</h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{getModeDescription(key as AgentMode, communicationChannel)}</p>
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
@@ -1024,9 +1081,8 @@ export default function AgentDetailPage() {
                           setCallPurposeType(key as CallPurposeType);
                           setCallPurpose(newPurpose);
                         }}
-                        className={`p-3 border rounded-lg text-left hover:border-teal-400 transition-colors ${
-                          isSelected ? 'border-teal-500 bg-teal-50' : ''
-                        }`}
+                        className={`p-3 border rounded-lg text-left hover:border-teal-400 transition-colors ${isSelected ? 'border-teal-500 bg-teal-50' : ''
+                          }`}
                       >
                         <div className="flex items-center gap-2 mb-1">
                           <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
@@ -1039,7 +1095,7 @@ export default function AgentDetailPage() {
                     );
                   })}
                 </div>
-                
+
                 {/* Custom input field - shows when Custom is selected */}
                 {callPurposeType === 'CUSTOM' && (
                   <Input
@@ -1058,6 +1114,7 @@ export default function AgentDetailPage() {
                   <VoiceSelector
                     value={voiceId}
                     onChange={setVoiceId}
+                    userPlan={userPlan}
                   />
                 </div>
               )}
@@ -1167,7 +1224,7 @@ export default function AgentDetailPage() {
                           </p>
                         </div>
                       </label>
-                      
+
                       {/* Expanded Calendar Configuration - only when enabled */}
                       {calendarEnabled && (
                         <div className="ml-7 pl-4 border-l-2 border-teal-200 space-y-4">
@@ -1189,12 +1246,12 @@ export default function AgentDetailPage() {
                               {calendarStatus.calendars.map((cal) => (
                                 <option key={cal.id} value={cal.id}>
                                   {cal.provider === 'google' ? 'Google Calendar' :
-                                   cal.provider === 'calcom' ? 'Cal.com' : 'Calendly'} - {cal.email || cal.username || 'Connected'}
+                                    cal.provider === 'calcom' ? 'Cal.com' : 'Calendly'} - {cal.email || cal.username || 'Connected'}
                                 </option>
                               ))}
                             </select>
                           </div>
-                          
+
                           {/* Scopes Checkboxes */}
                           <div className="space-y-2">
                             <Label className="text-muted-foreground text-xs">Permissions</Label>
@@ -1246,7 +1303,7 @@ export default function AgentDetailPage() {
                               </label>
                             </div>
                           </div>
-                          
+
                           {/* Event Type or Duration Selector */}
                           {(() => {
                             const selectedCal = calendarStatus?.calendars?.find(c => c.id === calendarIntegrationId);

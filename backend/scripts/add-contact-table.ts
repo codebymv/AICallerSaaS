@@ -139,3 +139,4 @@ updateDatabase()
     process.exit(1);
   });
 
+

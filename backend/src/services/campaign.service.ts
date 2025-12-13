@@ -199,7 +199,7 @@ export class CampaignService {
     // Check daily call limit
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const callsToday = await prisma.campaignLead.count({
       where: {
         campaignId,
@@ -218,7 +218,7 @@ export class CampaignService {
     }
 
     // Check user quota
-    if (campaign.user.minutesUsed >= campaign.user.minutesLimit) {
+    if (campaign.user.minutesUsed >= campaign.user.minutesLimit && Number(campaign.user.creditsBalance) <= 0) {
       logger.warn(`Campaign ${campaignId} user quota exceeded, pausing campaign`);
       await this.pauseCampaign(campaignId, campaign.userId);
       return;
@@ -251,10 +251,10 @@ export class CampaignService {
           where: { id: campaignId },
           data: { status: 'COMPLETED' },
         });
-        
+
         // Broadcast campaign completed event
         broadcastCampaignCompleted(campaign.userId, campaignId, campaign.name);
-        
+
         logger.info(`Campaign ${campaignId} completed`);
       }
       return;

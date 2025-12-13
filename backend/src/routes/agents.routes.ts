@@ -7,8 +7,9 @@ import { prisma } from '../lib/prisma';
 import { createError } from '../middleware/error-handler';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createAgentSchema, updateAgentSchema, makeOutboundCallSchema, sendMessageSchema } from '../lib/validators';
-import { ERROR_CODES, DEFAULT_VOICES, DEFAULT_LLM_MODELS } from '../lib/constants';
+import { ERROR_CODES, DEFAULT_VOICES, DEFAULT_LLM_MODELS, SMS_SEGMENT_RATE_USD, MMS_RATE_USD, CREDITS_PER_USD, AGENT_LIMITS } from '../lib/constants';
 import { decrypt } from '../utils/crypto';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -109,6 +110,25 @@ router.get('/:id', async (req: AuthRequest, res, next) => {
 router.post('/', async (req: AuthRequest, res, next) => {
   try {
     const data = createAgentSchema.parse(req.body);
+
+    // Check agent limit based on user's plan
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { plan: true },
+    });
+
+    const agentCount = await prisma.agent.count({
+      where: { userId: req.user!.id },
+    });
+
+    const limit = AGENT_LIMITS[user?.plan || 'FREE'];
+    if (agentCount >= limit) {
+      throw createError(
+        `Agent limit reached. Your ${user?.plan || 'FREE'} plan allows ${limit} agent(s). Upgrade to create more.`,
+        403,
+        'AGENT_LIMIT_REACHED'
+      );
+    }
 
     // Set defaults based on provider
     const provider = data.voiceProvider || 'elevenlabs';
@@ -278,7 +298,7 @@ router.delete('/:id', async (req: AuthRequest, res, next) => {
     // Ensure all calls have snapshot fields populated before deleting the agent
     // This preserves the agent info for historical call records
     await prisma.call.updateMany({
-      where: { 
+      where: {
         agentId: req.params.id,
         agentName: null,  // Only update calls that don't have snapshot data
       },
@@ -398,7 +418,7 @@ router.post('/:id/call', async (req: AuthRequest, res, next) => {
     if (agent.callWindowStart && agent.callWindowEnd) {
       const now = new Date();
       const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-      
+
       if (currentTime < agent.callWindowStart || currentTime > agent.callWindowEnd) {
         throw createError(
           `Calls are only allowed between ${agent.callWindowStart} and ${agent.callWindowEnd}`,
@@ -408,7 +428,15 @@ router.post('/:id/call', async (req: AuthRequest, res, next) => {
       }
     }
 
-    // Get user's Twilio phone number
+    const quotaUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { minutesUsed: true, minutesLimit: true, creditsBalance: true },
+    });
+
+    if (quotaUser && quotaUser.minutesUsed >= quotaUser.minutesLimit && Number(quotaUser.creditsBalance) <= 0) {
+      throw createError('Call quota exceeded', 403, ERROR_CODES.CALL_QUOTA_EXCEEDED);
+    }
+
     const phoneNumber = await prisma.phoneNumber.findFirst({
       where: {
         userId: req.user!.id,
@@ -523,7 +551,7 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
       throw createError('No active phone number assigned to this agent', 400, ERROR_CODES.PHONE_NUMBER_NOT_FOUND);
     }
 
-    // Get user's Twilio credentials
+    // Get user's Twilio credentials and billing info
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
       select: {
@@ -531,6 +559,9 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
         twilioAuthToken: true,
         twilioConfigured: true,
         twilioMessagingServiceSid: true,
+        creditsBalance: true,
+        minutesUsed: true,
+        minutesLimit: true,
       },
     });
 
@@ -538,9 +569,14 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
       throw createError('Twilio account not configured', 400, ERROR_CODES.TWILIO_NOT_CONFIGURED);
     }
 
+    // Check credits balance - messaging is always credit-based (no included message quota)
+    if (Number(user.creditsBalance) <= 0) {
+      throw createError('Insufficient credits to send messages', 402, ERROR_CODES.INSUFFICIENT_CREDITS);
+    }
+
     // Resolve asset IDs to URLs if provided
     let allMediaUrls: string[] = data.mediaUrls || [];
-    
+
     if (data.assetIds && data.assetIds.length > 0) {
       const assets = await prisma.asset.findMany({
         where: {
@@ -548,7 +584,7 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
           userId: req.user!.id,
         },
       });
-      
+
       // Validate that agent has the right tools enabled for these asset types
       for (const asset of assets) {
         if (asset.category === 'IMAGE' && !agent.imageToolEnabled) {
@@ -561,7 +597,7 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
           throw createError(`Video tool not enabled for this agent. Cannot send asset: ${asset.name}`, 400, 'VIDEO_TOOL_NOT_ENABLED');
         }
       }
-      
+
       // Add asset URLs to media URLs
       allMediaUrls = [...allMediaUrls, ...assets.map(a => a.url)];
     }
@@ -618,6 +654,13 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
       },
     });
 
+    // Calculate message cost
+    // SMS: $0.01 per segment (messages over 160 chars are split)
+    // MMS: $0.03 per message (regardless of media count)
+    const segmentCount = messageType === 'SMS' ? Math.ceil((data.message?.length || 0) / 160) || 1 : 1;
+    const messageCostUsd = messageType === 'MMS' ? MMS_RATE_USD : SMS_SEGMENT_RATE_USD * segmentCount;
+    const creditsToDeduct = Math.ceil(messageCostUsd * CREDITS_PER_USD);
+
     // Create message record
     const message = await prisma.message.create({
       data: {
@@ -634,11 +677,29 @@ router.post('/:id/message', async (req: AuthRequest, res, next) => {
         body: data.message,
         mediaUrls: allMediaUrls,
         numMedia: allMediaUrls.length,
+        numSegments: segmentCount,
+        costUsd: messageCostUsd,
         sentAt: new Date(),
         // Agent snapshot
         agentName: agent.name,
         agentSystemPrompt: agent.messagingSystemPrompt || agent.systemPrompt,
       },
+    });
+
+    // Deduct credits for the message
+    await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        creditsBalance: { decrement: creditsToDeduct },
+      },
+    });
+
+    logger.info(`[Agents] Message sent, deducted ${creditsToDeduct} credits`, {
+      userId: req.user!.id,
+      messageId: message.id,
+      type: messageType,
+      segments: segmentCount,
+      costUsd: messageCostUsd,
     });
 
     res.status(201).json({

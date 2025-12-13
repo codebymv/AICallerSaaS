@@ -106,6 +106,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res, next) => {
         id: true,
         email: true,
         name: true,
+        role: true,
         plan: true,
         minutesUsed: true,
         minutesLimit: true,
@@ -117,19 +118,20 @@ router.get('/me', authenticate, async (req: AuthRequest, res, next) => {
             phoneNumbers: true,
           },
         },
-      },
+      } as any,
     });
 
     if (!user) {
       throw createError('User not found', 404, ERROR_CODES.USER_NOT_FOUND);
     }
 
+    const userData = user as any;
     res.json({
       success: true,
       data: {
-        ...user,
-        agentCount: user._count.agents,
-        phoneNumberCount: user._count.phoneNumbers,
+        ...userData,
+        agentCount: userData._count.agents,
+        phoneNumberCount: userData._count.phoneNumbers,
       },
     });
   } catch (error) {

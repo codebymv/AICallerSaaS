@@ -30,8 +30,8 @@ export default function LoginPage() {
       });
       router.push('/dashboard');
     } catch (error) {
-      const message = error instanceof ApiError 
-        ? error.message 
+      const message = error instanceof ApiError
+        ? error.message
         : 'An error occurred during login';
       toast({
         title: 'Login failed',
@@ -47,24 +47,26 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center p-0">
-          <div className="mb-4 flex justify-center items-center bg-teal-600 rounded-t-md py-6">
-            <Image
-              src="/logo-icon-transparent-inverted.png"
-              alt="Gleam Icon"
-              width={32}
-              height={32}
-              priority
-              className="h-8 w-8 mr-3"
-            />
-            <Image
-              src="/gleam-logo-text-inverted.png"
-              alt="Gleam"
-              width={150}
-              height={50}
-              priority
-              className="h-10 w-auto"
-            />
-          </div>
+          <Link href="/">
+            <div className="mb-4 flex justify-center items-center bg-teal-600 rounded-t-md py-6 hover:bg-teal-700 transition-colors">
+              <Image
+                src="/logo-icon-transparent-inverted.png"
+                alt="Gleam Icon"
+                width={32}
+                height={32}
+                priority
+                className="h-8 w-8 mr-3"
+              />
+              <Image
+                src="/gleam-logo-text-inverted.png"
+                alt="Gleam"
+                width={150}
+                height={50}
+                priority
+                className="h-10 w-auto"
+              />
+            </div>
+          </Link>
           <CardTitle className="text-2xl text-muted-foreground">Welcome back</CardTitle>
           <CardDescription>
             Sign in to your Gleam account

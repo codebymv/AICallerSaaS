@@ -219,3 +219,4 @@ export function getStorageStatus(): {
     region: config.awsRegion,
   };
 }
+

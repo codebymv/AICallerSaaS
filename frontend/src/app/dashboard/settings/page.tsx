@@ -3,16 +3,18 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, Bot, ChevronDown, Trash2, AlertCircle, X } from 'lucide-react';
+import { Settings, Phone, CheckCircle, XCircle, Loader2, ExternalLink, Eye, EyeOff, HelpCircle, Calendar, Bot, ChevronDown, Trash2, AlertCircle, X, Lock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { DeleteButton } from '@/components/DeleteButton';
 import { EmptyState } from '@/components/EmptyState';
+import { SubscriptionPanel } from '@/components/SubscriptionPanel';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
+import { canAccessFeature } from '@/lib/subscription';
 
 interface TwilioSettings {
   configured: boolean;
@@ -135,7 +137,7 @@ export default function SettingsPage() {
   const [calendarEditing, setCalendarEditing] = useState(false);
 
   // Settings page tab state
-  const [settingsTab, setSettingsTab] = useState<'integrations' | 'organization' | 'preferences'>('integrations');
+  const [settingsTab, setSettingsTab] = useState<'integrations' | 'organization' | 'preferences' | 'subscription'>('integrations');
 
   // Phone numbers state
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
@@ -162,6 +164,10 @@ export default function SettingsPage() {
     businessDescription: '',
   });
 
+  // User plan for feature gating
+  const [userPlan, setUserPlan] = useState<'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'>('FREE');
+  const canAccessCalendar = canAccessFeature(userPlan, 'CALENDAR_INTEGRATION');
+
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -170,6 +176,7 @@ export default function SettingsPage() {
     fetchCalendarStatus();
     fetchBusinessProfile();
     fetchStorageStatus();
+    fetchUserPlan();
 
     // Handle OAuth callback success/error
     const success = searchParams.get('success');
@@ -259,6 +266,17 @@ export default function SettingsPage() {
       console.error('Failed to fetch settings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserPlan = async () => {
+    try {
+      const response = await api.getBillingStatus();
+      if (response.data?.plan) {
+        setUserPlan(response.data.plan);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user plan:', error);
     }
   };
 
@@ -570,10 +588,10 @@ export default function SettingsPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex border-b">
+      <div className="flex border-b overflow-x-auto">
         <button
           onClick={() => setSettingsTab('integrations')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === 'integrations'
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'integrations'
             ? 'border-teal-600 text-teal-600'
             : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
@@ -581,8 +599,17 @@ export default function SettingsPage() {
           Integrations
         </button>
         <button
+          onClick={() => setSettingsTab('subscription')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'subscription'
+            ? 'border-teal-600 text-teal-600'
+            : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+        >
+          Subscription & Billing
+        </button>
+        <button
           onClick={() => setSettingsTab('organization')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === 'organization'
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'organization'
             ? 'border-teal-600 text-teal-600'
             : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
@@ -591,7 +618,7 @@ export default function SettingsPage() {
         </button>
         <button
           onClick={() => setSettingsTab('preferences')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${settingsTab === 'preferences'
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${settingsTab === 'preferences'
             ? 'border-teal-600 text-teal-600'
             : 'border-transparent text-muted-foreground hover:text-foreground'
             }`}
@@ -599,6 +626,11 @@ export default function SettingsPage() {
           Preferences
         </button>
       </div>
+
+      {/* Subscription Tab */}
+      {settingsTab === 'subscription' && (
+        <SubscriptionPanel />
+      )}
 
       {/* Integrations Tab */}
       {settingsTab === 'integrations' && (
@@ -826,69 +858,69 @@ export default function SettingsPage() {
               {/* Phone Numbers Section - Only show when configured */}
               {settings?.configured && (
                 <div className="border-t pt-6 mt-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-sm font-medium text-slate-600">Phone Numbers</h3>
-                        <p className="text-xs text-muted-foreground">Your Twilio phone numbers</p>
-                      </div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-slate-600">Phone Numbers</h3>
+                      <p className="text-xs text-muted-foreground">Your Twilio phone numbers</p>
                     </div>
+                  </div>
 
-                    {loadingPhoneNumbers ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
-                      </div>
-                    ) : phoneNumbers.length === 0 ? (
-                      <div className="text-center py-8 border rounded-lg bg-slate-50">
-                        <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-                        <p className="font-medium text-slate-600 mb-1">No phone numbers added</p>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Purchase a number in Twilio Console, then refresh
-                        </p>
-                        <a
-                          href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-sm text-teal-600 hover:underline"
+                  {loadingPhoneNumbers ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+                    </div>
+                  ) : phoneNumbers.length === 0 ? (
+                    <div className="text-center py-8 border rounded-lg bg-slate-50">
+                      <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                      <p className="font-medium text-slate-600 mb-1">No phone numbers added</p>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Purchase a number in Twilio Console, then refresh
+                      </p>
+                      <a
+                        href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center text-sm text-teal-600 hover:underline"
+                      >
+                        Open Twilio Console →
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {phoneNumbers.map((number) => (
+                        <div
+                          key={number.id}
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border gap-4"
                         >
-                          Open Twilio Console →
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {phoneNumbers.map((number) => (
-                          <div
-                            key={number.id}
-                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg border gap-4"
-                          >
-                            <div className="flex items-center gap-3 sm:gap-4">
-                              <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
-                                <Phone className="h-5 w-5 text-teal-600" />
-                              </div>
-                              <div>
-                                <p className="font-mono font-medium text-sm text-slate-600">
-                                  {formatPhoneNumber(number.phoneNumber)}
-                                </p>
-                                {number.agent && (
-                                  <p className="text-xs text-muted-foreground">
-                                    Assigned to {number.agent.name}
-                                  </p>
-                                )}
-                              </div>
+                          <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                              <Phone className="h-5 w-5 text-teal-600" />
                             </div>
-
-                            <div className="flex items-center gap-2 sm:gap-3 ml-13 sm:ml-0">
-                              <DeleteButton
-                                onDelete={() => handleDeletePhoneNumber(number.id)}
-                                itemName={formatPhoneNumber(number.phoneNumber)}
-                                title="Remove Phone Number"
-                                description="This will remove the phone number from your account. If it's assigned to an agent, it will be unassigned."
-                                confirmText="Remove"
-                              />
+                            <div>
+                              <p className="font-mono font-medium text-sm text-slate-600">
+                                {formatPhoneNumber(number.phoneNumber)}
+                              </p>
+                              {number.agent && (
+                                <p className="text-xs text-muted-foreground">
+                                  Assigned to {number.agent.name}
+                                </p>
+                              )}
                             </div>
                           </div>
-                        ))}
 
-                        {/* <p className="text-xs text-muted-foreground text-center pt-2">
+                          <div className="flex items-center gap-2 sm:gap-3 ml-13 sm:ml-0">
+                            <DeleteButton
+                              onDelete={() => handleDeletePhoneNumber(number.id)}
+                              itemName={formatPhoneNumber(number.phoneNumber)}
+                              title="Remove Phone Number"
+                              description="This will remove the phone number from your account. If it's assigned to an agent, it will be unassigned."
+                              confirmText="Remove"
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* <p className="text-xs text-muted-foreground text-center pt-2">
                           Need more numbers?{' '}
                           <a
                             href="https://console.twilio.com/us1/develop/phone-numbers/manage/incoming"
@@ -900,8 +932,8 @@ export default function SettingsPage() {
                           </a>
                           {' '}then refresh.
                         </p> */}
-                      </div>
-                    )}
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -946,9 +978,26 @@ export default function SettingsPage() {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-6 relative">
+              {/* Plan gating overlay for non-Professional users */}
+              {!canAccessCalendar && (
+                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-6 text-center rounded-lg">
+                  <Lock className="h-12 w-12 text-slate-400 mb-4" />
+                  <h3 className="text-lg font-semibold text-slate-700 mb-2">Calendar Integration</h3>
+                  <p className="text-sm text-muted-foreground mb-4 max-w-sm">
+                    Connect Google Calendar, Cal.com, or Calendly to let your AI agents check availability and book appointments automatically.
+                  </p>
+                  <Button
+                    onClick={() => setSettingsTab('subscription')}
+                    className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700"
+                  >
+                    Upgrade to Professional
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-2">Available on Professional and Enterprise plans</p>
+                </div>
+              )}
               {/* Calendar Tabs - Always visible */}
-              <div className="space-y-4">
+              <div className={`space-y-4 ${!canAccessCalendar ? 'opacity-50 pointer-events-none' : ''}`}>
                 {/* Tab selection */}
                 <div className="flex border-b">
                   <button
@@ -990,7 +1039,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Tab Content - Shows info when connected to this provider, or connect form otherwise */}
-                
+
                 {/* Google Calendar Tab */}
                 {calendarTab === 'google' && (
                   calendarStatus?.connectedProviders?.includes('google') && !calendarEditing ? (
@@ -1468,7 +1517,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Recording Stats */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-4 bg-slate-50 rounded-lg">
@@ -1480,7 +1529,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-muted-foreground">Twilio Recordings</p>
                     </div>
                   </div>
-                  
+
                   <p className="text-xs text-muted-foreground">
                     New call recordings are automatically uploaded to S3. Existing Twilio recordings remain accessible.
                   </p>
@@ -1496,7 +1545,7 @@ export default function SettingsPage() {
                       Call recordings are currently stored on Twilio's servers. To enable S3 storage, configure the following environment variables on your server:
                     </p>
                   </div>
-                  
+
                   <div className="bg-slate-100 rounded-lg p-4 font-mono text-sm">
                     <p className="text-slate-500"># AWS S3 Configuration</p>
                     <p>AWS_ACCESS_KEY_ID=your_access_key</p>
@@ -1504,7 +1553,7 @@ export default function SettingsPage() {
                     <p>AWS_REGION=us-east-1</p>
                     <p>AWS_S3_BUCKET=your-bucket-name</p>
                   </div>
-                  
+
                   {storageStatus?.stats && (
                     <div className="p-4 bg-slate-50 rounded-lg">
                       <p className="text-2xl font-bold text-slate-600">{storageStatus.stats.twilioRecordings}</p>
@@ -1515,7 +1564,7 @@ export default function SettingsPage() {
               )}
             </CardContent>
           </Card>
-          
+
           {/* More Preferences Coming Soon */}
           <Card>
             <CardHeader className="pb-4">

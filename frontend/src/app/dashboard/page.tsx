@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, BarChart3, Loader2, UserPlus, MessageSquare, RefreshCw } from 'lucide-react';
+import { Phone, Bot, Clock, DollarSign, Plus, ArrowRight, User, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, LayoutDashboard, Loader2, UserPlus, MessageSquare, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +33,7 @@ const getCallPhone = (call: any) => call.direction === 'inbound' ? call.from : c
 export default function DashboardPage() {
   const { toast } = useToast();
   const [stats, setStats] = useState<any>(null);
+  const [billing, setBilling] = useState<any | null>(null);
   const [agents, setAgents] = useState<any[]>([]);
   const [recentCalls, setRecentCalls] = useState<any[]>([]);
   const [contacts, setContacts] = useState<Record<string, any>>({});
@@ -44,18 +46,20 @@ export default function DashboardPage() {
   const fetchData = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const [statsRes, agentsRes, callsRes, timeSeriesRes] = await Promise.all([
+      const [statsRes, agentsRes, callsRes, timeSeriesRes, billingRes] = await Promise.all([
         api.getCallAnalytics(),
         api.getAgents(),
         api.getCalls({ limit: 5 }),
         api.getCallTimeSeries(30),
+        api.getBillingStatus(),
       ]);
       setStats(statsRes.data);
       setAgents(agentsRes.data || []);
       const calls = callsRes.data || [];
       setRecentCalls(calls);
       setTimeSeries(timeSeriesRes.data || []);
-      
+      setBilling(billingRes.data);
+
       // Fetch contacts for phone numbers in recent calls
       if (calls.length > 0) {
         const phoneNumbers = Array.from(new Set(calls.map(getCallPhone)));
@@ -79,7 +83,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData();
   }, []);
-  
+
   // Helper to get contact name for a phone number
   const getContactName = (phone: string) => {
     const normalized = phone.replace(/\D/g, '');
@@ -131,7 +135,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <BarChart3 className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
+          <LayoutDashboard className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Dashboard</h1>
             <p className="hidden sm:block text-muted-foreground text-sm">Overview of your agent activity</p>
@@ -139,9 +143,9 @@ export default function DashboardPage() {
         </div>
         {/* Mobile: icon-only buttons */}
         <div className="flex gap-2 sm:hidden">
-          <Button 
-            onClick={() => fetchData(true)} 
-            disabled={refreshing} 
+          <Button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
             variant="outline"
             size="icon"
             className="text-teal-600 border-teal-600 hover:bg-teal-50"
@@ -156,9 +160,9 @@ export default function DashboardPage() {
         </div>
         {/* Desktop: full buttons */}
         <div className="hidden sm:flex gap-2">
-          <Button 
-            onClick={() => fetchData(true)} 
-            disabled={refreshing} 
+          <Button
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
             variant="outline"
             className="text-teal-600 border-teal-600 hover:bg-teal-50"
           >
@@ -198,11 +202,15 @@ export default function DashboardPage() {
           chartData={timeSeries.map(d => ({ date: d.date, value: d.duration }))}
         />
         <StatCard
-          title="Total Cost"
-          value={formatCurrency(stats?.totalCost || 0)}
-          icon={<DollarSign className="h-5 w-5" />}
-          description="All communications"
-          chartData={timeSeries.map(d => ({ date: d.date, value: d.cost }))}
+          title="Usage Credits"
+          value={
+            billing
+              ? `${billing.minutesUsed * 10} / ${billing.minutesLimit * 10}`
+              : '—'
+          }
+          icon={<Clock className="h-5 w-5" />}
+          description="Included credits usage"
+          progress={billing ? (billing.minutesUsed / (billing.minutesLimit || 1)) * 100 : 0}
         />
       </div>
 
@@ -267,11 +275,10 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-3">
                         <span
-                          className={`px-2 py-1 text-xs rounded-full ${
-                            agent.isActive
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-slate-100 text-slate-600'
-                          }`}
+                          className={`px-2 py-1 text-xs rounded-full ${agent.isActive
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-slate-100 text-slate-600'
+                            }`}
                         >
                           {agent.isActive ? 'Active' : 'Inactive'}
                         </span>
@@ -432,12 +439,14 @@ function StatCard({
   icon,
   description,
   chartData,
+  progress,
 }: {
   title: string;
   value: string | number;
   icon: React.ReactNode;
   description: string;
   chartData?: { date: string; value: number }[];
+  progress?: number;
 }) {
   return (
     <Card>
@@ -451,6 +460,10 @@ function StatCard({
           {chartData && chartData.length > 0 ? (
             <div className="flex-1 h-10 sm:h-12 min-w-[60px] max-w-[180px] xl:max-w-[220px]">
               <Sparkline data={chartData} />
+            </div>
+          ) : progress !== undefined ? (
+            <div className="flex-1 min-w-[60px] max-w-[180px] xl:max-w-[220px] flex items-center justify-end">
+              <Progress value={progress} className="h-2 w-full" indicatorClassName="bg-gradient-to-b from-[#0fa693] to-teal-600" />
             </div>
           ) : (
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-600 flex-shrink-0">

@@ -145,6 +145,27 @@ router.post('/', async (req: AuthRequest, res, next) => {
       throw createError('Agent not found or inactive', 404, ERROR_CODES.AGENT_NOT_FOUND);
     }
 
+    // Check campaign limit for user's plan
+    const { CAMPAIGN_LIMITS } = await import('../lib/constants');
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { plan: true },
+    });
+    const userPlan = user?.plan || 'FREE';
+    const campaignLimit = CAMPAIGN_LIMITS[userPlan as keyof typeof CAMPAIGN_LIMITS] || 0;
+
+    const currentCampaignCount = await prisma.campaign.count({
+      where: { userId: req.user!.id },
+    });
+
+    if (currentCampaignCount >= campaignLimit) {
+      throw createError(
+        `Campaign limit reached. Your ${userPlan} plan allows ${campaignLimit} campaign${campaignLimit !== 1 ? 's' : ''}. Please upgrade to create more.`,
+        403,
+        ERROR_CODES.VALIDATION_ERROR
+      );
+    }
+
     // Create campaign
     const campaign = await prisma.campaign.create({
       data: {
@@ -461,7 +482,7 @@ router.post('/:id/leads/upload', async (req: AuthRequest, res, next) => {
     // Map CSV records to leads
     const leads = records.map((record: any) => {
       const phoneNumber = (record.phone || record.phoneNumber || record.Phone || record.PhoneNumber || '').replace(/\D/g, '');
-      
+
       if (!phoneNumber || phoneNumber.length < 10) {
         return null; // Skip invalid phone numbers
       }

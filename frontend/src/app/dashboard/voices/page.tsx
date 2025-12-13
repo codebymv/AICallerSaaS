@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { api } from '@/lib/api';
+import { getFeatureLimit, Plan } from '@/lib/subscription';
 import {
   AudioLines,
   Play,
@@ -14,7 +16,8 @@ import {
   ChevronUp,
   Check,
   Loader2,
-  Sliders
+  Sliders,
+  Lock
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -157,6 +160,25 @@ export default function VoicesPage() {
   const [saving, setSaving] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // User plan for voice gating
+  const [userPlan, setUserPlan] = useState<Plan>('FREE');
+  const voiceLimit = getFeatureLimit(userPlan, 'VOICE_LIBRARY');
+
+  // Fetch user plan on mount
+  useEffect(() => {
+    const fetchPlan = async () => {
+      try {
+        const response = await api.getBillingStatus();
+        if (response.data?.plan) {
+          setUserPlan(response.data.plan);
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+    fetchPlan();
+  }, []);
+
   // Update custom settings when preset changes
   useEffect(() => {
     const preset = VOICE_PRESETS[selectedPreset];
@@ -292,66 +314,88 @@ export default function VoicesPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {VOICES.map((voice) => (
-                  <div
-                    key={voice.id}
-                    className={`relative p-4 border rounded-lg cursor-pointer transition-all hover:border-teal-400 ${selectedVoice === voice.id
-                      ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/20'
-                      : 'border-slate-200 hover:bg-slate-50'
-                      }`}
-                    onClick={() => setSelectedVoice(voice.id)}
-                  >
-                    {/* Selection indicator */}
-                    {selectedVoice === voice.id && (
+                {VOICES.map((voice, index) => {
+                  const isLocked = index >= voiceLimit;
+                  const isSelected = selectedVoice === voice.id;
+
+                  return (
+                    <div
+                      key={voice.id}
+                      className={`relative p-4 border rounded-lg transition-all ${isLocked
+                          ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
+                          : isSelected
+                            ? 'border-teal-500 bg-teal-50 ring-2 ring-teal-500/20 cursor-pointer'
+                            : 'border-slate-200 hover:bg-slate-50 hover:border-teal-400 cursor-pointer'
+                        }`}
+                      onClick={() => {
+                        if (isLocked) {
+                          toast({
+                            title: "Upgrade Required",
+                            description: "This voice is available on higher plans. Upgrade to access more voices.",
+                            variant: "destructive"
+                          });
+                        } else {
+                          setSelectedVoice(voice.id);
+                        }
+                      }}
+                    >
+                      {/* Lock or Selection indicator */}
                       <div className="absolute top-2 right-2">
-                        <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
-                          <Check className="h-3 w-3 text-white" />
+                        {isLocked ? (
+                          <Lock className="h-4 w-4 text-slate-400" />
+                        ) : isSelected ? (
+                          <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center">
+                            <Check className="h-3 w-3 text-white" />
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-full overflow-hidden flex-shrink-0 ${isLocked ? 'bg-slate-200' : 'bg-slate-100'}`}>
+                          <Image
+                            src={voice.avatar}
+                            alt={voice.name}
+                            width={48}
+                            height={48}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className={`font-semibold ${isLocked ? 'text-slate-500' : 'text-slate-600'}`}>{voice.name}</h3>
+                          <p className="text-xs text-muted-foreground truncate">{voice.description}</p>
                         </div>
                       </div>
-                    )}
 
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-100 flex-shrink-0">
-                        <Image
-                          src={voice.avatar}
-                          alt={voice.name}
-                          width={48}
-                          height={48}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-slate-600">{voice.name}</h3>
-                        <p className="text-xs text-muted-foreground truncate">{voice.description}</p>
-                      </div>
+                      {/* Play button */}
+                      <button
+                        type="button"
+                        disabled={isLocked}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!isLocked) handlePlayVoice(voice.id, voice.sampleUrl);
+                        }}
+                        className={`mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors border ${isLocked
+                            ? 'border-slate-300 text-slate-400 bg-transparent cursor-not-allowed'
+                            : playingVoice === voice.id
+                              ? 'bg-teal-500 text-white border-teal-500'
+                              : 'border-teal-600 text-teal-600 bg-transparent hover:bg-teal-50'
+                          }`}
+                      >
+                        {playingVoice === voice.id ? (
+                          <>
+                            <Pause className="h-4 w-4" />
+                            Playing...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4" />
+                            Preview
+                          </>
+                        )}
+                      </button>
                     </div>
-
-                    {/* Play button */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePlayVoice(voice.id, voice.sampleUrl);
-                      }}
-                      className={`mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-md text-sm font-medium transition-colors border ${playingVoice === voice.id
-                        ? 'bg-teal-500 text-white border-teal-500'
-                        : 'border-teal-600 text-teal-600 bg-transparent hover:bg-teal-50'
-                        }`}
-                    >
-                      {playingVoice === voice.id ? (
-                        <>
-                          <Pause className="h-4 w-4" />
-                          Playing...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-4 w-4" />
-                          Preview
-                        </>
-                      )}
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -549,4 +593,5 @@ export default function VoicesPage() {
     </div>
   );
 }
+
 

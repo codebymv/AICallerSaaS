@@ -547,6 +547,36 @@ class ApiClient {
     });
   }
 
+  // Billing endpoints
+  async getBillingStatus() {
+    return this.request<{
+      plan: 'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE';
+      creditsBalance: number;
+      minutesUsed: number;
+      minutesLimit: number;
+      stripeCustomerId: string | null;
+    }>('/api/billing');
+  }
+
+  async createCheckoutSession(data: {
+    priceId: string;
+    mode: 'subscription' | 'payment';
+    successUrl: string;
+    cancelUrl: string;
+  }) {
+    return this.request<{ url: string }>('/api/billing/checkout', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createPortalSession(returnUrl: string) {
+    return this.request<{ url: string }>('/api/billing/portal', {
+      method: 'POST',
+      body: JSON.stringify({ returnUrl }),
+    });
+  }
+
   // Calendar Integration endpoints
   async getCalendarStatus() {
     return this.request<{

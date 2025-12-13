@@ -4,12 +4,12 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { 
-  Phone, 
+import {
+  Phone,
   PhoneCall,
-  Bot, 
-  BarChart3, 
-  Settings, 
+  Bot,
+  BarChart3,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -20,7 +20,12 @@ import {
   Users,
   MessageSquare,
   Flag,
-  Search
+  Search,
+  User,
+  Zap,
+  Crown,
+  Building2,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GlobalSearch } from '@/components/GlobalSearch';
@@ -38,6 +43,13 @@ const navItems = [
   { href: '/dashboard/messaging', label: 'Messaging', icon: MessageSquare },
 ];
 
+const PLAN_ICONS = {
+  FREE: { icon: User, bgColor: 'bg-slate-500', borderColor: 'border-slate-400' },
+  STARTER: { icon: Zap, bgColor: 'bg-teal-500', borderColor: 'border-teal-400' },
+  PROFESSIONAL: { icon: Crown, bgColor: 'bg-amber-500', borderColor: 'border-amber-400' },
+  ENTERPRISE: { icon: Building2, bgColor: 'bg-slate-800', borderColor: 'border-slate-600' },
+};
+
 export default function DashboardLayout({
   children,
 }: {
@@ -46,6 +58,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
+  const [userPlan, setUserPlan] = useState<'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'>('FREE');
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -67,8 +80,14 @@ export default function DashboardLayout({
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await api.getMe();
-        setUser(response.data);
+        const [userResponse, billingResponse] = await Promise.all([
+          api.getMe(),
+          api.getBillingStatus()
+        ]);
+        setUser(userResponse.data);
+        if (billingResponse.data?.plan) {
+          setUserPlan(billingResponse.data.plan);
+        }
       } catch (error) {
         router.push('/login');
       } finally {
@@ -133,9 +152,8 @@ export default function DashboardLayout({
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-[60px] lg:top-0 bottom-0 left-0 z-40 w-64 bg-slate-50/90 backdrop-blur-xl border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`fixed top-[60px] lg:top-0 bottom-0 left-0 z-40 w-64 bg-slate-50/90 backdrop-blur-xl border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
         <div className="flex flex-col h-full">
           {/* Logo - Subtle gradient header with inverted icon and text (Desktop only) */}
@@ -177,18 +195,17 @@ export default function DashboardLayout({
             {navItems.map((item) => {
               const Icon = item.icon;
               // For Dashboard, only match exact path. For others, match if starts with the path.
-              const isActive = item.href === '/dashboard' 
+              const isActive = item.href === '/dashboard'
                 ? pathname === '/dashboard'
                 : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
+                  className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive
+                    ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
+                    : 'text-slate-600 hover:bg-slate-100'
+                    }`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <Icon className={`h-5 w-5 transition-colors ${!isActive ? 'group-hover:text-teal-600' : ''}`} />
@@ -202,11 +219,10 @@ export default function DashboardLayout({
           <div className="px-4 pb-4">
             <Link
               href="/dashboard/settings"
-              className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                pathname.startsWith('/dashboard/settings')
-                  ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
+              className={`group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${pathname.startsWith('/dashboard/settings')
+                ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
+                : 'text-slate-600 hover:bg-slate-100'
+                }`}
               onClick={() => setMobileMenuOpen(false)}
             >
               <Settings className={`h-5 w-5 transition-colors ${!pathname.startsWith('/dashboard/settings') ? 'group-hover:text-teal-600' : ''}`} />
@@ -223,8 +239,20 @@ export default function DashboardLayout({
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{user?.name || 'User'}</p>
-                <p className="text-xs text-white truncate">{user?.email}</p>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-sm font-medium text-white truncate">{user?.name || 'User'}</p>
+                  {/* Admin Badge */}
+                  {user?.role === 'ADMIN' && (
+                    <ShieldCheck className="w-3.5 h-3.5 text-white/90 flex-shrink-0" />
+                  )}
+                  {/* Subscription Badge */}
+                  {userPlan !== 'FREE' && (() => {
+                    const planConfig = PLAN_ICONS[userPlan];
+                    const PlanIcon = planConfig.icon;
+                    return <PlanIcon className="w-3.5 h-3.5 text-white/90 flex-shrink-0" />;
+                  })()}
+                </div>
+                <p className="text-xs text-white/80 truncate">{user?.email}</p>
               </div>
             </div>
             <Button
@@ -265,3 +293,4 @@ export default function DashboardLayout({
     </div>
   );
 }
+

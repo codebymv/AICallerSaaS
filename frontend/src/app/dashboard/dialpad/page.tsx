@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { AgentSelector } from '@/components/AgentSelector';
 import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
-import { Phone, PhoneCall, Delete, Loader2, Bot, ChevronDown, Hash, Plus, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
+import { PhoneCall, Delete, Loader2, Bot, Hash, Plus } from 'lucide-react';
 
 interface Agent {
   id: string;
@@ -37,26 +38,6 @@ const dialpadKeys = [
   { digit: '#', letters: '' },
 ];
 
-// Get avatar for a voice
-const getVoiceAvatar = (voiceId?: string): string | null => {
-  if (!voiceId) return null;
-  const voice = ELEVENLABS_VOICES.find(v => v.id === voiceId.toLowerCase());
-  return voice?.avatar || null;
-};
-
-const getModeIcon = (mode: string) => {
-  switch (mode) {
-    case 'INBOUND':
-      return <ArrowDownLeft className="h-3 w-3" />;
-    case 'OUTBOUND':
-      return <ArrowUpRight className="h-3 w-3" />;
-    case 'HYBRID':
-      return <ArrowLeftRight className="h-3 w-3" />;
-    default:
-      return null;
-  }
-};
-
 export default function DialpadPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -67,8 +48,6 @@ export default function DialpadPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [loading, setLoading] = useState(true);
   const [calling, setCalling] = useState(false);
-  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
-  const agentDropdownRef = useRef<HTMLDivElement>(null);
 
   // Fetch outbound-capable agents
   useEffect(() => {
@@ -92,17 +71,6 @@ export default function DialpadPage() {
       }
     };
     fetchAgents();
-  }, []);
-
-  // Handle click outside for dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (agentDropdownRef.current && !agentDropdownRef.current.contains(event.target as Node)) {
-        setAgentDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Keyboard support
@@ -284,90 +252,13 @@ export default function DialpadPage() {
           {/* Agent Selector */}
           <div className="space-y-2">
             <Label className="text-muted-foreground">Select Agent</Label>
-            <div className="relative" ref={agentDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setAgentDropdownOpen(!agentDropdownOpen)}
-                className="flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md bg-background w-full justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  {selectedAgent ? (
-                    <>
-                      <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {getVoiceAvatar(selectedAgent.voice) ? (
-                          <Image
-                            src={getVoiceAvatar(selectedAgent.voice)!}
-                            alt={selectedAgent.name}
-                            width={40}
-                            height={40}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Bot className="h-5 w-5 text-teal-600" />
-                        )}
-                      </div>
-                      <div className="text-left min-w-0">
-                        <span className="font-medium text-slate-600 block truncate">{selectedAgent.name}</span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          {getModeIcon(selectedAgent.mode)}
-                          {selectedAgent.mode === 'HYBRID' ? 'Hybrid' : 'Outbound'}
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                        <Bot className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <span className="text-muted-foreground">Select an agent</span>
-                    </>
-                  )}
-                </div>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform ${agentDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {agentDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-white border rounded-md shadow-lg py-1 max-h-60 overflow-auto">
-                  {agents.map((agent) => {
-                    const avatar = getVoiceAvatar(agent.voice);
-                    return (
-                      <button
-                        key={agent.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedAgentId(agent.id);
-                          setAgentDropdownOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left ${
-                          agent.id === selectedAgentId ? 'bg-teal-50' : ''
-                        }`}
-                      >
-                        <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                          {avatar ? (
-                            <Image
-                              src={avatar}
-                              alt={agent.name}
-                              width={40}
-                              height={40}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Bot className="h-5 w-5 text-teal-600" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium text-slate-600 block truncate">{agent.name}</span>
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            {getModeIcon(agent.mode)}
-                            {agent.mode === 'HYBRID' ? 'Hybrid' : 'Outbound'}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+            <AgentSelector
+              agents={agents}
+              selectedAgentId={selectedAgentId}
+              onSelect={setSelectedAgentId}
+              emptyLabel="none"
+              size="lg"
+            />
           </div>
 
           {/* Phone Number Display with Backspace */}

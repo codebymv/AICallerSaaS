@@ -27,6 +27,7 @@ import contactRoutes from './routes/contacts.routes';
 import assetRoutes from './routes/assets.routes';
 import messageRoutes from './routes/messages.routes';
 import campaignRoutes from './routes/campaigns.routes';
+import billingRoutes from './routes/billing.routes';
 
 // WebSocket
 import { initializeWebSocket, setupTwilioMediaStream } from './websocket';
@@ -162,6 +163,7 @@ export async function createServer() {
   app.use('/api/calendar', calendarRoutes);
   app.use('/api/assets', assetRoutes);
   app.use('/api/campaigns', campaignRoutes);
+  app.use('/api/billing', billingRoutes);
   
   // Twilio webhooks (no auth required) - both paths for compatibility
   app.use('/webhooks', webhookRoutes);

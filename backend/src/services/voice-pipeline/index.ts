@@ -14,6 +14,7 @@ import { logger } from '../../utils/logger';
 import { Agent } from '@prisma/client';
 import { getElevenLabsVoiceId } from '../../lib/constants';
 import { decrypt } from '../../utils/crypto';
+import { cacheGet, cacheSet } from '../../lib/redis';
 
 export interface CalendarIntegration {
   provider: 'calendly' | 'calcom' | 'google';
@@ -122,7 +123,7 @@ export class VoicePipeline extends EventEmitter {
   }
 
   private utteranceTimeout: NodeJS.Timeout | null = null;
-  private readonly UTTERANCE_DELAY_MS = 600; // Wait 600ms after utterance_end before processing
+  private readonly UTTERANCE_DELAY_MS = 400; // Wait 400ms (reduced from 600ms) for faster response
 
   // Dead air detection - reprompt if user doesn't respond
   private deadAirTimeout: NodeJS.Timeout | null = null;
@@ -352,9 +353,9 @@ export class VoicePipeline extends EventEmitter {
     console.log('[Pipeline] start() called');
     console.log('[Pipeline] Call direction:', this.config.callDirection);
     
+    // PERF: Start STT and Greeting generation in parallel
     console.log('[Pipeline] Starting Deepgram STT...');
-    await this.stt.startStream();
-    console.log('[Pipeline] ✅ Deepgram STT started');
+    const sttPromise = this.stt.startStream();
 
     // Determine which greeting to use based on call direction
     let greeting: string | undefined | null = this.config.agent.greeting;
@@ -372,58 +373,58 @@ export class VoicePipeline extends EventEmitter {
     
     console.log('[Pipeline] Greeting:', greeting || 'none');
 
-    // Send greeting if configured, otherwise generate one from the LLM
+    // Generate greeting promise
+    let greetingPromise: Promise<void> = Promise.resolve();
+
     if (greeting && greeting.trim()) {
       // Use the preset greeting (scripted approach)
       console.log('[Pipeline] Generating preset greeting audio...');
-      const playbackMs = await this.generateAndSendAudio(greeting);
-      console.log('[Pipeline] ✅ Preset greeting sent');
-      
-      // Track greeting as last AI response and start dead air timer (after audio plays)
-      this.lastAiResponse = greeting;
-      this.messages.push({
-        role: 'assistant',
-        content: greeting,
-        timestamp: Date.now(),
-      });
-      this.startDeadAirTimer(playbackMs);
-    } else {
-      // No preset greeting - generate an opening from the LLM using the system prompt
-      console.log('[Pipeline] No preset greeting - generating dynamic opening from LLM...');
-      
-      try {
-        // Ask the LLM to generate an appropriate opening based on the system prompt
-        const openingPrompt = this.config.callDirection === 'outbound'
-          ? 'You are starting an outbound call. Introduce yourself briefly and state the purpose of the call. Keep it natural and under 2 sentences.'
-          : 'A caller has just connected. Greet them warmly and offer assistance. Keep it natural and under 2 sentences.';
-        
-        const generatedOpening = await this.llm.generateResponse(
-          [{ role: 'user', content: openingPrompt }],
-          this.config.agent.systemPrompt,
-          0.7,
-          100 // Short response
-        );
-        
-        if (generatedOpening && generatedOpening.trim()) {
-          console.log('[Pipeline] Generated opening:', generatedOpening);
-          const playbackMs = await this.generateAndSendAudio(generatedOpening);
-          console.log('[Pipeline] ✅ Dynamic opening sent');
-          
-          this.lastAiResponse = generatedOpening;
+      greetingPromise = this.generateAndSendAudio(greeting).then((playbackMs) => {
+          console.log('[Pipeline] ✅ Preset greeting sent');
+          this.lastAiResponse = greeting!;
           this.messages.push({
             role: 'assistant',
-            content: generatedOpening,
+            content: greeting!,
             timestamp: Date.now(),
           });
           this.startDeadAirTimer(playbackMs);
-        } else {
-          console.log('[Pipeline] ⚠️ LLM returned empty opening - waiting for user');
-        }
-      } catch (error) {
-        console.error('[Pipeline] Failed to generate opening:', error);
-        // Fall back to waiting for user to speak
-      }
+      });
+    } else {
+      // No preset greeting - generate an opening from the LLM
+      console.log('[Pipeline] No preset greeting - generating dynamic opening from LLM...');
+      const openingPrompt = this.config.callDirection === 'outbound'
+          ? 'You are starting an outbound call. Introduce yourself briefly and state the purpose of the call. Keep it natural and under 2 sentences.'
+          : 'A caller has just connected. Greet them warmly and offer assistance. Keep it natural and under 2 sentences.';
+
+      greetingPromise = this.llm.generateResponse(
+          [{ role: 'user', content: openingPrompt }],
+          this.config.agent.systemPrompt,
+          0.7,
+          100
+      ).then(async (generatedOpening) => {
+         if (generatedOpening && generatedOpening.trim()) {
+            console.log('[Pipeline] Generated opening:', generatedOpening);
+            const playbackMs = await this.generateAndSendAudio(generatedOpening);
+            console.log('[Pipeline] ✅ Dynamic opening sent');
+            
+            this.lastAiResponse = generatedOpening;
+            this.messages.push({
+              role: 'assistant',
+              content: generatedOpening,
+              timestamp: Date.now(),
+            });
+            this.startDeadAirTimer(playbackMs);
+          } else {
+            console.log('[Pipeline] ⚠️ LLM returned empty opening - waiting for user');
+          }
+      }).catch(error => {
+          console.error('[Pipeline] Failed to generate opening:', error);
+      });
     }
+
+    // Await both
+    await Promise.all([sttPromise, greetingPromise]);
+    console.log('[Pipeline] ✅ Startup complete');
   }
 
   async processAudio(audioData: Buffer): Promise<void> {
@@ -444,6 +445,9 @@ export class VoicePipeline extends EventEmitter {
     "Mm-hmm.",
     "Got it.",
     "Okay.",
+    "I see.",
+    "Right.",
+    "Understood.",
   ];
   private readonly SEND_QUICK_ACK = true; // Enable immediate acknowledgments
 
@@ -650,6 +654,14 @@ BOOKING CONFIRMATION:
         case 'check_calendar_availability': {
           const { date } = toolCall.arguments;
           
+          // Check cache first (PERF: Avoid expensive API calls)
+          const cacheKey = `calendar:availability:${this.config.agent.id}:${this.calendarProvider}:${date}`;
+          const cachedSlots = await cacheGet<string>(cacheKey);
+          if (cachedSlots) {
+            logger.info('[Pipeline] Cache hit for calendar availability');
+            return cachedSlots;
+          }
+
           // Check if agent has read_calendar scope
           const calendarScopes = this.config.agent.calendarScopes || [];
           if (!calendarScopes.includes('read_calendar')) {
@@ -657,54 +669,49 @@ BOOKING CONFIRMATION:
             return 'Calendar access is not enabled for this agent. Please collect preferred times and someone will follow up.';
           }
           
+          let result = 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
+
           // Google Calendar provider
           if (this.calendarProvider === 'google' && this.googleService) {
             const endDate = date; // Check single day
             const slots = await this.googleService.getAvailableSlots(date, endDate, 60);
 
             if (slots.length === 0) {
-              return `No available time slots found for ${date}. You may want to suggest checking another date.`;
+              result = `No available time slots found for ${date}. You may want to suggest checking another date.`;
+            } else {
+              result = this.googleService.formatSlotsForVoice(slots);
             }
-
-            const formattedSlots = this.googleService.formatSlotsForVoice(slots);
-            return formattedSlots;
           }
           
           // Cal.com provider
-          if (this.calendarProvider === 'calcom' && this.calcomService) {
+          else if (this.calendarProvider === 'calcom' && this.calcomService) {
             const eventTypeId = this.config.calendarIntegration?.calcomEventTypeId;
-            if (!eventTypeId) {
-              return 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
+            if (eventTypeId) {
+              const slots = await this.calcomService.getAvailableSlots(eventTypeId, date);
+              if (slots.length === 0) {
+                result = `No available time slots found for ${date}. You may want to suggest checking another date.`;
+              } else {
+                result = this.calcomService.formatSlotsForVoice(slots, 5);
+              }
             }
-
-            const slots = await this.calcomService.getAvailableSlots(eventTypeId, date);
-
-            if (slots.length === 0) {
-              return `No available time slots found for ${date}. You may want to suggest checking another date.`;
-            }
-
-            const formattedSlots = this.calcomService.formatSlotsForVoice(slots, 5);
-            return formattedSlots;
           }
           
           // Calendly provider (fallback)
-          if (this.calendarProvider === 'calendly' && this.calendlyService) {
+          else if (this.calendarProvider === 'calendly' && this.calendlyService) {
             const eventTypeUri = this.config.calendarIntegration?.calendlyEventTypeUri;
-            if (!eventTypeUri) {
-              return 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
+            if (eventTypeUri) {
+              const slots = await this.calendlyService.getAvailableSlots(eventTypeUri, date);
+              if (slots.length === 0) {
+                result = `No available time slots found for ${date}. You may want to suggest checking another date.`;
+              } else {
+                result = this.calendlyService.formatSlotsForVoice(slots, 5);
+              }
             }
-
-            const slots = await this.calendlyService.getAvailableSlots(eventTypeUri, date);
-
-            if (slots.length === 0) {
-              return `No available time slots found for ${date}. You may want to suggest checking another date.`;
-            }
-
-            const formattedSlots = this.calendlyService.formatSlotsForVoice(slots, 5);
-            return formattedSlots;
           }
 
-          return 'Calendar is not properly configured. Please collect preferred times and let them know someone will confirm.';
+          // Cache the result for 60 seconds (short TTL to avoid stale data)
+          await cacheSet(cacheKey, result, 60);
+          return result;
         }
 
         case 'book_appointment': {
@@ -943,15 +950,16 @@ BOOKING CONFIRMATION:
             if (!this.interrupted) {
               if (!firstChunkTime) {
                 firstChunkTime = Date.now();
-                console.log(`[Pipeline] ⚡ First audio chunk in ${firstChunkTime - ttsStart}ms`);
+                // console.log(`[Pipeline] ⚡ First audio chunk in ${firstChunkTime - ttsStart}ms`);
               }
-              this.config.onAudio(chunk);
+              // PERF: Ensure this is non-blocking
+              setImmediate(() => this.config.onAudio(chunk));
             }
           }
         );
         
         playbackDurationMs = result.durationMs;
-        console.log(`[Pipeline] ✅ Streaming TTS complete, total: ${result.totalBuffer.length} bytes, ${playbackDurationMs}ms`);
+        // console.log(`[Pipeline] ✅ Streaming TTS complete, total: ${result.totalBuffer.length} bytes, ${playbackDurationMs}ms`);
         
       } else {
         // BATCH MODE: Wait for full audio then send (original behavior)

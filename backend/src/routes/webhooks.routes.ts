@@ -7,6 +7,7 @@ import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 import { TwilioMediaEvent } from '../lib/types';
+import { CREDITS_PER_USD, VOICE_MINUTE_RATE_USD } from '../lib/constants';
 import { 
   isS3Configured, 
   uploadFromUrl, 
@@ -146,7 +147,6 @@ router.post('/twilio/status', async (req, res) => {
 
     const status = statusMap[CallStatus] || CallStatus;
 
-    // Update call record
     const updateData: any = {
       status,
     };
@@ -175,7 +175,6 @@ router.post('/twilio/status', async (req, res) => {
       data: updateData,
     });
 
-    // Update user minutes used
     if (updateData.minutesUsed) {
       const call = await prisma.call.findUnique({
         where: { callSid: CallSid },
@@ -183,14 +182,51 @@ router.post('/twilio/status', async (req, res) => {
       });
 
       if (call) {
-        await prisma.user.update({
+        const user = await prisma.user.findUnique({
           where: { id: call.userId },
-          data: {
-            minutesUsed: {
-              increment: Math.ceil(updateData.minutesUsed),
-            },
+          select: {
+            minutesUsed: true,
+            minutesLimit: true,
+            creditsBalance: true,
           },
         });
+
+        if (user) {
+          const minutesThisCall = Math.ceil(updateData.minutesUsed as number);
+          const previousMinutes = user.minutesUsed;
+          const newTotalMinutes = previousMinutes + minutesThisCall;
+
+          let overageMinutes = 0;
+
+          if (previousMinutes >= user.minutesLimit) {
+            overageMinutes = minutesThisCall;
+          } else if (newTotalMinutes > user.minutesLimit) {
+            overageMinutes = newTotalMinutes - user.minutesLimit;
+          }
+
+          let creditsToDecrement = 0;
+
+          if (overageMinutes > 0) {
+            const costUsd = overageMinutes * VOICE_MINUTE_RATE_USD;
+            creditsToDecrement = Math.ceil(costUsd * CREDITS_PER_USD);
+          }
+
+          await prisma.user.update({
+            where: { id: call.userId },
+            data: {
+              minutesUsed: {
+                increment: minutesThisCall,
+              },
+              ...(creditsToDecrement > 0
+                ? {
+                    creditsBalance: {
+                      decrement: creditsToDecrement,
+                    },
+                  }
+                : {}),
+            },
+          });
+        }
       }
     }
 

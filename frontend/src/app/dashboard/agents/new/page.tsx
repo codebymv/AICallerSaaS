@@ -12,7 +12,8 @@ import { api, ApiError } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES, AGENT_MODES, AgentMode, CALL_PURPOSES, CallPurposeType, getSystemPromptForMode, BusinessContext, COMMUNICATION_CHANNELS, CommunicationChannel, supportsVoice, supportsMessaging, getModeDescription, MEDIA_TOOLS } from '@/lib/constants';
 import { VoiceSelector } from '@/components/VoiceSelector';
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, ArrowLeft, Bot, Sparkles, Calendar, Wrench, Phone, AlertCircle, Building2, HelpCircle, ClipboardList, Bell, Edit, MessageCircle, Clock, ChevronDown, Settings, MessageSquare, Layers, Image as ImageIcon, FileText, Video, Check } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, ArrowLeft, Bot, Sparkles, Calendar, Wrench, Phone, AlertCircle, Building2, HelpCircle, ClipboardList, Bell, Edit, MessageCircle, Clock, ChevronDown, Settings, MessageSquare, Layers, Image as ImageIcon, FileText, Video, Check, Lock } from 'lucide-react';
+import { canAccessFeature } from '@/lib/subscription';
 
 const getModeIcon = (mode: string) => {
   switch (mode) {
@@ -103,17 +104,17 @@ export default function NewAgentPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [calendarConnected, setCalendarConnected] = useState(false);
-  const [calendarStatus, setCalendarStatus] = useState<{ 
+  const [calendarStatus, setCalendarStatus] = useState<{
     calendars?: Array<{ id: string; provider: string; email?: string; username?: string }>;
     connectedProviders?: string[];
-    provider?: string; 
-    eventTypeName?: string 
+    provider?: string;
+    eventTypeName?: string
   } | null>(null);
-  
+
   // Event types state for calendar configuration
   const [eventTypes, setEventTypes] = useState<Array<{ id: string; name: string; duration: number }>>([]);
   const [loadingEventTypes, setLoadingEventTypes] = useState(false);
-  
+
   // Phone number state
   const [phoneNumbers, setPhoneNumbers] = useState<PhoneNumber[]>([]);
   const [selectedPhoneNumberId, setSelectedPhoneNumberId] = useState<string>('');
@@ -123,37 +124,41 @@ export default function NewAgentPage() {
   const phoneDropdownRef = useRef<HTMLDivElement>(null);
   const [organizationDropdownOpen, setOrganizationDropdownOpen] = useState(false);
   const organizationDropdownRef = useRef<HTMLDivElement>(null);
-  
+
+  // User plan for feature gating
+  const [userPlan, setUserPlan] = useState<'FREE' | 'STARTER' | 'PROFESSIONAL' | 'ENTERPRISE'>('FREE');
+  const canAccessHybrid = canAccessFeature(userPlan, 'HYBRID_MODE');
+
   const [formData, setFormData] = useState<{
-   name: string;
+    name: string;
     template: string;
-   systemPrompt: string;
-   voiceId: string;
-   voiceSettings: { stability: number; similarity_boost: number; style: number } | null;
-   greeting: string;
-   mode: AgentMode;
-   communicationChannel: CommunicationChannel;
-   outboundGreeting: string;
-   callTimeout: number;
-   retryAttempts: number;
-   callWindowStart: string;
-   callWindowEnd: string;
-   calendarEnabled: boolean;
-   // Calendar configuration (agent-centric)
-   calendarIntegrationId: string;
-   calendarScopes: string[];
-   defaultEventTypeId: string;
-   defaultEventTypeName: string;
-   defaultEventDuration: number;
-   callPurposeType: CallPurposeType;
-   callPurpose: string;
-   // Messaging-specific fields
-   messagingGreeting: string;
-   // Media tool access
-   imageToolEnabled: boolean;
-   documentToolEnabled: boolean;
-   videoToolEnabled: boolean;
-}>({
+    systemPrompt: string;
+    voiceId: string;
+    voiceSettings: { stability: number; similarity_boost: number; style: number } | null;
+    greeting: string;
+    mode: AgentMode;
+    communicationChannel: CommunicationChannel;
+    outboundGreeting: string;
+    callTimeout: number;
+    retryAttempts: number;
+    callWindowStart: string;
+    callWindowEnd: string;
+    calendarEnabled: boolean;
+    // Calendar configuration (agent-centric)
+    calendarIntegrationId: string;
+    calendarScopes: string[];
+    defaultEventTypeId: string;
+    defaultEventTypeName: string;
+    defaultEventDuration: number;
+    callPurposeType: CallPurposeType;
+    callPurpose: string;
+    // Messaging-specific fields
+    messagingGreeting: string;
+    // Media tool access
+    imageToolEnabled: boolean;
+    documentToolEnabled: boolean;
+    videoToolEnabled: boolean;
+  }>({
     name: '',
     template: 'mode-default',
     systemPrompt: getSystemPromptForMode('INBOUND', false), // Default to inbound mode prompt
@@ -218,14 +223,14 @@ export default function NewAgentPage() {
         const calendars = response.data?.calendars || [];
         setCalendarConnected(calendars.length > 0);
         setCalendarStatus(response.data || null);
-        
+
         // Set default calendar integration if calendars are connected
         if (calendars.length > 0) {
           setFormData(prev => ({
             ...prev,
             calendarIntegrationId: calendars[0].id, // Default to first calendar
-            systemPrompt: prev.template === 'mode-default' 
-              ? getSystemPromptForMode(prev.mode, true) 
+            systemPrompt: prev.template === 'mode-default'
+              ? getSystemPromptForMode(prev.mode, true)
               : prev.systemPrompt
           }));
         }
@@ -233,19 +238,19 @@ export default function NewAgentPage() {
         // Ignore errors
       }
     };
-    
+
     const fetchPhoneNumbers = async () => {
       setPhoneNumbersLoading(true);
       try {
         // First check if Twilio is configured
         const twilioRes = await api.getTwilioSettings();
         setTwilioConfigured(twilioRes.data?.configured || false);
-        
+
         if (twilioRes.data?.configured) {
           const numbersRes = await api.getPhoneNumbers();
           const numbers = numbersRes.data || [];
           setPhoneNumbers(numbers);
-          
+
           // Auto-select first available number (prefer unassigned)
           if (numbers.length > 0) {
             const unassigned = numbers.find((p: any) => !p.agent);
@@ -258,23 +263,35 @@ export default function NewAgentPage() {
         setPhoneNumbersLoading(false);
       }
     };
-    
+
+    const fetchUserPlan = async () => {
+      try {
+        const response = await api.getBillingStatus();
+        if (response.data?.plan) {
+          setUserPlan(response.data.plan);
+        }
+      } catch {
+        // Ignore errors
+      }
+    };
+
     checkCalendar();
     fetchPhoneNumbers();
     fetchBusinessProfile();
+    fetchUserPlan();
   }, []);
 
   // Fetch event types when a calendar is selected
   const fetchEventTypes = async (calendarId: string) => {
     if (!calendarId || !calendarStatus?.calendars) return;
-    
+
     const calendar = calendarStatus.calendars.find(c => c.id === calendarId);
     if (!calendar) return;
-    
+
     setLoadingEventTypes(true);
     try {
       let types: Array<{ id: string; name: string; duration: number }> = [];
-      
+
       if (calendar.provider === 'calcom') {
         const response = await api.getCalcomEventTypes();
         types = (response.data || []).map((et: any) => ({
@@ -291,9 +308,9 @@ export default function NewAgentPage() {
         }));
       }
       // Google Calendar doesn't have event types - uses duration instead
-      
+
       setEventTypes(types);
-      
+
       // Auto-select first event type if available
       if (types.length > 0 && !formData.defaultEventTypeId) {
         setFormData(prev => ({
@@ -362,12 +379,12 @@ export default function NewAgentPage() {
   const handleModeChange = (newMode: AgentMode) => {
     setFormData(prev => {
       const updates: Partial<typeof prev> = { mode: newMode };
-      
+
       // If using mode-default template, update the system prompt with business context
       if (prev.template === 'mode-default') {
         updates.systemPrompt = getSystemPromptForMode(newMode, calendarConnected, buildBusinessContext(), prev.communicationChannel);
       }
-      
+
       return { ...prev, ...updates };
     });
   };
@@ -376,12 +393,12 @@ export default function NewAgentPage() {
   const handleChannelChange = (newChannel: CommunicationChannel) => {
     setFormData(prev => {
       const updates: Partial<typeof prev> = { communicationChannel: newChannel };
-      
+
       // If using mode-default template, update the system prompt for the new channel
       if (prev.template === 'mode-default') {
         updates.systemPrompt = getSystemPromptForMode(prev.mode, calendarConnected, buildBusinessContext(), newChannel);
       }
-      
+
       return { ...prev, ...updates };
     });
   };
@@ -391,13 +408,13 @@ export default function NewAgentPage() {
     const template = templates.find(t => t.id === templateId);
     setFormData(prev => {
       const updates: Partial<typeof prev> = { template: templateId };
-      
+
       if (templateId === 'mode-default') {
         updates.systemPrompt = getSystemPromptForMode(prev.mode, calendarConnected, buildBusinessContext(), prev.communicationChannel);
       } else if (template) {
         updates.systemPrompt = template.prompt;
       }
-      
+
       return { ...prev, ...updates };
     });
   };
@@ -409,7 +426,7 @@ export default function NewAgentPage() {
       toast({ title: 'Name required', description: 'Please enter a name for your agent.', variant: 'destructive' });
       return;
     }
-    
+
     const prompt = formData.systemPrompt || selectedTemplate?.prompt;
     if (!prompt?.trim()) {
       toast({ title: 'Prompt required', description: 'Please enter a system prompt.', variant: 'destructive' });
@@ -420,7 +437,7 @@ export default function NewAgentPage() {
     try {
       // Determine if we should include voice settings based on channel
       const includeVoice = supportsVoice(formData.communicationChannel);
-      
+
       const response = await api.createAgent({
         name: formData.name,
         systemPrompt: prompt,
@@ -462,8 +479,8 @@ export default function NewAgentPage() {
         } catch (phoneError) {
           // Agent was created but phone assignment failed - still redirect but notify
           console.error('Failed to assign phone number:', phoneError);
-          toast({ 
-            title: 'Agent created with warning', 
+          toast({
+            title: 'Agent created with warning',
             description: `${formData.name} was created but phone number assignment failed. You can assign it in Settings.`,
           });
           router.push(`/dashboard/agents/${agentId}`);
@@ -495,21 +512,19 @@ export default function NewAgentPage() {
         {[1, 2, 3].map((num) => (
           <div key={num} className="flex items-center flex-1">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                num === step
-                  ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
-                  : num < step
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${num === step
+                ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 text-white'
+                : num < step
                   ? 'bg-teal-100 text-teal-600'
                   : 'bg-slate-100 text-slate-400'
-              }`}
+                }`}
             >
               {num < step ? <Check className="h-4 w-4" /> : num}
             </div>
             {num < 3 && (
               <div
-                className={`flex-1 h-1 mx-2 transition-colors ${
-                  num < step ? 'bg-teal-600' : 'bg-slate-200'
-                }`}
+                className={`flex-1 h-1 mx-2 transition-colors ${num < step ? 'bg-teal-600' : 'bg-slate-200'
+                  }`}
               />
             )}
           </div>
@@ -528,9 +543,8 @@ export default function NewAgentPage() {
               {templates.map((template) => (
                 <button
                   key={template.id}
-                  className={`p-4 border rounded-lg text-left hover:border-teal-400 transition-colors ${
-                    formData.template === template.id ? 'border-teal-500 bg-teal-50' : ''
-                  }`}
+                  className={`p-4 border rounded-lg text-left hover:border-teal-400 transition-colors ${formData.template === template.id ? 'border-teal-500 bg-teal-50' : ''
+                    }`}
                   onClick={() => handleTemplateChange(template.id)}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
@@ -607,7 +621,7 @@ export default function NewAgentPage() {
                           <span className="font-medium">{businessProfile.organizationName}</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                            From Organization Profile
+                          From Organization Profile
                         </p>
                         <Link
                           href="/dashboard/settings?tab=preferences"
@@ -639,7 +653,7 @@ export default function NewAgentPage() {
             {/* Phone Number Selection */}
             <div className="space-y-2">
               <Label className="text-muted-foreground">Phone Number *</Label>
-              
+
               {phoneNumbersLoading ? (
                 <div className="text-sm text-muted-foreground">Loading phone numbers...</div>
               ) : !twilioConfigured ? (
@@ -650,8 +664,8 @@ export default function NewAgentPage() {
                     <p className="text-xs text-amber-700 mt-1">
                       Configure your Twilio credentials in Settings to enable phone number assignment.
                     </p>
-                    <Link 
-                      href="/dashboard/settings" 
+                    <Link
+                      href="/dashboard/settings"
                       className="inline-flex items-center gap-1 mt-2 text-xs text-teal-600 hover:underline"
                     >
                       <Settings className="h-3 w-3" />
@@ -667,8 +681,8 @@ export default function NewAgentPage() {
                     <p className="text-xs text-slate-600 mt-1">
                       Import phone numbers from your Twilio account to assign to this agent.
                     </p>
-                    <Link 
-                      href="/dashboard/settings" 
+                    <Link
+                      href="/dashboard/settings"
                       className="inline-flex items-center gap-1 mt-2 text-xs text-teal-600 hover:underline"
                     >
                       <Settings className="h-3 w-3" />
@@ -683,9 +697,8 @@ export default function NewAgentPage() {
                     <button
                       type="button"
                       onClick={() => setPhoneDropdownOpen(!phoneDropdownOpen)}
-                      className={`flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full justify-between transition-colors ${
-                        selectedPhoneNumberId ? 'border-teal-500 bg-teal-50' : 'bg-white hover:bg-slate-50'
-                      }`}
+                      className={`flex items-center gap-3 px-3 py-2.5 text-sm border rounded-md w-full justify-between transition-colors ${selectedPhoneNumberId ? 'border-teal-500 bg-teal-50' : 'bg-white hover:bg-slate-50'
+                        }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         {selectedPhoneNumberId ? (
@@ -723,13 +736,11 @@ export default function NewAgentPage() {
                                 setSelectedPhoneNumberId(phone.id);
                                 setPhoneDropdownOpen(false);
                               }}
-                              className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left ${
-                                isSelected ? 'bg-teal-50' : ''
-                              }`}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm hover:bg-slate-50 text-left ${isSelected ? 'bg-teal-50' : ''
+                                }`}
                             >
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                                isAssignedToOther ? 'bg-amber-100' : 'bg-teal-100'
-                              }`}>
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isAssignedToOther ? 'bg-amber-100' : 'bg-teal-100'
+                                }`}>
                                 <Phone className={`h-4 w-4 ${isAssignedToOther ? 'text-amber-600' : 'text-teal-600'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -750,7 +761,7 @@ export default function NewAgentPage() {
                             </button>
                           );
                         })}
-                        
+
                         {/* Settings link */}
                         <div className="border-t mt-1 pt-1">
                           <Link
@@ -775,20 +786,41 @@ export default function NewAgentPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 {Object.entries(COMMUNICATION_CHANNELS).map(([key, channel]) => {
                   const isSelected = formData.communicationChannel === key;
+                  const isOmnichannel = key === 'OMNICHANNEL';
+                  const isLocked = isOmnichannel && !canAccessHybrid;
+
                   return (
                     <button
                       key={key}
                       type="button"
-                      className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
-                        isSelected ? 'border-teal-500 bg-teal-50' : ''
-                      }`}
-                      onClick={() => handleChannelChange(key as CommunicationChannel)}
+                      disabled={isLocked}
+                      className={`relative p-3 border rounded-lg text-left transition-colors ${isSelected
+                        ? 'border-teal-500 bg-teal-50'
+                        : isLocked
+                          ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
+                          : 'hover:border-teal-500'
+                        }`}
+                      onClick={() => {
+                        if (!isLocked) handleChannelChange(key as CommunicationChannel);
+                        else {
+                          toast({
+                            title: "Upgrade Required",
+                            description: "Omnichannel is available on Professional plans and above.",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
                     >
+                      {isLocked && (
+                        <div className="absolute top-2 right-2">
+                          <Lock className="h-3 w-3 text-slate-400" />
+                        </div>
+                      )}
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center ${isLocked ? 'bg-slate-200' : 'bg-teal-100'}`}>
                           {getChannelIcon(key)}
                         </span>
-                        <h3 className="font-semibold text-xs text-slate-600">{channel.label}</h3>
+                        <h3 className={`font-semibold text-xs ${isLocked ? 'text-slate-500' : 'text-slate-600'}`}>{channel.label}</h3>
                       </div>
                       <p className="text-xs text-muted-foreground">{channel.description}</p>
                     </button>
@@ -801,24 +833,48 @@ export default function NewAgentPage() {
             <div className="space-y-2">
               <Label className="text-muted-foreground">Agent Mode *</Label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {Object.entries(AGENT_MODES).map(([key, mode]) => (
-                  <button
-                    key={key}
-                    type="button"
-                    className={`p-3 border rounded-lg text-left hover:border-teal-500 transition-colors ${
-                      formData.mode === key ? 'border-teal-500 bg-teal-50' : ''
-                    }`}
-                    onClick={() => handleModeChange(key as AgentMode)}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
-                        {getModeIcon(key)}
-                      </span>
-                      <h3 className="font-semibold text-xs text-slate-600">{mode.label}</h3>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{getModeDescription(key as AgentMode, formData.communicationChannel)}</p>
-                  </button>
-                ))}
+                {Object.entries(AGENT_MODES).map(([key, mode]) => {
+                  const isSelected = formData.mode === key;
+                  const isHybrid = key === 'HYBRID';
+                  const isLocked = isHybrid && !canAccessHybrid;
+
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={isLocked}
+                      className={`relative p-3 border rounded-lg text-left transition-colors ${isSelected
+                        ? 'border-teal-500 bg-teal-50'
+                        : isLocked
+                          ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
+                          : 'hover:border-teal-500'
+                        }`}
+                      onClick={() => {
+                        if (!isLocked) handleModeChange(key as AgentMode);
+                        else {
+                          toast({
+                            title: "Upgrade Required",
+                            description: "Hybrid mode is available on Professional plans and above.",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                    >
+                      {isLocked && (
+                        <div className="absolute top-2 right-2">
+                          <Lock className="h-3 w-3 text-slate-400" />
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center ${isLocked ? 'bg-slate-200' : 'bg-teal-100'}`}>
+                          {getModeIcon(key)}
+                        </span>
+                        <h3 className={`font-semibold text-xs ${isLocked ? 'text-slate-500' : 'text-slate-600'}`}>{mode.label}</h3>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{getModeDescription(key as AgentMode, formData.communicationChannel)}</p>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -834,10 +890,10 @@ export default function NewAgentPage() {
                       type="button"
                       onClick={() => {
                         const newPurpose = key === 'CUSTOM' ? '' : purpose.value;
-                        setFormData(prev => ({ 
-                          ...prev, 
+                        setFormData(prev => ({
+                          ...prev,
                           callPurposeType: key as CallPurposeType,
-                          callPurpose: newPurpose 
+                          callPurpose: newPurpose
                         }));
                         // Update system prompt if using mode-default template
                         if (formData.template === 'mode-default' && key !== 'CUSTOM') {
@@ -852,9 +908,8 @@ export default function NewAgentPage() {
                           }, 0);
                         }
                       }}
-                      className={`p-3 border rounded-lg text-left hover:border-teal-400 transition-colors ${
-                        isSelected ? 'border-teal-500 bg-teal-50' : ''
-                      }`}
+                      className={`p-3 border rounded-lg text-left hover:border-teal-400 transition-colors ${isSelected ? 'border-teal-500 bg-teal-50' : ''
+                        }`}
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <span className="w-5 h-5 rounded-full flex items-center justify-center bg-teal-100">
@@ -867,7 +922,7 @@ export default function NewAgentPage() {
                   );
                 })}
               </div>
-              
+
               {/* Custom input field - shows when Custom is selected */}
               {formData.callPurposeType === 'CUSTOM' && (
                 <Input
@@ -918,8 +973,8 @@ export default function NewAgentPage() {
               {formData.communicationChannel === 'MESSAGING_ONLY' ? 'Behavior & Messaging' : 'Behavior & Voice'}
             </CardTitle>
             <CardDescription>
-              {formData.communicationChannel === 'MESSAGING_ONLY' 
-                ? 'Configure how your agent responds via text' 
+              {formData.communicationChannel === 'MESSAGING_ONLY'
+                ? 'Configure how your agent responds via text'
                 : 'Configure how your agent talks and responds'}
             </CardDescription>
           </CardHeader>
@@ -931,23 +986,24 @@ export default function NewAgentPage() {
                 <VoiceSelector
                   value={formData.voiceId}
                   onChange={(voiceId) => setFormData({ ...formData, voiceId })}
+                  userPlan={userPlan}
                 />
               </div>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="prompt" className="text-muted-foreground">System Prompt *</Label>
               <textarea
                 id="prompt"
                 className="w-full min-h-[200px] p-3 border rounded-md text-sm"
-                placeholder={formData.communicationChannel === 'MESSAGING_ONLY' 
+                placeholder={formData.communicationChannel === 'MESSAGING_ONLY'
                   ? "Describe how your agent should respond to text messages..."
                   : "Describe how your agent should behave..."}
                 value={formData.systemPrompt || selectedTemplate?.prompt || ''}
                 onChange={(e) => setFormData({ ...formData, systemPrompt: e.target.value })}
               />
             </div>
-            
+
             {/* Voice greetings - only for voice-capable channels */}
             {supportsVoice(formData.communicationChannel) && (formData.mode === 'INBOUND' || formData.mode === 'HYBRID') && (
               <div className="space-y-2">
@@ -971,7 +1027,7 @@ export default function NewAgentPage() {
                 />
               </div>
             )}
-            
+
             {/* Messaging settings - only for messaging-capable channels */}
             {supportsMessaging(formData.communicationChannel) && (
               <>
@@ -992,10 +1048,10 @@ export default function NewAgentPage() {
             {/* Activity Window (optional) */}
             <div className="space-y-2">
               <Label className="text-muted-foreground">
-                {formData.communicationChannel === 'MESSAGING_ONLY' 
-                  ? 'Message Window (optional)' 
-                  : formData.communicationChannel === 'OMNICHANNEL' 
-                    ? 'Communications Window (optional)' 
+                {formData.communicationChannel === 'MESSAGING_ONLY'
+                  ? 'Message Window (optional)'
+                  : formData.communicationChannel === 'OMNICHANNEL'
+                    ? 'Communications Window (optional)'
                     : 'Call Window (optional)'}
               </Label>
               <div className="grid grid-cols-2 gap-2">
@@ -1028,7 +1084,7 @@ export default function NewAgentPage() {
             {(calendarConnected || supportsMessaging(formData.communicationChannel)) && (
               <div className="space-y-3">
                 <Label className="text-muted-foreground">Tool Access (optional)</Label>
-                
+
                 {/* Calendar Tool */}
                 {calendarConnected && (
                   <div className="space-y-3">
@@ -1042,8 +1098,8 @@ export default function NewAgentPage() {
                             ...prev,
                             calendarEnabled: enabled,
                             // Update system prompt if using mode-default template
-                            systemPrompt: prev.template === 'mode-default' 
-                              ? getSystemPromptForMode(prev.mode, enabled) 
+                            systemPrompt: prev.template === 'mode-default'
+                              ? getSystemPromptForMode(prev.mode, enabled)
                               : prev.systemPrompt
                           }));
                         }}
@@ -1059,7 +1115,7 @@ export default function NewAgentPage() {
                         </p>
                       </div>
                     </label>
-                    
+
                     {/* Expanded Calendar Configuration - only when enabled */}
                     {formData.calendarEnabled && (
                       <div className="ml-7 pl-4 border-l-2 border-teal-200 space-y-4">
@@ -1084,13 +1140,13 @@ export default function NewAgentPage() {
                               {calendarStatus.calendars.map((cal) => (
                                 <option key={cal.id} value={cal.id}>
                                   {cal.provider === 'google' ? 'Google Calendar' :
-                                   cal.provider === 'calcom' ? 'Cal.com' : 'Calendly'} - {cal.email || cal.username || 'Connected'}
+                                    cal.provider === 'calcom' ? 'Cal.com' : 'Calendly'} - {cal.email || cal.username || 'Connected'}
                                 </option>
                               ))}
                             </select>
                           </div>
                         )}
-                        
+
                         {/* Scopes Checkboxes */}
                         <div className="space-y-2">
                           <Label className="text-muted-foreground text-xs">Permissions</Label>
@@ -1148,7 +1204,7 @@ export default function NewAgentPage() {
                             </label>
                           </div>
                         </div>
-                        
+
                         {/* Event Type Selector - for Cal.com/Calendly */}
                         {(() => {
                           const selectedCal = calendarStatus?.calendars?.find(c => c.id === formData.calendarIntegrationId);

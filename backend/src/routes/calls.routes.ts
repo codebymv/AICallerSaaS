@@ -245,13 +245,12 @@ router.post('/', async (req: AuthRequest, res, next) => {
       throw createError('Agent not found or inactive', 404, ERROR_CODES.AGENT_NOT_FOUND);
     }
 
-    // Check user quota
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
-      select: { minutesUsed: true, minutesLimit: true },
+      select: { minutesUsed: true, minutesLimit: true, creditsBalance: true },
     });
 
-    if (user && user.minutesUsed >= user.minutesLimit) {
+    if (user && user.minutesUsed >= user.minutesLimit && Number(user.creditsBalance) <= 0) {
       throw createError('Call quota exceeded', 403, ERROR_CODES.CALL_QUOTA_EXCEEDED);
     }
 

@@ -15,6 +15,8 @@ import {
 } from '../src/services/storage.service';
 import { logger } from '../src/utils/logger';
 
+declare const process: any;
+
 const prisma = new PrismaClient();
 
 async function main() {
@@ -147,3 +149,4 @@ main().catch((error) => {
   console.error('Fatal error:', error);
   process.exit(1);
 });
+

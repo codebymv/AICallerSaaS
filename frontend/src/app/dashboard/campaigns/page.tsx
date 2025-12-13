@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Plus, Flag, RefreshCw, Loader2, Edit, User } from 'lucide-react';
+import { Plus, Flag, RefreshCw, Loader2, Edit, User, Lock, Zap } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DeleteButton } from '@/components/DeleteButton';
@@ -12,12 +13,19 @@ import { CampaignStatusBadge } from '@/components/CampaignStatusBadge';
 import { api } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { ELEVENLABS_VOICES } from '@/lib/constants';
+import { getFeatureLimit, Plan } from '@/lib/subscription';
 
 export default function CampaignsPage() {
   const { toast } = useToast();
+  const router = useRouter();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [userPlan, setUserPlan] = useState<Plan>('FREE');
+
+  const campaignLimit = getFeatureLimit(userPlan, 'CAMPAIGNS');
+  const canCreateMore = campaigns.length < campaignLimit;
+  const isFreeUser = userPlan === 'FREE';
 
   const fetchCampaigns = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -34,6 +42,19 @@ export default function CampaignsPage() {
 
   useEffect(() => {
     fetchCampaigns();
+
+    // Fetch user plan
+    const fetchPlan = async () => {
+      try {
+        const response = await api.getBillingStatus();
+        if (response.data?.plan) {
+          setUserPlan(response.data.plan);
+        }
+      } catch {
+        // Ignore
+      }
+    };
+    fetchPlan();
   }, []);
 
   const handleDelete = async (id: string, name: string) => {
@@ -50,10 +71,60 @@ export default function CampaignsPage() {
     }
   };
 
+  const handleNewCampaign = () => {
+    if (!canCreateMore) {
+      toast({
+        title: 'Upgrade Required',
+        description: `Your ${userPlan} plan allows ${campaignLimit} campaign${campaignLimit !== 1 ? 's' : ''}. Upgrade to create more.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+    router.push('/dashboard/campaigns/new');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+      </div>
+    );
+  }
+
+  // FREE users see upgrade prompt
+  if (isFreeUser) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Flag className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Campaigns</h1>
+            <p className="hidden sm:block text-muted-foreground text-sm">Manage your outbound calling campaigns</p>
+          </div>
+        </div>
+
+        <Card>
+          <CardContent className="pt-10 pb-10">
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                <Lock className="h-8 w-8 text-slate-400" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-slate-600">Upgrade to Access Campaigns</h3>
+                <p className="text-muted-foreground max-w-md">
+                  Outbound campaigns let you automate calling to a list of leads.
+                  Upgrade to Starter or above to unlock this powerful feature.
+                </p>
+              </div>
+              <Link href="/dashboard/settings?tab=subscription">
+                <Button className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
+                  <Zap className="h-4 w-4 mr-2" />
+                  Upgrade Now
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -65,7 +136,10 @@ export default function CampaignsPage() {
           <Flag className="h-7 w-7 sm:h-8 sm:w-8 text-slate-600" />
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-slate-600">Campaigns</h1>
-            <p className="hidden sm:block text-muted-foreground text-sm">Manage your outbound calling campaigns</p>
+            <p className="hidden sm:block text-muted-foreground text-sm">
+              Manage your outbound calling campaigns
+              <span className="ml-2 text-xs">({campaigns.length}/{campaignLimit} used)</span>
+            </p>
           </div>
         </div>
         {/* Mobile: icon-only buttons */}
@@ -79,11 +153,16 @@ export default function CampaignsPage() {
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
-          <Link href="/dashboard/campaigns/new">
-            <Button size="icon" className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </Link>
+          <Button
+            size="icon"
+            className={`${canCreateMore
+              ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700'
+              : 'bg-slate-300 cursor-not-allowed'}`}
+            onClick={handleNewCampaign}
+            disabled={!canCreateMore}
+          >
+            {canCreateMore ? <Plus className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+          </Button>
         </div>
         {/* Desktop: full buttons */}
         <div className="hidden sm:flex gap-2">
@@ -96,12 +175,16 @@ export default function CampaignsPage() {
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Link href="/dashboard/campaigns/new">
-            <Button className="bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700">
-              <Plus className="h-4 w-4 mr-2" />
-              New Campaign
-            </Button>
-          </Link>
+          <Button
+            className={`${canCreateMore
+              ? 'bg-gradient-to-b from-[#0fa693] to-teal-600 hover:from-[#0e9585] hover:to-teal-700'
+              : 'bg-slate-300 cursor-not-allowed'}`}
+            onClick={handleNewCampaign}
+            disabled={!canCreateMore}
+          >
+            {canCreateMore ? <Plus className="h-4 w-4 mr-2" /> : <Lock className="h-4 w-4 mr-2" />}
+            {canCreateMore ? 'New Campaign' : 'Limit Reached'}
+          </Button>
         </div>
       </div>
 
@@ -114,7 +197,7 @@ export default function CampaignsPage() {
               description="Create your first campaign to start making automated outbound calls to your leads."
               action={{
                 label: 'Create Your First Campaign',
-                onClick: () => window.location.href = '/dashboard/campaigns/new',
+                onClick: handleNewCampaign,
               }}
             />
           </CardContent>
@@ -212,4 +295,3 @@ export default function CampaignsPage() {
     </div>
   );
 }
-

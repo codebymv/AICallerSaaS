@@ -14,6 +14,7 @@ export interface AuthRequest extends Request {
     id: string;
     email: string;
     name?: string | null;
+    role: 'USER' | 'ADMIN';
   };
 }
 
@@ -24,7 +25,7 @@ export async function authenticate(
 ) {
   try {
     const authHeader = req.headers.authorization;
-    
+
     if (!authHeader?.startsWith('Bearer ')) {
       throw createError('No token provided', 401, ERROR_CODES.AUTH_UNAUTHORIZED);
     }
@@ -47,14 +48,21 @@ export async function authenticate(
     // Fetch user
     const user = await prisma.user.findUnique({
       where: { id: payload.sub as string },
-      select: { id: true, email: true, name: true },
+      select: { id: true, email: true, name: true, role: true } as any,
     });
 
     if (!user) {
       throw createError('User not found', 401, ERROR_CODES.USER_NOT_FOUND);
     }
 
-    req.user = user;
+    // Cast user with role (defaults to USER if role not yet in DB)
+    const userData = user as any;
+    req.user = {
+      id: userData.id,
+      email: userData.email,
+      name: userData.name,
+      role: userData.role || 'USER',
+    };
     next();
   } catch (error) {
     if (error instanceof jose.errors.JWTExpired) {
@@ -76,7 +84,7 @@ async function authenticateApiKey(
   try {
     const key = await prisma.apiKey.findUnique({
       where: { key: apiKey },
-      include: { user: { select: { id: true, email: true, name: true } } },
+      include: { user: { select: { id: true, email: true, name: true, role: true } as any } },
     });
 
     if (!key) {
@@ -93,7 +101,14 @@ async function authenticateApiKey(
       data: { lastUsed: new Date() },
     });
 
-    req.user = key.user;
+    // Cast user with role (defaults to USER if role not yet in DB)
+    const userData = key.user as any;
+    req.user = {
+      id: userData.id,
+      email: userData.email,
+      name: userData.name,
+      role: userData.role || 'USER',
+    };
     next();
   } catch (error) {
     next(error);
@@ -103,7 +118,7 @@ async function authenticateApiKey(
 // Generate JWT token
 export async function generateToken(userId: string): Promise<string> {
   const secret = new TextEncoder().encode(config.jwtSecret);
-  
+
   const token = await new jose.SignJWT({ sub: userId })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -111,4 +126,21 @@ export async function generateToken(userId: string): Promise<string> {
     .sign(secret);
 
   return token;
+}
+
+// Require admin role middleware
+export function requireAdmin(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  if (!req.user) {
+    return next(createError('Authentication required', 401, ERROR_CODES.AUTH_UNAUTHORIZED));
+  }
+
+  if (req.user.role !== 'ADMIN') {
+    return next(createError('Admin access required', 403, 'FORBIDDEN'));
+  }
+
+  next();
 }

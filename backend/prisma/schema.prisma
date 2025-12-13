@@ -20,6 +20,11 @@ enum Plan {
   ENTERPRISE
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 enum AgentMode {
   INBOUND
   OUTBOUND
@@ -81,11 +86,13 @@ model User {
   email         String    @unique
   passwordHash  String
   name          String?
+  role          UserRole  @default(USER)
   
   // Subscription
   plan          Plan      @default(FREE)
   minutesUsed   Int       @default(0)
   minutesLimit  Int       @default(100)
+  billingPeriodStart DateTime?
   
   // Billing
   stripeCustomerId String? @unique

@@ -6,6 +6,8 @@
 
 import { PrismaClient } from '@prisma/client';
 
+declare const process: any;
+
 const prisma = new PrismaClient();
 
 async function main() {
@@ -77,4 +79,5 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+
 

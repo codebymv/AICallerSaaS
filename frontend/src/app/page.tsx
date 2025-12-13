@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
-import { 
-  Phone, 
-  Bot, 
-  BarChart3, 
-  Zap, 
+import {
+  Phone,
+  Bot,
+  BarChart3,
+  Zap,
   ChevronRight,
   Play,
   Home,
@@ -21,6 +21,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
+import { PricingCards } from '@/components/PricingCards';
 
 const stats = [
   { value: '10K+', label: 'Calls Handled', description: 'AI-powered conversations completed successfully' },
@@ -71,7 +72,7 @@ const useCases = [
     title: 'Lead Qualification',
     tags: ['#Inbound', '#Qualification'],
     description: 'Qualify leads 24/7, schedule property viewings, and answer common questions about listings automatically.',
-    color: 'bg-blue-500',
+    color: 'bg-teal-500',
   },
   {
     industry: 'E-Commerce',
@@ -79,7 +80,7 @@ const useCases = [
     title: 'Customer Support',
     tags: ['#Support', '#Orders'],
     description: 'Handle order inquiries, process returns, and provide shipping updates without human intervention.',
-    color: 'bg-green-500',
+    color: 'bg-teal-500',
   },
   {
     industry: 'Healthcare',
@@ -87,7 +88,7 @@ const useCases = [
     title: 'Appointment Scheduling',
     tags: ['#Booking', '#Reminders'],
     description: 'Schedule appointments, send reminders, and handle rescheduling requests automatically.',
-    color: 'bg-purple-500',
+    color: 'bg-teal-500',
   },
 ];
 
@@ -123,8 +124,8 @@ export default function LandingPage() {
 
             {/* CTA Buttons */}
             <div className="flex items-center gap-3">
-              <Link 
-                href="/login" 
+              <Link
+                href="/login"
                 className="hidden sm:inline-flex bg-slate-900 text-white px-4 py-2 rounded-lg font-medium hover:bg-slate-800 transition-colors"
               >
                 Login
@@ -149,29 +150,29 @@ export default function LandingPage() {
           {mobileMenuOpen && (
             <div className="md:hidden py-4 border-t border-gray-100 bg-white">
               <div className="flex flex-col gap-4">
-                <Link 
-                  href="#features" 
+                <Link
+                  href="#features"
                   className="text-slate-600 hover:text-slate-900 transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Features
                 </Link>
-                <Link 
-                  href="#use-cases" 
+                <Link
+                  href="#use-cases"
                   className="text-slate-600 hover:text-slate-900 transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Use Cases
                 </Link>
-                <Link 
-                  href="#pricing" 
+                <Link
+                  href="#pricing"
                   className="text-slate-600 hover:text-slate-900 transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Pricing
                 </Link>
-                <Link 
-                  href="/login" 
+                <Link
+                  href="/login"
                   className="text-slate-600 hover:text-slate-900 transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
@@ -189,7 +190,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-teal-50/30 to-slate-100" />
         <div className="absolute top-20 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-teal-200/40 to-transparent rounded-full blur-3xl" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-slate-200/40 to-transparent rounded-full blur-3xl" />
-        
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             {/* Left side - Text */}
@@ -198,17 +199,17 @@ export default function LandingPage() {
                 <Sparkles className="h-4 w-4" />
                 AI-Powered Voice Agents
               </div>
-              
+
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight mb-6">
                 AI Voice Agents for{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-teal-400">
                   Automated Calls
                 </span>
               </h1>
-              
+
               <p className="text-lg sm:text-xl text-slate-600 mb-8 max-w-xl">
-                Build intelligent voice agents that handle phone calls 24/7. 
-                Connect your Twilio numbers, customize your AI, and let it manage 
+                Build intelligent voice agents that handle phone calls 24/7.
+                Connect your Twilio numbers, customize your AI, and let it manage
                 customer conversations at scale.
               </p>
 
@@ -235,11 +236,11 @@ export default function LandingPage() {
                 {/* Mock agent card */}
                 <div className="flex items-center gap-4 mb-6">
                   <div className="relative">
-                    <Image 
-                      src="/rachel.png" 
-                      alt="AI Agent" 
-                      width={64} 
-                      height={64} 
+                    <Image
+                      src="/rachel.png"
+                      alt="AI Agent"
+                      width={64}
+                      height={64}
                       className="rounded-full"
                     />
                     <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-teal-600 rounded-full border-2 border-white flex items-center justify-center">
@@ -328,11 +329,10 @@ export default function LandingPage() {
               <button
                 key={feature.id}
                 onClick={() => setActiveFeature(feature.id)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all ${
-                  activeFeature === feature.id
-                    ? 'bg-slate-900 text-white shadow-lg'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all ${activeFeature === feature.id
+                  ? 'bg-slate-900 text-white shadow-lg'
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                  }`}
               >
                 <feature.icon className="h-4 w-4" />
                 {feature.label}
@@ -372,36 +372,36 @@ export default function LandingPage() {
               {/* Feature Visual Placeholder */}
               <div className="bg-gradient-to-br from-slate-100 to-slate-50 rounded-xl aspect-square flex items-center justify-center relative overflow-hidden">
                 {activeFeature === 'agents' ? (
-                  <Image 
-                    src="/diagram1.png" 
-                    alt="AI Agents Diagram" 
-                    fill 
-                    sizes="(min-width: 1024px) 400px, 100vw" 
-                    className="object-contain rounded-xl" 
+                  <Image
+                    src="/diagram1.png"
+                    alt="AI Agents Diagram"
+                    fill
+                    sizes="(min-width: 1024px) 400px, 100vw"
+                    className="object-contain rounded-xl"
                   />
                 ) : activeFeature === 'calls' ? (
-                  <Image 
-                    src="/diagram2.png" 
-                    alt="Phone Integration Diagram" 
-                    fill 
-                    sizes="(min-width: 1024px) 400px, 100vw" 
-                    className="object-contain rounded-xl" 
+                  <Image
+                    src="/diagram2.png"
+                    alt="Phone Integration Diagram"
+                    fill
+                    sizes="(min-width: 1024px) 400px, 100vw"
+                    className="object-contain rounded-xl"
                   />
                 ) : activeFeature === 'analytics' ? (
-                  <Image 
-                    src="/diagram3.png" 
-                    alt="Analytics Diagram" 
-                    fill 
-                    sizes="(min-width: 1024px) 400px, 100vw" 
-                    className="object-contain rounded-xl" 
+                  <Image
+                    src="/diagram3.png"
+                    alt="Analytics Diagram"
+                    fill
+                    sizes="(min-width: 1024px) 400px, 100vw"
+                    className="object-contain rounded-xl"
                   />
                 ) : activeFeature === 'automation' ? (
-                  <Image 
-                    src="/diagram4.png" 
-                    alt="Automation Diagram" 
-                    fill 
-                    sizes="(min-width: 1024px) 400px, 100vw" 
-                    className="object-contain rounded-xl" 
+                  <Image
+                    src="/diagram4.png"
+                    alt="Automation Diagram"
+                    fill
+                    sizes="(min-width: 1024px) 400px, 100vw"
+                    className="object-contain rounded-xl"
                   />
                 ) : (
                   <currentFeature.icon className="h-32 w-32 text-slate-300" />
@@ -469,6 +469,22 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 bg-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+              Start free, upgrade when you need more power. No hidden fees.
+            </p>
+          </div>
+
+          <PricingCards />
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-slate-900 to-slate-800">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -476,7 +492,7 @@ export default function LandingPage() {
             Ready to Automate Your Phone Operations?
           </h2>
           <p className="text-lg text-slate-300 mb-8">
-            Use Gleam to handle customer calls with AI. 
+            Use Gleam to handle customer calls with AI.
             Start for free, no credit card required.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
