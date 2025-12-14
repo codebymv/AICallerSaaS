@@ -25,7 +25,8 @@ import {
   Zap,
   Crown,
   Building2,
-  ShieldCheck
+  ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GlobalSearch } from '@/components/GlobalSearch';
@@ -41,6 +42,7 @@ const navItems = [
   { href: '/dashboard/dialpad', label: 'Dialpad', icon: Hash },
   { href: '/dashboard/calls', label: 'Call Logs', icon: PhoneCall },
   { href: '/dashboard/messaging', label: 'Messaging', icon: MessageSquare },
+  { href: '/dashboard/knowledge-base', label: 'Knowledge Base', icon: BookOpen },
 ];
 
 const PLAN_ICONS = {
